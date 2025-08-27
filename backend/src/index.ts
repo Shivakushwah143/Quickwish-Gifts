@@ -9,16 +9,19 @@ import { uploadProductImages } from "./config/uploadImages.js";
 import type { JwtPayload } from "./types/index.js";
 import cors from "cors";
 const app = Express();
-const port = 5000;
+
 app.use(Express.json());
+
 app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
   })
 );
-
+const port = process.env.PORT || 5000;
+const mongoUri = process.env.MONGO_URI as string;
 const SECRET = process.env.SECRET || "fallback_secret";
+
 
 app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
   const { email, password, username } = req.body;
@@ -422,7 +425,7 @@ app.patch(
 );
 
 mongoose
-  .connect("mongodb://localhost:27017/courses", { dbName: "QuickWish" })
+  .connect(mongoUri, { dbName: "QuickWish" })
   .then(() => {
     console.log("database is connected");
     app.listen(port, () => {
