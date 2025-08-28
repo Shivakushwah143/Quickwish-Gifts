@@ -342,7 +342,7 @@ import { Star } from 'lucide-react';
 import OrderPaymentModal from '../OrderPaymentModal';
 import AuthModal from '../../components/AuthModel';
 
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+const API_BASE_URL =" https://quickwish-gifts.onrender.com/api/v1";
 
 const ProductSection = ({ title }: { title: string }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -483,13 +483,13 @@ const ProductSection = ({ title }: { title: string }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-lg font-bold text-pink-600">
-                        {formatPrice(product.originalPrice ?? product.originalPrice)}
-                        {/* {formatPrice(product.offPrice ?? product.offPrice)} */}
+                        {formatPrice(product.originalPrice ?? product.originalPrice as any)}
+
                       </span>
 
-                      {product.discountPercent > 0 && (
+                      {product.discountPercent as any > 0 && (
                         <span className="text-xs text-gray-500 line-through ml-1">
-                          {formatPrice(product.originalPrice)}
+                          {formatPrice(product.originalPrice as any)}
                         </span>
                       )}
                     </div>

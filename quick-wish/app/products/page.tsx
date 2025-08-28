@@ -1,13 +1,16 @@
+
+
 // app/products/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Product } from '../types';
-import { Star, Filter, X } from 'lucide-react';
+import { Star, Filter, X, ArrowLeft, Home } from 'lucide-react';
 
 // Define API base URL
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+const API_BASE_URL = "https://quickwish-gifts.onrender.com/api/v1";
+
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -16,6 +19,7 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const searchParams = useSearchParams();
+  const router = useRouter();
   const categoryParam = searchParams.get('category');
 
   useEffect(() => {
@@ -74,6 +78,15 @@ export default function ProductsPage() {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-6xl mx-auto px-4">
+          {/* Back button */}
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 mb-6 hover:text-gray-900"
+          >
+            <ArrowLeft size={20} className="mr-2" />
+            Back
+          </button>
+          
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-6 animate-pulse"></div>
             <div className="grid grid-cols-2 gap-4">
@@ -100,6 +113,15 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
+        {/* Back button */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center text-gray-600 mb-6 hover:text-gray-900"
+        >
+          <ArrowLeft size={20} className="mr-2" />
+          Back
+        </button>
+        
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -122,14 +144,23 @@ export default function ProductsPage() {
               <div className="text-gray-500 mb-4">
                 No products found{selectedCategory ? ` in ${selectedCategory}` : ''}.
               </div>
-              {selectedCategory && (
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {selectedCategory && (
+                  <button 
+                    onClick={clearFilter}
+                    className="bg-pink-600 text-white px-4 py-2 rounded-md hover:bg-pink-700 transition-colors"
+                  >
+                    View All Products
+                  </button>
+                )}
                 <button 
-                  onClick={clearFilter}
-                  className="bg-pink-600 text-white px-4 py-2 rounded-md hover:bg-pink-700"
+                  onClick={() => router.push('/')}
+                  className="flex items-center justify-center bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors"
                 >
-                  View All Products
+                  <Home size={16} className="mr-2" />
+                  Back to Home
                 </button>
-              )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
@@ -142,7 +173,7 @@ export default function ProductsPage() {
                   <div 
                     key={product._id} 
                     className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-105"
-                    onClick={() => window.location.href = `/products/${product._id}`}
+                    onClick={() => router.push(`/products/${product._id}`)}
                   >
                     <div className="relative">
                       <img 
@@ -199,7 +230,7 @@ export default function ProductsPage() {
                           )}
                         </div>
                         <button 
-                          className="bg-red-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-red-700"
+                          className="bg-red-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-red-700 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Add to cart logic here

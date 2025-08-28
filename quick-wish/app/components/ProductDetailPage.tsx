@@ -15,7 +15,7 @@ import {
 import OrderPaymentModal from "../components/OrderPaymentModal";
 import AuthModal from "../components/AuthModel";
 
-const API_BASE_URL = "http://localhost:5000/api/v1";
+const API_BASE_URL = "https://quickwish-gifts.onrender.com/api/v1";
 
 export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
@@ -200,12 +200,12 @@ export default function ProductDetailPage() {
               <div className="mb-6">
                 <div className="flex items-center">
                   <span className="text-3xl font-bold text-pink-600">
-                    {formatPrice( product.originalPrice)}
+                    {formatPrice( product.originalPrice as any)}
                   </span>
                   {discountPercent > 0 && (
                     <>
                       <span className="text-lg text-gray-500 line-through ml-2">
-                        {formatPrice(product.offPrice)}
+                        {formatPrice(product.offPrice as any)}
                       </span>
                       <span className="ml-3 bg-green-100 text-green-800 text-sm font-medium px-2 py-0.5 rounded">
                         {discountPercent}% OFF

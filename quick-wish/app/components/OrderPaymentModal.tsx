@@ -57,7 +57,8 @@ export default function OrderPaymentModal({
     const handleCreateOrder = async () => {
         setLoading(true);
         setError('');
-        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL as string;
+
 
         try {
             const token = localStorage.getItem('token');

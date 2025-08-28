@@ -25,7 +25,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
     e.preventDefault();
     setLoading(true);
     setError('');
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL as string;
+
 
     try {
       const endpoint = mode === 'signin' ?  `${API_BASE_URL}/user/signin` : `${API_BASE_URL}/user/signup`;
