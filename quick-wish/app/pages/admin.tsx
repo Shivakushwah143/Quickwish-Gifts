@@ -568,7 +568,7 @@
 //               </div>
 //             </>
 //           ) : (
-          
+
 //             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
 //               <h2 className="text-lg font-semibold text-gray-900 mb-6">Order Management</h2>
 
@@ -895,7 +895,7 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Record<string, Product>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [view, setView] = useState('stats'); 
+  const [view, setView] = useState('stats');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -930,7 +930,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL  = 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/users`);
 
       if (!response.ok) {
@@ -939,10 +939,10 @@ export default function AdminDashboard() {
 
       const data = await response.json();
       console.log(data)
-    if (data.allusers) {
-      setUsers(data.allusers);
-      setTotalUsers(data.total || data.allusers.length);
-    }
+      if (data.allusers) {
+        setUsers(data.allusers);
+        setTotalUsers(data.total || data.allusers.length);
+      }
     } catch (err: any) {
       console.error('Failed to fetch users:', err);
     }
@@ -958,7 +958,7 @@ export default function AdminDashboard() {
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
       const response = await fetch(`${API_BASE_URL}/api/v1/product`, {
-       
+
       });
 
       if (!response.ok) {
@@ -989,7 +989,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL =  'http://localhost:5000';
+      const API_BASE_URL = 'http://localhost:5000';
       const response = await fetch(`${API_BASE_URL}/api/v1/product/${updatedProduct._id}`, {
         method: 'PUT',
         headers: {
@@ -1030,7 +1030,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_BASE_URL}/api/v1/product/${productId}`, {
         method: 'DELETE',
         headers: {
@@ -1063,7 +1063,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/allOrders`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1078,14 +1078,14 @@ export default function AdminDashboard() {
 
       if (responseData.allOrders && Array.isArray(responseData.allOrders)) {
         setOrders(responseData.allOrders);
-        
+
         // Calculate total revenue
         const revenue = responseData.allOrders.reduce((sum: number, order: Order) => sum + order.amount, 0);
         setTotalRevenue(revenue);
 
         // Fetch product details for each order
         const productIds = [...new Set(responseData.allOrders.map((order: Order) => order.product))];
-        await fetchProducts(productIds, token);
+        await fetchProducts(productIds as any, token);
       } else {
         setOrders([]);
       }
@@ -1099,7 +1099,7 @@ export default function AdminDashboard() {
 
   const fetchProducts = async (productIds: string[], token: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const productsMap: Record<string, Product> = {};
 
       for (const id of productIds) {
@@ -1129,7 +1129,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/orders/${orderId}/confirm`, {
         method: 'PATCH',
         headers: {

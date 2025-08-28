@@ -9,7 +9,7 @@ import { Product } from '../types';
 import { Star, Filter, X, ArrowLeft, Home } from 'lucide-react';
 
 // Define API base URL
-const API_BASE_URL = "https://quickwish-gifts.onrender.com/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 
 export default function ProductsPage() {

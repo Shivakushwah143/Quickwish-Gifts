@@ -15,7 +15,7 @@ import {
 import OrderPaymentModal from "../components/OrderPaymentModal";
 import AuthModal from "../components/AuthModel";
 
-const API_BASE_URL = "https://quickwish-gifts.onrender.com/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;;
 
 export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);

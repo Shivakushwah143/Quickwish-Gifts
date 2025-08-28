@@ -130,7 +130,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
         console.log(key, value);
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       
       const response = await fetch(`${API_BASE_URL}/api/v1/product`, {
         method: 'POST',

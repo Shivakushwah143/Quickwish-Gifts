@@ -163,6 +163,7 @@ import ProductSection from './components/ProductSection/ProductSection';
 import Header from './components/Header';
 import AdminDashboard from './pages/admin';
 import { useState, useEffect } from 'react';
+import Testimonials from './components/Testimonials';
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -279,6 +280,7 @@ export default function Home() {
       />
       <ProductSection title="Trending Products" />
       <ServicesSection />
+      <Testimonials/>
       <NewsletterSection />
       <Footer />
     </div>
