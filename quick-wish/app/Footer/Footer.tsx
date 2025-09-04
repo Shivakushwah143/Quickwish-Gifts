@@ -37,8 +37,8 @@ const Footer = () => {
         <div className="border-t border-gray-800 pt-4">
           <div className="flex justify-between items-center">
             <div className="flex space-x-4 text-xs">
-              <span className="text-gray-400">📞 9009917446</span>
-              <span className="text-gray-400">✉️ care@QuickWish.com</span>
+              {/* <span className="text-gray-400">📞 9009917446</span> */}
+              <span className="text-gray-400">✉️ care@QuickWish@gmail.com</span>
             </div>
             
             <div className="flex space-x-2">
@@ -48,7 +48,7 @@ const Footer = () => {
           </div>
           
           <div className="text-center text-xs text-gray-400 mt-4">
-            © 2025 FNP. All rights reserved. Made with ❤️ in India
+            © 2025  QuickWish. All rights reserved. Made with ❤️ in India
           </div>
         </div>
       </div>

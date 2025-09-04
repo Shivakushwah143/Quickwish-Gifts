@@ -342,24 +342,37 @@ import { Category, HeroSlide } from "../types";
 
 // Hero Carousel Data with Unsplash images
 export const heroSlides: HeroSlide[] = [
-  {
-    title: "Birthday Gifts & Plants",
-    subtitle: "Something for everyone, everything for someone special",
-    image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Birthday_banner_Desk-16-06-2025.jpg",
-    cta: "Shop Now"
-  },
+ 
   {
     title: "Fresh Flowers & Bouquets",
     subtitle: "Express your feelings with beautiful fresh flowers",
     image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Flowers_Banner_Desk_9.jpg",
     cta: "Order Flowers"
   },
+   {
+    title: "Birthday Gifts & Plants",
+    subtitle: "Something for everyone, everything for someone special",
+    image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Birthday_banner_Desk-16-06-2025.jpg",
+    cta: "Shop Now"
+  },
   {
     title: "Same Day Delivery",
     subtitle: "Get your gifts delivered within hours",
     image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Photography_Day_Desk-16-08-2025.jpg",
     cta: "Explore"
-  }
+  },
+  {
+  title: "Handmade Hampers",
+  subtitle: "Curated with love, crafted by skilled artisans",
+  image: "https://media.istockphoto.com/id/1077280228/photo/advent-calendar-waiting-for-christmas.jpg?s=1024x1024&w=is&k=20&c=9aY5b6e8r0mOuP8JvRqJHk3rBqbzGMwp--7JirRg3wQ=",
+  cta: "Explore Hampers"
+},
+{
+  title: "Artisanal Gift Baskets",
+  subtitle: "Premium handmade hampers for special occasions",
+  image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQLPItVzswkJGwy8iZrysldzLvPMzyEILNcgq9X0umOQ4_2u2hvejSXJr9GwLbyOF8JCU&usqp=CAU",
+  cta: "Shop Artisanal"
+}
 ];
 
 // Main Categories matching FNP
@@ -373,19 +386,19 @@ export const mainCategories: Category[] = [
   {
     id: 'flowers',
     name: 'Flowers',
-    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=150&h=150&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1661609624774-764931dee3af?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Zmxvd2VyJTIwZ2lmdHN8ZW58MHx8MHx8fDA%3D',
     count: '1500+'
   },
   {
     id: 'photography',
     name: 'Photography',
-    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=150&h=150&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1698117059857-afdb96271acc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8cGhvdG9ncmFwaHklMjBmcmFtc3xlbnwwfHwwfHx8MA%3D%3D',
     count: '500+'
   },
   {
     id: 'same-day',
     name: 'Same Day',
-    image: 'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=150&h=150&fit=crop',
+    image: 'https://cdn.pixabay.com/photo/2020/04/22/17/12/handmade-soap-5079183_1280.jpg',
     count: '800+'
   },
   {
@@ -399,28 +412,28 @@ export const mainCategories: Category[] = [
 // For Every Relationship Categories
 export const relationshipCategories: Category[] = [
   {
-    name: 'Me',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face'
+    name: 'coustomize',
+    image: 'https://media.istockphoto.com/id/1077280228/photo/advent-calendar-waiting-for-christmas.jpg?s=1024x1024&w=is&k=20&c=9aY5b6e8r0mOuP8JvRqJHk3rBqbzGMwp--7JirRg3wQ='
   },
   {
     name: 'Women',
     image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face'
   },
   {
-    name: 'Kid',
-    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face'
+    name: 'Kids',
+    image: 'https://media.istockphoto.com/id/1066672498/photo/kids-wrapping-christmas-gifts.webp?a=1&b=1&s=612x612&w=0&k=20&c=Cwlc_RZW1vtLVBdMGwGQ-S0rsvdvklKQQuWJxn3MTpU='
   },
   {
     name: 'GirlFriend',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face'
+    image: 'https://media.istockphoto.com/id/925492142/photo/unexpected-moment-in-routine-everyday-life-cropped-photo-of-mans-hands-hiding-holding-chic.webp?a=1&b=1&s=612x612&w=0&k=20&c=OZmXr-rIeHXMmfLKCUKPS7l0F-IO3PqONyGTo-5qGmw='
   },
   {
     name: 'Friends',
-    image: 'https://images.unsplash.com/photo-1529066516367-36973222c957?w=120&h=120&fit=crop&crop=face'
+    image: 'https://images.unsplash.com/photo-1621112904887-419379ce6824?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8ZnJpZW5kc3xlbnwwfHwwfHx8MA%3D%3D'
   },
   {
     name: 'Girl',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face'
+    image: 'https://images.unsplash.com/photo-1586351012965-861624544334?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fGdpcmx8ZW58MHx8MHx8fDA%3D'
   },
   {
     name: 'Boy',
@@ -428,11 +441,11 @@ export const relationshipCategories: Category[] = [
   },
   {
     name: 'Wife',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face'
+    image: 'https://plus.unsplash.com/premium_photo-1661590923305-990dc3f8e415?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8d2lmZSUyMGdpZnRzfGVufDB8fDB8fHww'
   },
   {
     name: 'Husband',
-    image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&h=120&fit=crop&crop=face'
+    image: 'https://images.unsplash.com/photo-1675704632448-cf726a8e1fd8?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fGh1c2JhbmR8ZW58MHx8MHx8fDA%3D'
   }
 ];
 

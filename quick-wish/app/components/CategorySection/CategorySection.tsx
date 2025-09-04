@@ -93,6 +93,10 @@
 
 // export default CategorySection;
 // src/components/CategorySection/CategorySection.tsx
+
+
+
+
 'use client';
 
 import { Category } from '@/app/types';
@@ -179,7 +183,7 @@ const CategorySection = ({
         )}
       </div>
       
-      <div id={containerId} className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
+      <div id={containerId} className="flex space-x-4 overflow-x-auto pb-2  hide-scrollbar">
         {categories.map((category, index) => (
           <div 
             key={index} 
