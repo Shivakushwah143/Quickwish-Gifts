@@ -14,7 +14,7 @@ app.use(Express.json());
 
 app.use(
   cors({
-    origin: "https://quickwish-gifts-qvbu.vercel.app",
+    origin: "https://quickwish-gifts-qvbu-mtw2oh8wf-shivakushwah143s-projects.vercel.app",
     credentials: true,
   })
 );
