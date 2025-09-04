@@ -14,7 +14,7 @@ app.use(Express.json());
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://quickwish-gifts-qvbu.vercel.app",
     credentials: true,
   })
 );
