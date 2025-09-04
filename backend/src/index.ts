@@ -12,12 +12,21 @@ const app = Express();
 
 app.use(Express.json());
 
-app.use(
-  cors({
-    origin: "https://quickwish-gifts-qvbu-mtw2oh8wf-shivakushwah143s-projects.vercel.app",
-    credentials: true,
-  })
-);
+// app.use(
+//   cors({
+//     origin: "https://quickwish-gifts-qvbu-mtw2oh8wf-shivakushwah143s-projects.vercel.app",
+//     credentials: true,
+//   })
+// );
+app.use(cors({
+  origin: [
+    'https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app', // Your main domain
+    'https://quickwish-gifts-qvbu.vercel.app', // Your previous domain
+    /\.vercel\.app$/, // All Vercel deployments (regex pattern)
+    'http://localhost:3000' // Local development
+  ],
+  credentials: true,
+}));
 const port = process.env.PORT || 5000;
 const mongoUri = process.env.MONGO_URI as string;
 const SECRET = process.env.SECRET || "fallback_secret";
