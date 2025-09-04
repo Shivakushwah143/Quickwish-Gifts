@@ -177,6 +177,8 @@
 // }
 
 // components/AdminAuthModal.tsx
+
+
 import { useState } from 'react';
 import { X, Shield, Eye, EyeOff, Lock, User } from 'lucide-react';
 
@@ -203,7 +205,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
   setError('');
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL as string;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
   try {
     // CORRECTED: Added /api/v1 to the endpoint URLs
