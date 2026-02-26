@@ -1,4 +1,4 @@
-
+﻿
 // components/OrderPaymentModal.tsx
 import { useState } from 'react';
 import { X, ShoppingCart, MapPin, Phone, User, CreditCard, Smartphone, Copy, ExternalLink } from 'lucide-react';
@@ -46,6 +46,14 @@ export default function OrderPaymentModal({
     });
 
     if (!isOpen) return null;
+    const safeProductPrice = Number.isFinite(Number(productPrice)) ? Number(productPrice) : 0;
+    const safeOriginalPrice = Number.isFinite(Number(originalPrice)) ? Number(originalPrice) : undefined;
+    const displayPrice =
+        safeProductPrice > 0
+            ? safeProductPrice
+            : safeOriginalPrice && safeOriginalPrice > 0
+                ? safeOriginalPrice
+                : 0;
 
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setShippingAddress(prev => ({
@@ -107,7 +115,7 @@ export default function OrderPaymentModal({
     const generateUPILink = (upiId: string, amount: number) => {
         const params = new URLSearchParams({
             pa: upiId,
-            pn: 'GiftHub Store',
+            pn: 'QuickWish Atelier',
             am: amount.toString(),
             cu: 'INR',
             tn: `Payment for Order ${orderId}`
@@ -120,44 +128,55 @@ export default function OrderPaymentModal({
         // You could add a toast notification here
     };
 
+    const upiId = 'giftstore@upi';
+    const upiLink = generateUPILink(upiId, displayPrice);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiLink)}`;
+
     const upiOptions = [
-        { name: 'PhonePe', id: 'phonpe@ybl', color: 'bg-purple-600' },
-        { name: 'Google Pay', id: 'gpay@okaxis', color: 'bg-blue-600' },
-        { name: 'Paytm', id: 'paytm@paytm', color: 'bg-blue-500' },
-        { name: 'BHIM UPI', id: 'bhim@upi', color: 'bg-green-600' }
+        { name: 'PhonePe', id: 'phonpe@ybl', color: 'bg-[color:var(--wine)]' },
+        { name: 'Google Pay', id: 'gpay@okaxis', color: 'bg-[color:var(--wine)]' },
+        { name: 'Paytm', id: 'paytm@paytm', color: 'bg-[color:var(--wine)]' },
+        { name: 'BHIM UPI', id: 'bhim@upi', color: 'bg-[color:var(--wine)]' }
     ];
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center justify-between p-6 border-b border-[color:var(--border)]">
                     <div className="flex items-center">
-                        <ShoppingCart className="w-6 h-6 text-purple-600 mr-2" />
-                        <h2 className="text-xl font-bold text-gray-900">
+                        <ShoppingCart className="w-6 h-6 text-[color:var(--wine)] mr-2" />
+                        <h2 className="text-xl font-bold text-[color:var(--plum)]">
                             {currentStep === 1 ? 'Complete Your Order' : 'Payment Options'}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="text-gray-400 hover:text-[color:var(--muted)]">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Step Indicator */}
-                <div className="px-6 py-4 bg-gray-50">
+                <div className="px-6 py-4 bg-[color:var(--ivory)]">
                     <div className="flex items-center justify-center space-x-4">
-                        <div className={`flex items-center ${currentStep >= 1 ? 'text-purple-600' : 'text-gray-400'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                        <div className={`flex items-center ${currentStep >= 1 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
                                 1
                             </div>
                             <span className="ml-2 text-sm font-medium">Shipping</span>
                         </div>
-                        <div className={`w-12 h-0.5 ${currentStep >= 2 ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
-                        <div className={`flex items-center ${currentStep >= 2 ? 'text-purple-600' : 'text-gray-400'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                        <div className={`w-12 h-0.5 ${currentStep >= 2 ? 'bg-[color:var(--wine)]' : 'bg-gray-300'}`}></div>
+                        <div className={`flex items-center ${currentStep >= 2 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
                                 2
                             </div>
                             <span className="ml-2 text-sm font-medium">Payment</span>
+                        </div>
+                        <div className={`w-12 h-0.5 ${currentStep >= 3 ? 'bg-[color:var(--wine)]' : 'bg-gray-300'}`}></div>
+                        <div className={`flex items-center ${currentStep >= 3 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
+                                3
+                            </div>
+                            <span className="ml-2 text-sm font-medium">Confirmation</span>
                         </div>
                     </div>
                 </div>
@@ -168,96 +187,96 @@ export default function OrderPaymentModal({
                         // Step 1: Shipping Address
                         <div className="space-y-6">
                             {/* Product Summary */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
+                            <div className="bg-[color:var(--ivory)] rounded-lg p-4">
+                                <h3 className="font-semibold text-[color:var(--plum)] mb-3">Order Summary</h3>
                                 <div className="flex items-center space-x-4">
                                     {productImage && (
                                         <img src={productImage} alt={productName} className="w-16 h-16 object-cover rounded-lg" />
                                     )}
                                     <div className="flex-1">
-                                        <h4 className="font-medium text-gray-900">{productName}</h4>
-                                        <p className="text-lg font-bold text-purple-600">₹{originalPrice}</p>
-                                        
-                                        
+                                        <h4 className="font-medium text-[color:var(--plum)]">{productName}</h4>
+                                        <p className="text-lg font-bold text-[color:var(--wine)]">₹{displayPrice}</p>
+                                        <span className="lux-pill inline-flex mt-2 px-2 py-0.5 text-[10px]">
+                                            Same Day Delivery - ₹49 extra (Indore only)
+                                        </span>
                                     </div>
                                     
                                 </div>
                             </div>
 
-                            Shipping Form
-                            <div>
-                                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                                                        <div>
+                                <h3 className="font-semibold text-[color:var(--plum)] mb-4 flex items-center">
                                     <MapPin className="w-5 h-5 mr-2" />
                                     Shipping Address
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">Full Name *</label>
                                         <input
                                             type="text"
                                             name="name"
                                             value={shippingAddress.name}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Enter your full name"
                                             required
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">Phone Number *</label>
                                         <input
                                             type="tel"
                                             name="phone"
                                             value={shippingAddress.phone}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Enter your phone number"
                                             required
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Street Address *</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">Street Address *</label>
                                         <input
                                             type="text"
                                             name="street"
                                             value={shippingAddress.street}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Street address, P.O. Box, company name"
                                             required
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">City *</label>
                                         <input
                                             type="text"
                                             name="city"
                                             value={shippingAddress.city}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Enter your city"
                                             required
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">State</label>
                                         <input
                                             type="text"
                                             name="state"
                                             value={shippingAddress.state}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Enter your state (optional)"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
+                                        <label className="block text-sm font-medium text-[color:var(--muted)] mb-1">PIN Code *</label>
                                         <input
                                             type="text"
                                             name="pinCode"
                                             value={shippingAddress.pinCode}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
                                             placeholder="Enter PIN code"
                                             required
                                         />
@@ -275,7 +294,7 @@ export default function OrderPaymentModal({
                             <button
                                 onClick={handleCreateOrder}
                                 disabled={loading || !shippingAddress.name || !shippingAddress.phone || !shippingAddress.street || !shippingAddress.city || !shippingAddress.pinCode}
-                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-[color:var(--wine)] text-white py-3 px-4 rounded-lg font-semibold hover:bg-[#3b182f] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
                                     <div className="flex items-center justify-center">
@@ -287,102 +306,134 @@ export default function OrderPaymentModal({
                                 )}
                             </button>
                         </div>
-                    ) : (
+                    ) : currentStep === 2 ? (
                      
                         <div className="space-y-6">
                             {/* Order Confirmation */}
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-green-800 mb-2">Order Created Successfully!</h3>
-                                <p className="text-green-700 text-sm">Order ID: <span className="font-mono">{orderId}</span></p>
+                            <div className="bg-[color:var(--gold)]/10 border border-[color:var(--gold)]/40 rounded-lg p-4">
+                                <h3 className="font-semibold text-[color:var(--plum)] mb-2">Order Created Successfully!</h3>
+                                <p className="text-[color:var(--muted)] text-sm">Order ID: <span className="font-mono">{orderId}</span></p>
                             </div>
 
                             {/* Payment Methods */}
-                            <div>
-                                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                    <CreditCard className="w-5 h-5 mr-2" />
-                                    Choose Payment Method
-                                </h3>
-
-                                {/* UPI Payment Options */}
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                                        <Smartphone className="w-4 h-4 mr-1" />
-                                        Pay with UPI
-                                    </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {upiOptions.map((upi) => (
-                                            <button
-                                                key={upi.id}
-                                                onClick={() => window.open(generateUPILink(upi.id, productPrice), '_blank')}
-                                                className={`${upi.color} text-white p-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-between`}
-                                            >
-                                                <span className="font-medium">{upi.name}</span>
-                                                <ExternalLink size={16} />
-                                            </button>
-                                        ))}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold text-[color:var(--plum)] flex items-center">
+                                            <CreditCard className="w-5 h-5 mr-2" />
+                                            Scan to Pay
+                                        </h3>
+                                        <button
+                                            onClick={() => copyToClipboard(orderId)}
+                                            className="text-xs text-[color:var(--wine)] hover:text-[color:var(--plum)]"
+                                        >
+                                            Copy Order ID
+                                        </button>
                                     </div>
-                                </div>
 
-                                {/* Manual UPI Payment */}
-                                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                                    <h4 className="font-medium text-gray-900 mb-3">Manual UPI Payment</h4>
+                                    <div className="bg-[color:var(--ivory)] border border-[color:var(--border)] rounded-xl p-4 flex flex-col items-center text-center">
+                                        <img
+                                            src={qrUrl}
+                                            alt="UPI QR code"
+                                            className="w-56 h-56 rounded-lg border border-[color:var(--border)] bg-white"
+                                        />
+                                        <p className="mt-3 text-sm text-[color:var(--muted)]">
+                                            Scan with any UPI app to pay <span className="font-semibold text-[color:var(--wine)]">₹{displayPrice}</span>
+                                        </p>
+                                        <div className="mt-2 text-xs text-[color:var(--muted)]">
+                                            UPI ID hidden for safety. Your payment note carries the order ID.
+                                        </div>
+                                        <button
+                                            onClick={() => copyToClipboard(displayPrice.toString())}
+                                            className="mt-3 inline-flex items-center px-3 py-1.5 rounded-lg border border-[color:var(--border)] text-xs text-[color:var(--plum)] hover:bg-white"
+                                        >
+                                            Copy Amount
+                                            <Copy size={14} className="ml-2" />
+                                        </button>
+                                    </div>
+
                                     <div className="space-y-2">
-                                        <div className="flex items-center justify-between bg-white p-3 rounded border">
-                                            <div>
-                                                <p className="text-sm text-gray-600">UPI ID</p>
-                                                <p className="font-mono text-sm">giftstore@upi</p>
-                                            </div>
-                                            <button
-                                                onClick={() => copyToClipboard('giftstore@upi')}
-                                                className="text-purple-600 hover:text-purple-700"
-                                            >
-                                                <Copy size={16} />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center justify-between bg-white p-3 rounded border">
-                                            <div>
-                                                <p className="text-sm text-gray-600">Amount</p>
-                                                <p className="font-bold text-lg">₹{originalPrice}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => copyToClipboard(productPrice.toString())}
-                                                className="text-purple-600 hover:text-purple-700"
-                                            >
-                                                <Copy size={16} />
-                                            </button>
-                                        </div>
+                                        <h4 className="text-sm font-medium text-[color:var(--muted)] flex items-center">
+                                            <Smartphone className="w-4 h-4 mr-1" />
+                                            Open your UPI app and scan the code
+                                        </h4>
+                                        <p className="text-xs text-[color:var(--muted)]">
+                                            We have removed the direct app links for a smoother, reliable payment flow.
+                                        </p>
                                     </div>
                                 </div>
 
-                                {/* WhatsApp Support */}
-                                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <h4 className="font-medium text-blue-900 mb-2">Payment Confirmation</h4>
-                                    <p className="text-blue-800 text-sm mb-3">
-                                        After making payment, please send screenshot to WhatsApp for order confirmation
-                                    </p>
-                                    <a
-                                        href={`https://wa.me/919575930848?text=Order%20Confirmation%20for%20Order%20ID:%20${orderId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                                    >
-                                        <Phone className="w-4 h-4 mr-2" />
-                                        Send Payment Proof on WhatsApp
-                                    </a>
-                                </div>
+                                <div className="space-y-4">
+                                    <div className="bg-[color:var(--ivory)] border border-[color:var(--border)] rounded-xl p-4">
+                                        <h4 className="font-medium text-[color:var(--plum)] mb-2">WhatsApp Confirmation</h4>
+                                        <p className="text-[color:var(--muted)] text-sm mb-3">
+                                            After payment, send your screenshot and order ID. We will confirm quickly.
+                                        </p>
+                                        <a
+                                            href={`https://wa.me/919575930848?text=Order%20Confirmation%20for%20Order%20ID:%20${orderId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center bg-[color:var(--wine)] text-white px-4 py-2 rounded-lg hover:bg-[#3b182f] transition-colors"
+                                        >
+                                            <Phone className="w-4 h-4 mr-2" />
+                                            Send Payment Proof
+                                        </a>
+                                        <button
+                                            onClick={() => setCurrentStep(3)}
+                                            className="mt-3 w-full border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-white transition-colors"
+                                        >
+                                            I have sent the proof
+                                        </button>
+                                    </div>
 
-                                {/* Payment Instructions */}
-                                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <h4 className="font-medium text-yellow-900 mb-2">Payment Instructions</h4>
-                                    <ol className="text-yellow-800 text-sm space-y-1 list-decimal list-inside">
-                                        <li>Complete the payment using any UPI app to giftstore@upi</li>
-                                        <li>Take a screenshot of the successful payment confirmation</li>
-                                        <li>Click "Send Payment Proof on WhatsApp" to contact admin</li>
-                                        <li>Send the screenshot with your Order ID: <span className="font-mono">{orderId}</span></li>
-                                        <li>Admin will verify payment and confirm your order within 24 hours</li>
-                                        <li>You will receive shipping details after payment confirmation</li>
-                                    </ol>
+                                    <div className="bg-[color:var(--ivory)] border border-[color:var(--border)] rounded-xl p-4">
+                                        <h4 className="font-medium text-[color:var(--plum)] mb-2">How it works</h4>
+                                        <ol className="text-[color:var(--muted)] text-sm space-y-2 list-decimal list-inside">
+                                            <li>Scan the QR and complete payment.</li>
+                                            <li>Take a screenshot of the success screen.</li>
+                                            <li>Tap “Send Payment Proof” on WhatsApp.</li>
+                                            <li>We verify and confirm your order.</li>
+                                            <li>Delivery updates arrive shortly after.</li>
+                                        </ol>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="bg-[color:var(--gold)]/10 border border-[color:var(--gold)]/40 rounded-lg p-5 text-center">
+                                <h3 className="font-semibold text-[color:var(--plum)] text-lg">Payment Received</h3>
+                                <p className="text-[color:var(--muted)] text-sm mt-2">
+                                    We are verifying your payment. This usually takes a few minutes.
+                                </p>
+                                <div className="mt-4 text-xs text-[color:var(--muted)]">
+                                    Order ID: <span className="font-mono text-[color:var(--plum)]">{orderId}</span>
+                                </div>
+                            </div>
+
+                            <div className="lux-card p-5">
+                                <h4 className="font-medium text-[color:var(--plum)] mb-3">What happens next</h4>
+                                <ol className="text-[color:var(--muted)] text-sm space-y-2 list-decimal list-inside">
+                                    <li>We validate your payment proof.</li>
+                                    <li>Your order is confirmed by our team.</li>
+                                    <li>We prepare your gift with care.</li>
+                                    <li>Delivery updates are sent on WhatsApp.</li>
+                                </ol>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setCurrentStep(2)}
+                                    className="flex-1 border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-white transition-colors"
+                                >
+                                    Back to payment
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 bg-[color:var(--wine)] text-white px-4 py-2 rounded-lg hover:bg-[#3b182f] transition-colors"
+                                >
+                                    Done
+                                </button>
                             </div>
                         </div>
                     )}
@@ -391,3 +442,9 @@ export default function OrderPaymentModal({
         </div>
     );
 }
+
+
+
+
+
+

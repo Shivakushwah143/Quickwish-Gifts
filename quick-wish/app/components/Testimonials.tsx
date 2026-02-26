@@ -38,10 +38,15 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="w-full py-10 bg-gray-50 overflow-hidden">
-      <h2 className="text-center text-2xl lg:text-4xl font-bold mb-6">
-        Customer About Us
-      </h2>
+    <section className="w-full py-12 bg-[color:var(--ivory)] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 text-center mb-6">
+        <h2 className="text-2xl lg:text-4xl font-semibold lux-serif text-[color:var(--plum)]">
+          Words that stayed with us
+        </h2>
+        <p className="text-sm text-[color:var(--muted)] mt-2">
+          Indore families and friends, sharing what their moments felt like.
+        </p>
+      </div>
 
       {/* marquee wrapper */}
       <div className="relative flex overflow-hidden">
@@ -49,9 +54,9 @@ export default function Testimonials() {
           {testimonials.concat(testimonials).map((t, i) => (
             <div
               key={i}
-              className="w-72 sm:w-80 lg:w-96 mx-1 flex-shrink-0"
+              className="w-72 sm:w-80 lg:w-96 mx-2 flex-shrink-0"
             >
-              <div className="bg-white rounded-2xl shadow-md p-4 flex flex-col items-center">
+              <div className="lux-card p-4 flex flex-col items-center">
                 <Image
                   src={t.img}
                   alt={t.img}

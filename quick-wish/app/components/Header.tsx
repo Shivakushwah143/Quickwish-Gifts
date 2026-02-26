@@ -100,6 +100,7 @@ import AuthModal from '../components/AuthModel';
 // components/Header.tsx
 import { useState, useEffect } from 'react';
 import { User, Gift, Menu, X, Shield } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 // import AuthModal from '../components/AuthModal';
 import AdminAuthModal from '../components/AdminAuthModal';
 
@@ -171,53 +172,56 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b relative z-50">
+      <header className="bg-[color:var(--ivory)]/95 backdrop-blur border-b border-[color:var(--border)] relative z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <Gift className="w-8 h-8 text-purple-600 mr-2" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+              <Gift className="w-8 h-8 text-[color:var(--gold)] mr-2" />
+              <span className="text-2xl font-semibold text-[color:var(--wine)] lux-serif">
                 QuickWish
               </span>
             </div>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-gray-700 hover:text-purple-600 transition-colors">Home</a>
-              <a href="#" className="text-gray-700 hover:text-purple-600 transition-colors">Categories</a>
-              <a href="#" className="text-gray-700 hover:text-purple-600 transition-colors">Occasions</a>
-              <a href="#" className="text-gray-700 hover:text-purple-600 transition-colors">Custom Gifts</a>
+              <a href="#" className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Home</a>
+              <a href="#" className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Collections</a>
+              <a href="#" className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Occasions</a>
+              <a href="#" className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Custom Studio</a>
             </nav>
 
             {/* Right side */}
             <div className="flex items-center space-x-4">
+              <div className="hidden md:block">
+                <ThemeToggle />
+              </div>
               {isAdmin ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-[color:var(--plum)]/70">
                     Admin: {localStorage.getItem('adminUsername')}
                   </span>
                   <button 
                     onClick={handleAdminLogout}
-                    className="text-sm text-gray-700 hover:text-purple-600 transition-colors"
+                    className="text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
                   >
                     Admin Logout
                   </button>
                 </div>
               ) : isLoggedIn ? (
                 <div className="flex items-center space-x-4">
-                  <button className="p-2 text-gray-700 hover:text-purple-600 transition-colors">
+                  <button className="p-2 text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors">
                     <User size={24} />
                   </button>
                   <button 
                     onClick={handleLogout}
-                    className="hidden md:block text-sm text-gray-700 hover:text-purple-600 transition-colors"
+                    className="hidden md:block text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
                   >
                     Logout
                   </button>
                   <button
                     onClick={handleAdminAuthClick}
-                    className="hidden md:flex items-center text-sm text-gray-700 hover:text-purple-600 transition-colors"
+                    className="hidden md:flex items-center text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
                   >
                     <Shield size={16} className="mr-1" />
                     Admin
@@ -227,19 +231,19 @@ export default function Header() {
                 <div className="hidden md:flex items-center space-x-3">
                   <button
                     onClick={() => handleAuthClick('signin')}
-                    className="text-gray-700 hover:text-purple-600 transition-colors font-medium"
+                    className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors font-medium"
                   >
                     Sign In
                   </button>
                   <button
                     onClick={() => handleAuthClick('signup')}
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all duration-200 font-medium"
+                    className="bg-[color:var(--wine)] text-[color:var(--ivory)] px-4 py-2 rounded-xl hover:bg-[#3b182f] transition-all duration-200 font-medium shadow-sm"
                   >
                     Sign Up
                   </button>
                   <button
                     onClick={handleAdminAuthClick}
-                    className="flex items-center text-gray-700 hover:text-purple-600 transition-colors font-medium"
+                    className="flex items-center text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors font-medium"
                   >
                     <Shield size={16} className="mr-1" />
                     Admin
@@ -250,11 +254,14 @@ export default function Header() {
               {/* Mobile menu button */}
               <button
                 id="menu-button"
-                className="md:hidden p-2 rounded-md text-gray-700 hover:text-purple-600 hover:bg-gray-100 focus:outline-none"
+                className="md:hidden p-2 rounded-md text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] hover:bg-[color:var(--border)]/40 focus:outline-none"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
+              <div className="md:hidden">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
         </div>
@@ -262,24 +269,24 @@ export default function Header() {
         {/* Mobile menu */}
         <div 
           id="mobile-menu"
-          className={`md:hidden absolute top-16 inset-x-0 bg-white shadow-md border-t transform origin-top transition-transform duration-200 ease-out ${
+          className={`md:hidden absolute top-16 inset-x-0 bg-[color:var(--ivory)] shadow-md border-t border-[color:var(--border)] transform origin-top transition-transform duration-200 ease-out ${
             isMobileMenuOpen ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0'
           }`}
         >
           <div className="px-4 pt-2 pb-6 space-y-4">
-            <a href="#" className="block py-2 text-gray-700 hover:text-purple-600 transition-colors">Home</a>
-            <a href="#" className="block py-2 text-gray-700 hover:text-purple-600 transition-colors">Categories</a>
-            <a href="#" className="block py-2 text-gray-700 hover:text-purple-600 transition-colors">Occasions</a>
-            <a href="#" className="block py-2 text-gray-700 hover:text-purple-600 transition-colors">Custom Gifts</a>
+            <a href="#" className="block py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Home</a>
+            <a href="#" className="block py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Collections</a>
+            <a href="#" className="block py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Occasions</a>
+            <a href="#" className="block py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors">Custom Studio</a>
             
             {isAdmin ? (
               <div className="pt-4 border-t space-y-3">
-                <div className="text-sm text-gray-700 py-2">
+                <div className="text-sm text-[color:var(--plum)]/70 py-2">
                   Admin: {localStorage.getItem('adminUsername')}
                 </div>
                 <button 
                   onClick={handleAdminLogout}
-                  className="w-full text-left py-2 text-gray-700 hover:text-purple-600 transition-colors"
+                  className="w-full text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   Admin Logout
                 </button>
@@ -288,13 +295,13 @@ export default function Header() {
               <div className="pt-4 border-t space-y-3">
                 <button 
                   onClick={handleLogout}
-                  className="w-full text-left py-2 text-gray-700 hover:text-purple-600 transition-colors"
+                  className="w-full text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   Logout
                 </button>
                 <button
                   onClick={handleAdminAuthClick}
-                  className="w-full flex items-center text-left py-2 text-gray-700 hover:text-purple-600 transition-colors"
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   <Shield size={16} className="mr-2" />
                   Admin Login
@@ -304,19 +311,19 @@ export default function Header() {
               <div className="pt-4 border-t space-y-3">
                 <button
                   onClick={() => handleAuthClick('signin')}
-                  className="w-full text-left py-2 text-gray-700 hover:text-purple-600 transition-colors font-medium"
+                  className="w-full text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors font-medium"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={() => handleAuthClick('signup')}
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all duration-200 font-medium text-center"
+                  className="w-full bg-[color:var(--wine)] text-[color:var(--ivory)] px-4 py-2 rounded-xl hover:bg-[#3b182f] transition-all duration-200 font-medium text-center"
                 >
                   Sign Up
                 </button>
                 <button
                   onClick={handleAdminAuthClick}
-                  className="w-full flex items-center text-left py-2 text-gray-700 hover:text-purple-600 transition-colors"
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   <Shield size={16} className="mr-2" />
                   Admin Login

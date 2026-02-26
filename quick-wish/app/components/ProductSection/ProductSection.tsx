@@ -1,4 +1,4 @@
-// // src/components/ProductSection/ProductSection.tsx
+﻿// // src/components/ProductSection/ProductSection.tsx
 // import { Product } from '@/app/types';
 // import { Star } from 'lucide-react';
 
@@ -401,22 +401,29 @@ const ProductSection = ({ title }: { title: string }) => {
 
   if (loading) {
     return (
-      <section className="bg-white py-6 px-4 mt-2">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">{title}</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <section className="bg-[color:var(--ivory)] py-8 px-4 mt-2">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-semibold lux-serif text-[color:var(--plum)]">{title}</h2>
+              <p className="text-sm text-[color:var(--muted)]">Chosen for quiet impact and lasting warmth.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-gray-50 rounded-lg overflow-hidden">
-              <div className="w-full h-32 bg-gray-200 animate-pulse"></div>
+            <div key={i} className="lux-card overflow-hidden">
+              <div className="w-full h-40 bg-[color:var(--border)]/60 animate-pulse"></div>
               <div className="p-3">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-3 animate-pulse"></div>
+                <div className="h-4 bg-[color:var(--border)]/70 rounded w-3/4 mb-2 animate-pulse"></div>
+                <div className="h-3 bg-[color:var(--border)]/70 rounded w-1/2 mb-3 animate-pulse"></div>
                 <div className="flex justify-between items-center">
-                  <div className="h-5 bg-gray-200 rounded w-1/3 animate-pulse"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+                  <div className="h-5 bg-[color:var(--border)]/70 rounded w-1/3 animate-pulse"></div>
+                  <div className="h-6 bg-[color:var(--border)]/70 rounded w-1/4 animate-pulse"></div>
                 </div>
               </div>
             </div>
           ))}
+          </div>
         </div>
       </section>
     );
@@ -424,36 +431,53 @@ const ProductSection = ({ title }: { title: string }) => {
 
   return (
     <>
-      <section className="bg-white py-6 px-4 mt-2">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">{title}</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <section className="bg-[color:var(--ivory)] py-8 px-4 mt-2">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-semibold lux-serif text-[color:var(--plum)]">{title}</h2>
+              <p className="text-sm text-[color:var(--muted)]">Handpicked for elegance, wrapped with intention.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {products.map((product) => {
-            const originalPrice = product.originalPrice || product.price * 1.3;
-            const discountPercent = product.discountPercent ||
-              calculateDiscount(originalPrice, product.price);
+            const currentPrice = Number(product.price);
+            const originalCandidate = Number(product.originalPrice ?? product.offPrice ?? 0);
+            const safeCurrentPrice =
+              Number.isFinite(currentPrice) && currentPrice > 0
+                ? currentPrice
+                : Number.isFinite(originalCandidate)
+                  ? originalCandidate
+                  : 0;
+            const safeOriginalPrice = Number.isFinite(originalCandidate) ? originalCandidate : 0;
+            const computedOriginalPrice = safeOriginalPrice > 0 ? safeOriginalPrice : safeCurrentPrice * 1.3;
+            const hasDiscount = safeCurrentPrice > 0 && computedOriginalPrice > safeCurrentPrice;
+            const discountPercent = hasDiscount
+              ? (product.discountPercent ?? calculateDiscount(computedOriginalPrice, safeCurrentPrice))
+              : 0;
 
             return (
               <div
                 key={product._id}
-                className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-105"
+                className="lux-card overflow-hidden cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg"
                 onClick={() => product._id && handleProductClick(product._id)}
               >
                 <div className="relative">
                   <img
                     src={product.images[0] || '/placeholder-image.jpg'}
                     alt={product.name}
-                    className="w-full h-32 object-cover"
+                    className="w-full h-40 object-cover"
                   />
                   {product.badge && (
                     <div className="absolute top-2 left-2">
-                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+                      <span className="bg-[color:var(--wine)] text-[color:var(--ivory)] px-2 py-1 rounded-full text-xs font-medium shadow-sm">
                         {product.badge}
                       </span>
                     </div>
                   )}
                   {discountPercent > 0 && (
                     <div className="absolute top-2 right-2">
-                      <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
+                      <span className="bg-[color:var(--gold)] text-[color:var(--plum)] px-2 py-1 rounded-full text-xs font-medium shadow-sm">
                         {discountPercent}% OFF
                       </span>
                     </div>
@@ -461,7 +485,7 @@ const ProductSection = ({ title }: { title: string }) => {
                 </div>
 
                 <div className="p-3">
-                  <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-1">{product.name}</h3>
+                  <h3 className="font-medium text-[color:var(--plum)] text-sm mb-1 line-clamp-1">{product.name}</h3>
 
                   <div className="flex items-center mb-2">
                     <div className="flex items-center">
@@ -469,32 +493,36 @@ const ProductSection = ({ title }: { title: string }) => {
                         <Star
                           key={i}
                           className={`h-3 w-3 ${i < Math.floor(product.rating || 0)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
+                              ? 'text-[color:var(--gold)] fill-current'
+                              : 'text-[color:var(--border)]'
                             }`}
                         />
                       ))}
                     </div>
-                    <span className="text-xs text-gray-600 ml-1">
+                    <span className="text-xs text-[color:var(--muted)] ml-1">
                       ({product.reviews || 0})
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-lg font-bold text-pink-600">
-                        {formatPrice(product.originalPrice ?? product.originalPrice as any)}
-
+                      <span className="text-lg font-semibold text-[color:var(--wine)]">
+                        {formatPrice(safeCurrentPrice)}
                       </span>
 
-                      {product.discountPercent as any > 0 && (
-                        <span className="text-xs text-gray-500 line-through ml-1">
-                          {formatPrice(product.originalPrice as any)}
+                      {hasDiscount && (
+                        <span className="text-xs text-[color:var(--muted)] line-through ml-1">
+                          {formatPrice(computedOriginalPrice)}
                         </span>
                       )}
+                      <div className="mt-1">
+                        <span className="lux-pill px-2 py-0.5 text-[10px] tracking-wide">
+                          Same Day Delivery - ₹49 extra (Indore only)
+                        </span>
+                      </div>
                     </div>
                     <button
-                      className="bg-red-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-red-700"
+                      className="bg-[color:var(--wine)] text-[color:var(--ivory)] px-3 py-1 rounded-lg text-xs font-medium hover:bg-[#3b182f] transition-all"
                       onClick={(e) => handleAddToCart(product, e)}
                     >
                       Add to Cart
@@ -504,6 +532,7 @@ const ProductSection = ({ title }: { title: string }) => {
               </div>
             );
           })}
+          </div>
         </div>
       </section>
 
@@ -528,3 +557,4 @@ const ProductSection = ({ title }: { title: string }) => {
 };
 
 export default ProductSection;
+

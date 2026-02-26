@@ -342,37 +342,36 @@ import { Category, HeroSlide } from "../types";
 
 // Hero Carousel Data with Unsplash images
 export const heroSlides: HeroSlide[] = [
- 
   {
-    title: "Fresh Flowers & Bouquets",
-    subtitle: "Express your feelings with beautiful fresh flowers",
+    title: "Moments, wrapped in quiet elegance.",
+    subtitle: "Premium gifting crafted for Indore, delivered with a gentle hand.",
     image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Flowers_Banner_Desk_9.jpg",
-    cta: "Order Flowers"
+    cta: "Explore the Collection"
   },
-   {
-    title: "Birthday Gifts & Plants",
-    subtitle: "Something for everyone, everything for someone special",
+  {
+    title: "Birthdays, in their finest light.",
+    subtitle: "A thoughtful curation of florals, cakes, and keepsakes that linger.",
     image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Birthday_banner_Desk-16-06-2025.jpg",
-    cta: "Shop Now"
+    cta: "Shop Birthday"
   },
   {
-    title: "Same Day Delivery",
-    subtitle: "Get your gifts delivered within hours",
+    title: "Same day, still exquisite.",
+    subtitle: "Indore delivery within hours, beautifully finished and on time.",
     image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Photography_Day_Desk-16-08-2025.jpg",
-    cta: "Explore"
+    cta: "View Same-Day"
   },
   {
-  title: "Handmade Hampers",
-  subtitle: "Curated with love, crafted by skilled artisans",
-  image: "https://media.istockphoto.com/id/1077280228/photo/advent-calendar-waiting-for-christmas.jpg?s=1024x1024&w=is&k=20&c=9aY5b6e8r0mOuP8JvRqJHk3rBqbzGMwp--7JirRg3wQ=",
-  cta: "Explore Hampers"
-},
-{
-  title: "Artisanal Gift Baskets",
-  subtitle: "Premium handmade hampers for special occasions",
-  image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQLPItVzswkJGwy8iZrysldzLvPMzyEILNcgq9X0umOQ4_2u2hvejSXJr9GwLbyOF8JCU&usqp=CAU",
-  cta: "Shop Artisanal"
-}
+    title: "Handcrafted hampers, softly luxurious.",
+    subtitle: "Artisan-made pieces curated for gratitude, love, and celebration.",
+    image: "https://media.istockphoto.com/id/1077280228/photo/advent-calendar-waiting-for-christmas.jpg?s=1024x1024&w=is&k=20&c=9aY5b6e8r0mOuP8JvRqJHk3rBqbzGMwp--7JirRg3wQ=",
+    cta: "Discover Hampers"
+  },
+  {
+    title: "Gifts that feel personal.",
+    subtitle: "From refined baskets to custom details, made for lasting impressions.",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQLPItVzswkJGwy8iZrysldzLvPMzyEILNcgq9X0umOQ4_2u2hvejSXJr9GwLbyOF8JCU&usqp=CAU",
+    cta: "Shop Artisanal"
+  }
 ];
 
 // Main Categories matching FNP

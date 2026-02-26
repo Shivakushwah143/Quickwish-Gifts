@@ -1,7 +1,7 @@
 import Express, { response } from "express";
 import type { NextFunction, Request, Response } from "express";
 import mongoose from "mongoose";
-import { admin, Order, product, User } from "./db.js";
+import { admin, ChatMemory, Order, product, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
@@ -30,7 +30,33 @@ app.use(cors({
 const port = process.env.PORT || 5000;
 const mongoUri = process.env.MONGO_URI as string;
 const SECRET = process.env.SECRET || "fallback_secret";
+const GROK_API_KEY = process.env.GROK_API_KEY as string;
+const GROQ_API_KEY = process.env.GROQ_API_KEY as string;
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY as string;
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+const rateLimitMap = new Map<string, { count: number; start: number }>();
+
+export const getClientIp = (req: Request): string => {
+  const forwardedHeader = req.headers["x-forwarded-for"];
+
+  if (typeof forwardedHeader === "string") {
+    const firstIp = forwardedHeader.split(",")[0];
+
+    if (firstIp && firstIp.length > 0) {
+      return firstIp.trim();
+    }
+  }
+
+  const remoteAddress = req.socket?.remoteAddress;
+
+  if (remoteAddress && remoteAddress.length > 0) {
+    return remoteAddress;
+  }
+
+  return "unknown";
+};
 
 app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
   const { email, password, username } = req.body;
@@ -260,6 +286,7 @@ app.post(
       badge,
       offPrice,
       deliveryOptions,
+      tags,
     } = req.body;
 
     console.log("Received body:", req.body);
@@ -269,6 +296,18 @@ app.post(
       const imageUrls = (req as any).files
         ? await uploadProductImages((req as any).files)
         : [];
+
+      const parsedTags =
+        typeof tags === "string"
+          ? tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag.length > 0)
+          : Array.isArray(tags)
+            ? tags
+                .map((tag) => String(tag).trim())
+                .filter((tag) => tag.length > 0)
+            : [];
 
       const newProduct = new product({
         name,
@@ -284,6 +323,7 @@ app.post(
           ? JSON.parse(deliveryOptions)
           : undefined,
         stock: Number(stock),
+        tags: parsedTags,
       });
 
       await newProduct.save();
@@ -335,7 +375,14 @@ app.put("/api/v1/product/:productId", async (req: Request, res: Response) => {
       res.status(404).json({ message: "product not found" });
     }
     console.log(productId);
-    const updateProduct = await product.findByIdAndUpdate(productId, req.body, {
+    if (typeof userWantTOupdate.tags === "string") {
+      userWantTOupdate.tags = userWantTOupdate.tags
+        .split(",")
+        .map((tag: string) => tag.trim())
+        .filter((tag: string) => tag.length > 0);
+    }
+
+    const updateProduct = await product.findByIdAndUpdate(productId, userWantTOupdate, {
       new: true,
     });
     res.status(200).json({ success: true, updateProduct });
@@ -358,6 +405,167 @@ app.delete(
     }
   }
 );
+
+const assistantChatHandler = async (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const bucket = rateLimitMap.get(ip);
+  if (!bucket || now - bucket.start > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, start: now });
+  } else {
+    bucket.count += 1;
+    if (bucket.count > RATE_LIMIT_MAX) {
+      return res.status(429).json({ message: "Too many requests. Please try again shortly." });
+    }
+  }
+
+  const assistantKey = GROQ_API_KEY || GROK_API_KEY || DEEPSEEK_API_KEY;
+  if (!assistantKey) {
+    return res.status(500).json({ message: "Assistant is not configured." });
+  }
+
+  const { message, messages } = req.body || {};
+  if (typeof message !== "string" || message.trim().length === 0) {
+    return res.status(400).json({ message: "Message is required." });
+  }
+  if (message.length > 500) {
+    return res.status(400).json({ message: "Message is too long." });
+  }
+
+  const normalizedMessages = Array.isArray(messages)
+    ? messages
+        .filter((m) => m && typeof m.content === "string" && typeof m.role === "string")
+        .map((m) => ({ role: m.role, content: m.content }))
+    : [];
+
+  let userId: string | null = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.split(" ")[1];
+    if (token) {
+      try {
+        const decoded = Jwt.verify(token, SECRET) as JwtPayload;
+        userId = decoded.userId;
+      } catch {
+        userId = null;
+      }
+    }
+  }
+
+  let history: { role: string; content: string }[] = [];
+  if (userId) {
+    const memory = await ChatMemory.findOne({ userId }).lean();
+    if (memory?.messages?.length) {
+      history = memory.messages.slice(-20).map((m: any) => ({ role: m.role, content: m.content }));
+    }
+  } else {
+    history = normalizedMessages.slice(-20);
+  }
+
+  const products = await product
+    .find({})
+    .select("name category price tags")
+    .limit(10)
+    .lean();
+
+  const catalogSummary = products
+    .map(
+      (p: any) =>
+        `${p.name} - ₹${p.price} (${p.category})` +
+        (Array.isArray(p.tags) && p.tags.length ? ` [${p.tags.join(", ")}]` : "")
+    )
+    .join("; ");
+
+  const systemPrompt = `
+You are QuickWish, a premium gifting assistant for Indore.
+Only help with gifts, categories, occasions, pricing, delivery, and order guidance.
+Tone: warm, helpful, concise, suggestive but not salesy.
+If unsure, ask a short clarifying question.
+Context: Same Day Delivery - ₹49 extra (Indore only).
+Catalog: ${catalogSummary || "Curated gifting collections across flowers, cakes, personalized gifts, plants, and keepsakes."}
+`.trim();
+
+  const requestPayload = {
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: message.trim() },
+    ],
+    temperature: 0.4,
+  };
+
+  const callGroq = async () => {
+    if (!GROQ_API_KEY) return null;
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-70b-versatile",
+        ...requestPayload,
+      }),
+    });
+    return res;
+  };
+
+  const callDeepSeek = async () => {
+    if (!DEEPSEEK_API_KEY) return null;
+    const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        ...requestPayload,
+      }),
+    });
+    return res;
+  };
+
+  try {
+    let assistantRes = await callGroq();
+    if (!assistantRes || !assistantRes.ok) {
+      const fallbackRes = await callDeepSeek();
+      assistantRes = fallbackRes || assistantRes;
+    }
+
+    if (!assistantRes || !assistantRes.ok) {
+      const errText = assistantRes ? await assistantRes.text() : "No provider configured";
+      return res.status(502).json({ message: "Assistant unavailable.", details: errText });
+    }
+
+    const data = await assistantRes.json();
+    const reply = data?.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      return res.status(502).json({ message: "Assistant returned no response." });
+    }
+
+    if (userId) {
+      const updated = [
+        ...history,
+        { role: "user", content: message.trim() },
+        { role: "assistant", content: reply },
+      ].slice(-20);
+
+      await ChatMemory.findOneAndUpdate(
+        { userId },
+        { messages: updated, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+    }
+
+    return res.status(200).json({ success: true, reply });
+  } catch (error) {
+    return res.status(500).json({ message: "Assistant error." });
+  }
+};
+
+app.post("/api/assistant/chat", assistantChatHandler);
+app.post("/api/v1/assistant/chat", assistantChatHandler);
 
 app.post(
   "/api/v1/orders",

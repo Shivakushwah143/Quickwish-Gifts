@@ -12,6 +12,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  price: {
+    type: Number,
+    required: true,
+    index: true,
+  },
   description: String,
   offPrice: {
     type: Number,
@@ -55,6 +60,12 @@ const productSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  tags: [
+    {
+      type: String,
+      index: true,
+    },
+  ],
   stock: {
     type: Number,
     default: 1,
@@ -177,3 +188,22 @@ const orderSchema = new mongoose.Schema({
 });
 
 export const Order = mongoose.model("Order", orderSchema);
+
+const chatMessageSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true,
+  },
+  messages: [
+    {
+      role: { type: String, enum: ["system", "user", "assistant"], required: true },
+      content: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+  updatedAt: { type: Date, default: Date.now },
+});
+
+export const ChatMemory = mongoose.model("ChatMemory", chatMessageSchema);

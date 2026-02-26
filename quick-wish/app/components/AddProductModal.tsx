@@ -31,7 +31,8 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
     originalPrice: '',
     stock: '',
     badge: '',
-    offPrice: ''
+    offPrice: '',
+    tags: ''
   });
 
   if (!isOpen) return null;
@@ -158,7 +159,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
         // Reset form
         setFormData({
           name: '', price: '', category: '', description: '', discountPercent: '',
-          originalPrice: '', stock: '', badge: '', offPrice: ''
+          originalPrice: '', stock: '', badge: '', offPrice: '', tags: ''
         });
         setImages([]);
         setDeliveryOptions([{ type: 'Standard', time: '5-7 days', price: 0 }]);
@@ -271,6 +272,19 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                <input
+                  type="text"
+                  name="tags"
+                  value={formData.tags}
+                  onChange={handleInputChange}
+                  placeholder="Women, Birthday, Wife, Anniversary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Comma-separated tags for discovery</p>
               </div>
 
               <div>

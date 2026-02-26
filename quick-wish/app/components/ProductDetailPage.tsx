@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import { useState, useEffect } from "react";
@@ -81,7 +81,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[color:var(--ivory)]">
         <p className="text-lg">Loading product...</p>
       </div>
     );
@@ -89,12 +89,12 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[color:var(--ivory)]">
         <div className="text-center">
-          <p className="text-lg text-gray-600 mb-4">Product not found</p>
+          <p className="text-lg text-[color:var(--muted)] mb-4">Product not found</p>
           <button
             onClick={() => router.back()}
-            className="bg-pink-600 text-white px-4 py-2 rounded-md hover:bg-pink-700"
+            className="bg-[color:var(--wine)] text-[color:var(--ivory)] px-4 py-2 rounded-xl hover:bg-[#3b182f] transition-all"
           >
             Go Back
           </button>
@@ -103,27 +103,34 @@ export default function ProductDetailPage() {
     );
   }
 
-  const originalPrice = product.originalPrice || product.price * 1.3;
-  const discountPercent =
-    product.discountPercent ||
-    calculateDiscount(originalPrice, product.price);
+  const currentPrice = Number(product.price);
+  const safeCurrentPrice = Number.isFinite(currentPrice) ? currentPrice : 0;
+  const rawOriginalPrice = product.originalPrice ?? 0;
+  const originalPriceValue = Number(rawOriginalPrice);
+  const safeOriginalPrice = Number.isFinite(originalPriceValue) ? originalPriceValue : 0;
+  const computedOriginalPrice =
+    safeOriginalPrice > 0 ? safeOriginalPrice : safeCurrentPrice * 1.3;
+  const hasDiscount = safeCurrentPrice > 0 && computedOriginalPrice > safeCurrentPrice;
+  const discountPercent = hasDiscount
+    ? (product.discountPercent ?? calculateDiscount(computedOriginalPrice, safeCurrentPrice))
+    : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-[color:var(--ivory)] py-8">
       <div className="max-w-6xl mx-auto px-4">
         <button
           onClick={() => router.back()}
-          className="flex items-center text-gray-600 mb-6 hover:text-gray-900"
+          className="flex items-center text-[color:var(--muted)] mb-6 hover:text-[color:var(--wine)] transition-colors"
         >
           <ArrowLeft size={20} className="mr-2" />
-          Back to Products
+          Back to Gifts
         </button>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="lux-card overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
             {/* Product Images */}
             <div className="relative">
-              <div className="h-80 w-full overflow-hidden rounded-lg mb-4 relative">
+              <div className="h-80 w-full overflow-hidden rounded-xl mb-4 relative">
                 <img
                   src={product.images?.[selectedImage] || "/placeholder.jpg"}
                   alt={product.name}
@@ -134,13 +141,13 @@ export default function ProductDetailPage() {
                   <>
                     <button
                       onClick={prevImage}
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md hover:bg-gray-100"
+                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-[color:var(--ivory)] p-2 rounded-full shadow-md hover:bg-white transition"
                     >
                       <ChevronLeft size={20} />
                     </button>
                     <button
                       onClick={nextImage}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md hover:bg-gray-100"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[color:var(--ivory)] p-2 rounded-full shadow-md hover:bg-white transition"
                     >
                       <ChevronRight size={20} />
                     </button>
@@ -155,7 +162,7 @@ export default function ProductDetailPage() {
                       key={i}
                       onClick={() => setSelectedImage(i)}
                       className={`h-20 cursor-pointer rounded-md overflow-hidden ${
-                        selectedImage === i ? "ring-2 ring-pink-500" : ""
+                        selectedImage === i ? "ring-2 ring-[color:var(--gold)]" : ""
                       }`}
                     >
                       <img
@@ -171,7 +178,7 @@ export default function ProductDetailPage() {
 
             {/* Product Info */}
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-[color:var(--plum)] mb-2 lux-serif">
                 {product.name}
               </h1>
 
@@ -181,61 +188,62 @@ export default function ProductDetailPage() {
                     key={i}
                     className={`h-5 w-5 ${
                       i < Math.floor(product.rating || 0)
-                        ? "text-yellow-400 fill-current"
-                        : "text-gray-300"
+                        ? "text-[color:var(--gold)] fill-current"
+                        : "text-[color:var(--border)]"
                     }`}
                   />
                 ))}
-                <span className="text-sm text-gray-600 ml-2">
+                <span className="text-sm text-[color:var(--muted)] ml-2">
                   ({product.reviews || 0} reviews)
                 </span>
               </div>
 
               {product.badge && (
-                <span className="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded mb-4">
+                <span className="inline-block bg-[color:var(--wine)]/10 text-[color:var(--wine)] text-xs font-medium px-2.5 py-0.5 rounded-full mb-4">
                   {product.badge}
                 </span>
               )}
 
               <div className="mb-6">
                 <div className="flex items-center">
-                  <span className="text-3xl font-bold text-pink-600">
-                    {formatPrice( product.originalPrice as any)}
+                  <span className="text-3xl font-semibold text-[color:var(--wine)]">
+                    {formatPrice(safeCurrentPrice)}
                   </span>
-                  {discountPercent > 0 && (
+                  {hasDiscount && (
                     <>
-                      <span className="text-lg text-gray-500 line-through ml-2">
-                        {formatPrice(product.offPrice as any)}
+                      <span className="text-lg text-[color:var(--muted)] line-through ml-2">
+                        {formatPrice(computedOriginalPrice)}
                       </span>
-                      <span className="ml-3 bg-green-100 text-green-800 text-sm font-medium px-2 py-0.5 rounded">
+                      <span className="ml-3 bg-[color:var(--gold)]/20 text-[color:var(--plum)] text-sm font-medium px-2 py-0.5 rounded-full">
                         {discountPercent}% OFF
                       </span>
                     </>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Inclusive of all taxes
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="lux-pill px-3 py-1 text-xs">Same Day Delivery - ₹49 extra (Indore only)</span>
+                  <span className="text-sm text-[color:var(--muted)]">Inclusive of all taxes</span>
+                </div>
               </div>
 
               <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <h3 className="text-lg font-medium text-[color:var(--plum)] mb-2">
                   Description
                 </h3>
-                <p className="text-gray-700">{product.description}</p>
+                <p className="text-[color:var(--muted)]">{product.description}</p>
               </div>
 
               <div className="flex items-center space-x-4 mb-6">
-                <div className="flex items-center border rounded-md">
+                <div className="flex items-center border border-[color:var(--border)] rounded-xl">
                   <button
-                    className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+                    className="px-3 py-2 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   >
                     -
                   </button>
                   <span className="px-3 py-2">{quantity}</span>
                   <button
-                    className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+                    className="px-3 py-2 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition"
                     onClick={() => setQuantity(quantity + 1)}
                   >
                     +
@@ -244,22 +252,22 @@ export default function ProductDetailPage() {
 
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md font-medium hover:bg-red-700 flex items-center justify-center"
+                  className="flex-1 bg-[color:var(--wine)] text-[color:var(--ivory)] py-2 px-4 rounded-xl font-medium hover:bg-[#3b182f] flex items-center justify-center transition-all"
                 >
                   <ShoppingCart size={20} className="mr-2" />
                   Buy Now
                 </button>
 
-                <button className="p-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">
+                <button className="p-2 border border-[color:var(--border)] rounded-xl text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition">
                   <Heart size={20} />
                 </button>
               </div>
 
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <div className="border-t border-[color:var(--border)] pt-4">
+                <h3 className="text-lg font-medium text-[color:var(--plum)] mb-2">
                   Product Details
                 </h3>
-                <ul className="text-gray-700 space-y-1">
+                <ul className="text-[color:var(--muted)] space-y-1">
                   <li>
                     <span className="font-medium">Category:</span>{" "}
                     {product.category}
@@ -302,3 +310,4 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+

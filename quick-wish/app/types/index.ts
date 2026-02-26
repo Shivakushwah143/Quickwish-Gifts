@@ -30,6 +30,7 @@ export interface Product {
   discountPercent?: number;
   originalPrice?: number;
   offPrice?: number;
+  tags?: string[];
   deliveryOptions?: DeliveryOption[];
   stock: number;
   rating?: number;
