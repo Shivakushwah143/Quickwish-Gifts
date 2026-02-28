@@ -1,42 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuickWish
+
+QuickWish is a premium gifting storefront focused on curated categories, same-day delivery messaging, and a polished product experience. It includes an admin dashboard for managing products and a lightweight ordering flow.
+
+## Features
+- Modern Next.js storefront with App Router and responsive UI
+- Hero carousel and curated category sections (occasion, relationship, same-day, cakes, plants, etc.)
+- Product listing with category/tag filters and price/discount display
+- Product detail page with image gallery, rating, and quantity selector
+- Quick "Buy Now" flow via order modal
+- User authentication modal (JWT-based)
+- Admin dashboard with protected access and "Add Product" modal
+- Product image upload support (multi-image)
+- Order creation API and admin order confirmation
+- WhatsApp order handoff link after order creation
+- AI gifting assistant drawer with chat history and rate limiting
+- Newsletter, services, and testimonials sections
+- Themed luxury styling (custom fonts/colors)
+
+## Tech Stack
+- Next.js (App Router)
+- React
+- Tailwind CSS
+- Node.js + Express
+- MongoDB + Mongoose
 
 ## Getting Started
+### Frontend
+```bash
+cd quick-wish
+npm install
+npm run dev
+```
 
-First, run the development server:
+### Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
 
+## Environment Variables
+### Frontend (`quick-wish/.env`)
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+```
+
+### Backend (`backend/.env`)
+```
+PORT=5000
+MONGO_URI=your_mongodb_connection
+SECRET=your_jwt_secret
+GROQ_API_KEY=optional
+GROK_API_KEY=optional
+DEEPSEEK_API_KEY=optional
+```
+
+## Scripts
+### Frontend
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run lint
 ```
-echo "# Quickwish" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/Shivakushwah143/Quickwish.git
-git push -u origin main
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Backend
+```bash
+npm run dev
+npm run build
+```
