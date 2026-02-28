@@ -104,10 +104,14 @@ export default function ProductDetailPage() {
   }
 
   const currentPrice = Number(product.price);
-  const safeCurrentPrice = Number.isFinite(currentPrice) ? currentPrice : 0;
-  const rawOriginalPrice = product.originalPrice ?? 0;
-  const originalPriceValue = Number(rawOriginalPrice);
-  const safeOriginalPrice = Number.isFinite(originalPriceValue) ? originalPriceValue : 0;
+  const originalCandidate = Number(product.originalPrice ?? product.offPrice ?? 0);
+  const safeCurrentPrice =
+    Number.isFinite(currentPrice) && currentPrice > 0
+      ? currentPrice
+      : Number.isFinite(originalCandidate)
+        ? originalCandidate
+        : 0;
+  const safeOriginalPrice = Number.isFinite(originalCandidate) ? originalCandidate : 0;
   const computedOriginalPrice =
     safeOriginalPrice > 0 ? safeOriginalPrice : safeCurrentPrice * 1.3;
   const hasDiscount = safeCurrentPrice > 0 && computedOriginalPrice > safeCurrentPrice;
@@ -221,7 +225,9 @@ export default function ProductDetailPage() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="lux-pill px-3 py-1 text-xs">Same Day Delivery - ₹49 extra (Indore only)</span>
+                  <span className="lux-pill px-3 py-1 text-xs max-w-full text-center leading-tight whitespace-normal break-words">
+                    Same Day Delivery - ₹49 extra (Indore only)
+                  </span>
                   <span className="text-sm text-[color:var(--muted)]">Inclusive of all taxes</span>
                 </div>
               </div>
@@ -290,12 +296,13 @@ export default function ProductDetailPage() {
     onClose={() => setIsOrderModalOpen(false)}
     productId={product._id!}
     productName={product.name}
-    productPrice={product.price}       
+    productPrice={safeCurrentPrice}
     productImage={product.images[0]}
-    originalPrice={product.originalPrice || product.price * 1.3} 
+    originalPrice={computedOriginalPrice}
     discountPercent={
-      product.discountPercent ||
-      calculateDiscount(product.originalPrice || product.price * 1.3, product.price)
+      hasDiscount
+        ? (product.discountPercent ?? calculateDiscount(computedOriginalPrice, safeCurrentPrice))
+        : 0
     } 
   />
 )}
