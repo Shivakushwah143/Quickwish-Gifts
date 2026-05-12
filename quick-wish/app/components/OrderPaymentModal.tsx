@@ -138,10 +138,11 @@ export default function OrderPaymentModal({
         { name: 'Paytm', id: 'paytm@paytm', color: 'bg-[color:var(--wine)]' },
         { name: 'BHIM UPI', id: 'bhim@upi', color: 'bg-[color:var(--wine)]' }
     ];
+    const inputClass = "w-full px-3 py-2 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] text-[color:var(--plum)] placeholder:text-[color:var(--muted)] focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent outline-none";
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+            <div className="bg-[color:var(--surface)] text-[color:var(--plum)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[color:var(--border)]">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-[color:var(--border)]">
                     <div className="flex items-center">
@@ -150,7 +151,7 @@ export default function OrderPaymentModal({
                             {currentStep === 1 ? 'Complete Your Order' : 'Payment Options'}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-[color:var(--muted)]">
+                    <button onClick={onClose} className="text-[color:var(--muted)] hover:text-[color:var(--plum)]">
                         <X size={24} />
                     </button>
                 </div>
@@ -158,22 +159,22 @@ export default function OrderPaymentModal({
                 {/* Step Indicator */}
                 <div className="px-6 py-4 bg-[color:var(--ivory)]">
                     <div className="flex items-center justify-center space-x-4">
-                        <div className={`flex items-center ${currentStep >= 1 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
+                        <div className={`flex items-center ${currentStep >= 1 ? 'text-[color:var(--wine)]' : 'text-[color:var(--muted)]'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-[color:var(--wine)] text-white' : 'bg-[color:var(--border)] text-[color:var(--muted)]'}`}>
                                 1
                             </div>
                             <span className="ml-2 text-sm font-medium">Shipping</span>
                         </div>
-                        <div className={`w-12 h-0.5 ${currentStep >= 2 ? 'bg-[color:var(--wine)]' : 'bg-gray-300'}`}></div>
-                        <div className={`flex items-center ${currentStep >= 2 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
+                        <div className={`w-12 h-0.5 ${currentStep >= 2 ? 'bg-[color:var(--wine)]' : 'bg-[color:var(--border)]'}`}></div>
+                        <div className={`flex items-center ${currentStep >= 2 ? 'text-[color:var(--wine)]' : 'text-[color:var(--muted)]'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-[color:var(--wine)] text-white' : 'bg-[color:var(--border)] text-[color:var(--muted)]'}`}>
                                 2
                             </div>
                             <span className="ml-2 text-sm font-medium">Payment</span>
                         </div>
-                        <div className={`w-12 h-0.5 ${currentStep >= 3 ? 'bg-[color:var(--wine)]' : 'bg-gray-300'}`}></div>
-                        <div className={`flex items-center ${currentStep >= 3 ? 'text-[color:var(--wine)]' : 'text-gray-400'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-[color:var(--wine)] text-white' : 'bg-gray-300 text-[color:var(--muted)]'}`}>
+                        <div className={`w-12 h-0.5 ${currentStep >= 3 ? 'bg-[color:var(--wine)]' : 'bg-[color:var(--border)]'}`}></div>
+                        <div className={`flex items-center ${currentStep >= 3 ? 'text-[color:var(--wine)]' : 'text-[color:var(--muted)]'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-[color:var(--wine)] text-white' : 'bg-[color:var(--border)] text-[color:var(--muted)]'}`}>
                                 3
                             </div>
                             <span className="ml-2 text-sm font-medium">Confirmation</span>
@@ -217,7 +218,7 @@ export default function OrderPaymentModal({
                                             name="name"
                                             value={shippingAddress.name}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Enter your full name"
                                             required
                                         />
@@ -229,7 +230,7 @@ export default function OrderPaymentModal({
                                             name="phone"
                                             value={shippingAddress.phone}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Enter your phone number"
                                             required
                                         />
@@ -241,7 +242,7 @@ export default function OrderPaymentModal({
                                             name="street"
                                             value={shippingAddress.street}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Street address, P.O. Box, company name"
                                             required
                                         />
@@ -253,7 +254,7 @@ export default function OrderPaymentModal({
                                             name="city"
                                             value={shippingAddress.city}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Enter your city"
                                             required
                                         />
@@ -265,7 +266,7 @@ export default function OrderPaymentModal({
                                             name="state"
                                             value={shippingAddress.state}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Enter your state (optional)"
                                         />
                                     </div>
@@ -276,7 +277,7 @@ export default function OrderPaymentModal({
                                             name="pinCode"
                                             value={shippingAddress.pinCode}
                                             onChange={handleAddressChange}
-                                            className="w-full px-3 py-2 border border-[color:var(--border)] rounded-lg focus:ring-2 focus:ring-[color:var(--gold)] focus:border-transparent"
+                                            className={inputClass}
                                             placeholder="Enter PIN code"
                                             required
                                         />
@@ -285,7 +286,7 @@ export default function OrderPaymentModal({
                             </div>
 
                             {error && (
-                                <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">
+                                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
                                     {error}
                                 </div>
                             )}
@@ -345,7 +346,7 @@ export default function OrderPaymentModal({
                                         </div>
                                         <button
                                             onClick={() => copyToClipboard(displayPrice.toString())}
-                                            className="mt-3 inline-flex items-center px-3 py-1.5 rounded-lg border border-[color:var(--border)] text-xs text-[color:var(--plum)] hover:bg-white"
+                                            className="mt-3 inline-flex items-center px-3 py-1.5 rounded-lg border border-[color:var(--border)] text-xs text-[color:var(--plum)] hover:bg-[color:var(--surface)]"
                                         >
                                             Copy Amount
                                             <Copy size={14} className="ml-2" />
@@ -380,7 +381,7 @@ export default function OrderPaymentModal({
                                         </a>
                                         <button
                                             onClick={() => setCurrentStep(3)}
-                                            className="mt-3 w-full border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-white transition-colors"
+                                            className="mt-3 w-full border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-[color:var(--surface)] transition-colors"
                                         >
                                             I have sent the proof
                                         </button>
@@ -424,7 +425,7 @@ export default function OrderPaymentModal({
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setCurrentStep(2)}
-                                    className="flex-1 border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-white transition-colors"
+                                    className="flex-1 border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-[color:var(--surface)] transition-colors"
                                 >
                                     Back to payment
                                 </button>
