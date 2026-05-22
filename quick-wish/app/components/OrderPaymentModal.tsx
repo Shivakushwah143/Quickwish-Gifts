@@ -1,7 +1,8 @@
 ﻿
 // components/OrderPaymentModal.tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, ShoppingCart, MapPin, Phone, User, CreditCard, Smartphone, Copy, ExternalLink } from 'lucide-react';
+import BannerSection from './promotional/BannerSection';
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -36,6 +37,15 @@ export default function OrderPaymentModal({
     const [orderId, setOrderId] = useState('');
     const [whatsappUrl, setWhatsappUrl] = useState('');
     const [error, setError] = useState('');
+    const [couponCode, setCouponCode] = useState('');
+    const [couponMessage, setCouponMessage] = useState('');
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [appliedCoupon, setAppliedCoupon] = useState<{
+        code: string;
+        discountAmount: number;
+        finalAmount: number;
+        originalAmount: number;
+    } | null>(null);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
         name: '',
         phone: '',
@@ -45,21 +55,117 @@ export default function OrderPaymentModal({
         state: ''
     });
 
+    useEffect(() => {
+        if (isOpen) {
+            return;
+        }
+
+        setCurrentStep(1);
+        setLoading(false);
+        setOrderId('');
+        setWhatsappUrl('');
+        setError('');
+        setCouponCode('');
+        setCouponMessage('');
+        setCouponLoading(false);
+        setAppliedCoupon(null);
+        setShippingAddress({
+            name: '',
+            phone: '',
+            street: '',
+            city: '',
+            pinCode: '',
+            state: ''
+        });
+    }, [isOpen]);
+
     if (!isOpen) return null;
     const safeProductPrice = Number.isFinite(Number(productPrice)) ? Number(productPrice) : 0;
     const safeOriginalPrice = Number.isFinite(Number(originalPrice)) ? Number(originalPrice) : undefined;
-    const displayPrice =
+    const baseAmount =
         safeProductPrice > 0
             ? safeProductPrice
             : safeOriginalPrice && safeOriginalPrice > 0
                 ? safeOriginalPrice
                 : 0;
+    const displayPrice = appliedCoupon?.finalAmount ?? baseAmount;
+    const displayDiscount = appliedCoupon?.discountAmount ?? 0;
 
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setShippingAddress(prev => ({
             ...prev,
             [e.target.name]: e.target.value
         }));
+    };
+
+    const normalizeCouponInput = (value: string) => value.trim().toUpperCase();
+
+    const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const nextValue = e.target.value;
+        setCouponCode(nextValue);
+        setCouponMessage('');
+
+        if (appliedCoupon && normalizeCouponInput(nextValue) !== appliedCoupon.code) {
+            setAppliedCoupon(null);
+        }
+    };
+
+    const validateCoupon = async () => {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+        const normalizedCode = normalizeCouponInput(couponCode);
+
+        if (!normalizedCode) {
+            setCouponMessage('Enter a coupon code first.');
+            return null;
+        }
+
+        if (!API_BASE_URL) {
+            setCouponMessage('API URL is not configured.');
+            return null;
+        }
+
+        setCouponLoading(true);
+        setCouponMessage('');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/coupons/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    code: normalizedCode,
+                    productId,
+                    amount: baseAmount
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setAppliedCoupon(null);
+                setCouponMessage(data.message || 'Coupon is invalid.');
+                return null;
+            }
+
+            const pricing = data?.pricing || {};
+            const validatedCoupon = {
+                code: data?.coupon?.code || normalizedCode,
+                discountAmount: Number(pricing.discountAmount) || 0,
+                finalAmount: Number(pricing.finalAmount) || baseAmount,
+                originalAmount: Number(pricing.originalAmount) || baseAmount
+            };
+
+            setAppliedCoupon(validatedCoupon);
+            setCouponMessage(`${validatedCoupon.code} applied. You saved ₹${validatedCoupon.discountAmount}.`);
+            return validatedCoupon;
+        } catch (err) {
+            setAppliedCoupon(null);
+            setCouponMessage('Unable to validate coupon right now.');
+            return null;
+        } finally {
+            setCouponLoading(false);
+        }
     };
 
     const handleCreateOrder = async () => {
@@ -69,6 +175,12 @@ export default function OrderPaymentModal({
 
 
         try {
+            if (!API_BASE_URL) {
+                setError('API URL is not configured.');
+                setLoading(false);
+                return;
+            }
+
             const token = localStorage.getItem('token');
             if (!token) {
                 setError('Please login to place order');
@@ -76,9 +188,20 @@ export default function OrderPaymentModal({
                 return;
             }
 
+            let couponForOrder = appliedCoupon?.code || normalizeCouponInput(couponCode);
+            if (couponForOrder && !appliedCoupon) {
+                const validatedCoupon = await validateCoupon();
+                if (!validatedCoupon) {
+                    setLoading(false);
+                    return;
+                }
+                couponForOrder = validatedCoupon.code;
+            }
+
             console.log('Request payload:', {
                 productId,
-                shippingAddress
+                shippingAddress,
+                couponCode: couponForOrder || undefined
             });
 
             const response = await fetch(`${API_BASE_URL}/orders`, {
@@ -89,7 +212,8 @@ export default function OrderPaymentModal({
                 },
                 body: JSON.stringify({
                     productId,
-                    shippingAddress
+                    shippingAddress,
+                    couponCode: couponForOrder || undefined
                 })
             });
 
@@ -100,6 +224,13 @@ export default function OrderPaymentModal({
                 setOrderId(data.orderId);
                 setWhatsappUrl(data.whatsappUrl);
                 setCurrentStep(2);
+                if (typeof data?.finalAmount === 'number') {
+                    setAppliedCoupon(prev => prev ? {
+                        ...prev,
+                        finalAmount: Number(data.finalAmount) || prev.finalAmount,
+                        discountAmount: Number(data.discountAmount) || prev.discountAmount
+                    } : prev);
+                }
             } else {
                 setError(data.message || 'Order creation failed');
             }
@@ -187,6 +318,11 @@ export default function OrderPaymentModal({
                     {currentStep === 1 ? (
                         // Step 1: Shipping Address
                         <div className="space-y-6">
+                            <BannerSection
+                                variant="checkout"
+                                bannerIds={['checkout-birthday-surprise']}
+                            />
+
                             {/* Product Summary */}
                             <div className="bg-[color:var(--ivory)] rounded-lg p-4">
                                 <h3 className="font-semibold text-[color:var(--plum)] mb-3">Order Summary</h3>
@@ -197,11 +333,80 @@ export default function OrderPaymentModal({
                                     <div className="flex-1">
                                         <h4 className="font-medium text-[color:var(--plum)]">{productName}</h4>
                                         <p className="text-lg font-bold text-[color:var(--wine)]">₹{displayPrice}</p>
+                                        {displayDiscount > 0 && (
+                                            <p className="text-xs text-[color:var(--muted)] line-through">
+                                                ₹{baseAmount}
+                                            </p>
+                                        )}
                                         <span className="lux-pill inline-flex mt-2 px-2 py-0.5 text-[10px]">
                                             Same Day Delivery - ₹49 extra (Indore only)
                                         </span>
                                     </div>
                                     
+                                </div>
+                            </div>
+
+                            <div className="bg-[color:var(--ivory)] rounded-lg p-4 space-y-3">
+                                <h3 className="font-semibold text-[color:var(--plum)]">Coupon Code</h3>
+                                <div className="flex flex-col gap-3 sm:flex-row">
+                                    <input
+                                        type="text"
+                                        value={couponCode}
+                                        onChange={handleCouponChange}
+                                        className={inputClass}
+                                        placeholder="Enter coupon code"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={validateCoupon}
+                                        disabled={couponLoading || !couponCode.trim()}
+                                        className="rounded-lg bg-[color:var(--wine)] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {couponLoading ? 'Checking...' : 'Apply'}
+                                    </button>
+                                </div>
+                                {couponMessage && (
+                                    <p className={`text-sm ${appliedCoupon ? 'text-green-700' : 'text-red-600'}`}>
+                                        {couponMessage}
+                                    </p>
+                                )}
+                                {appliedCoupon && (
+                                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-medium">{appliedCoupon.code}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setAppliedCoupon(null);
+                                                    setCouponCode('');
+                                                    setCouponMessage('');
+                                                }}
+                                                className="text-xs font-semibold text-green-700 hover:text-green-900"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                        <div className="mt-1 flex items-center justify-between">
+                                            <span>You saved</span>
+                                            <span>₹{appliedCoupon.discountAmount}</span>
+                                        </div>
+                                        <div className="mt-1 flex items-center justify-between">
+                                            <span>Payable now</span>
+                                            <span>₹{appliedCoupon.finalAmount}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between text-sm text-[color:var(--muted)]">
+                                    <span>Original price</span>
+                                    <span>₹{baseAmount}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm text-[color:var(--muted)]">
+                                    <span>Discount</span>
+                                    <span>-₹{displayDiscount}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm font-semibold text-[color:var(--plum)]">
+                                    <span>Total payable</span>
+                                    <span>₹{displayPrice}</span>
                                 </div>
                             </div>
 

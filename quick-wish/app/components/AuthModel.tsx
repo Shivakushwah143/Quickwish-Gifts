@@ -28,7 +28,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     try {
-      const endpoint = mode === 'signin' ? `${API_BASE_URL}/user/signin` : `${API_BASE_URL}/user/signup`;
+    const endpoint = mode === 'signin'
+      ? `${API_BASE_URL}/user/signin`
+      : `${API_BASE_URL}/user/signup`;
       const body = mode === 'signin' 
         ? { email: formData.email, password: formData.password }
         : { email: formData.email, password: formData.password, username: formData.username };

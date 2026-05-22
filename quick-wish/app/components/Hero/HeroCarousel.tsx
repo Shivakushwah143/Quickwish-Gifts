@@ -9,6 +9,68 @@ interface HeroCarouselProps {
   slides: HeroSlide[];
 }
 
+const typewriterHeadlines = [
+  'Same Day Gift Delivery',
+  'Premium Hampers Made Personal',
+  'Flowers, Cakes & Custom Surprises',
+  'Indore Gifts Delivered Beautifully',
+];
+
+const TYPE_SPEED_MS = 42;
+const ERASE_SPEED_MS = 22;
+const HOLD_DELAY_MS = 1300;
+
+const TypewriterHeading = () => {
+  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [visibleText, setVisibleText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentHeadline = typewriterHeadlines[headlineIndex] || '';
+    const isFullyTyped = visibleText === currentHeadline;
+    const isFullyDeleted = visibleText.length === 0;
+
+    const delay = isFullyTyped && !isDeleting
+      ? HOLD_DELAY_MS
+      : isDeleting
+        ? ERASE_SPEED_MS
+        : TYPE_SPEED_MS;
+
+    const timer = window.setTimeout(() => {
+      if (!isDeleting && isFullyTyped) {
+        setIsDeleting(true);
+        return;
+      }
+
+      if (isDeleting && isFullyDeleted) {
+        setIsDeleting(false);
+        setHeadlineIndex((currentIndex) => (currentIndex + 1) % typewriterHeadlines.length);
+        return;
+      }
+
+      setVisibleText((currentText) => {
+        if (isDeleting) {
+          return currentText.slice(0, -1);
+        }
+
+        return currentHeadline.slice(0, currentText.length + 1);
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [headlineIndex, isDeleting, visibleText]);
+
+  return (
+    <h1 className="mt-4 min-h-[6.8rem] max-w-2xl text-4xl font-semibold leading-tight text-[#2b1d25] sm:min-h-[7.6rem] sm:text-5xl lg:min-h-[9rem] lg:text-6xl lux-serif">
+      <span>{visibleText}</span>
+      <span
+        className="ml-1 inline-block h-[0.85em] w-[3px] translate-y-1 animate-[hero-cursor_0.8s_steps(1)_infinite] rounded-full bg-[#f28b00]"
+        aria-hidden="true"
+      />
+    </h1>
+  );
+};
+
 const HeroCarousel = ({ slides }: HeroCarouselProps) => {
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const router = useRouter();
@@ -45,9 +107,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
               Indore same day delivery
             </p>
 
-            <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-[#2b1d25] sm:text-5xl lg:text-6xl lux-serif">
-              Same Day Gift Delivery
-            </h1>
+            <TypewriterHeading />
             <p className="mt-4 max-w-xl text-base text-[#6f5d66] sm:text-lg">
               Custom handmade hampers, flowers, cakes, and keepsakes made to feel personal from the first look.
             </p>

@@ -208,10 +208,9 @@ const handleSubmit = async (e: React.FormEvent) => {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
   try {
-    // CORRECTED: Added /api/v1 to the endpoint URLs
     const endpoint = mode === 'signin' 
-      ? `${API_BASE_URL}/api/v1/user/signin` 
-      : `${API_BASE_URL}/api/v1/user/signup`;
+      ? `${API_BASE_URL}/admin/signin` 
+      : `${API_BASE_URL}/admin/signup`;
 
     // Prepare request body based on mode
     const requestBody = mode === 'signin' 
@@ -222,7 +221,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       : {
           username: formData.username,
           password: formData.password,
-          email: formData.email || `${formData.username}@admin.com`
         };
 
     const response = await fetch(endpoint, {

@@ -6,19 +6,19 @@ export const heroSlides: HeroSlide[] = [
   {
     title: "Moments, wrapped in quiet elegance.",
     subtitle: "Premium gifting crafted for Indore, delivered with a gentle hand.",
-    image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Flowers_Banner_Desk_9.jpg",
+    image: "https://www.fnp.com/assets/images/custom/flowers_24/Explore%20Our%20Exquisite%20Range/Lily-25-9-24.jpg",
     cta: "Explore the Collection"
   },
   {
     title: "Birthdays, in their finest light.",
     subtitle: "A thoughtful curation of florals, cakes, and keepsakes that linger.",
-    image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Birthday_banner_Desk-16-06-2025.jpg",
+    image: "https://static-assets-prod.fnp.com/assets/images/custom/hero-category-row/Banner_Desk.png",
     cta: "Shop Birthday"
   },
   {
     title: "Same day, still exquisite.",
     subtitle: "Indore delivery within hours, beautifully finished and on time.",
-    image: "https://www.fnp.com/assets/images/custom/new-home-2025/hero-banners/Photography_Day_Desk-16-08-2025.jpg",
+    image: "https://www.fnp.com/assets/images/custom/flowers_24/Pair%20with%20Flowers/Flowers-and-Chocolates-25-9-24.jpg",
     cta: "View Same-Day"
   },
   {

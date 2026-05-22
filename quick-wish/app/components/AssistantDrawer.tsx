@@ -102,7 +102,7 @@ export default function AssistantDrawer() {
         },
       ];
       setMessages((prev) => [...prev, ...fallbackMessages].slice(-MAX_MESSAGES));
-      setError("The assistant is temporarily unavailable. I’ve shared a quick guide to get you started.");
+      setError("The assistant is temporarily unavailable. message on this what app number 9009917146.");
     } finally {
       setLoading(false);
     }

@@ -21,6 +21,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Testimonials from './components/Testimonials';
 import { Cake, Gift, Heart, Palette } from 'lucide-react';
+import BannerSection from './components/promotional/BannerSection';
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -75,6 +76,11 @@ export default function Home() {
       {isAdmin && <AdminDashboard />}
 
       <HeroCarousel slides={heroSlides} />
+      <BannerSection
+        variant="hero"
+        bannerIds={['hero-premium-gifts']}
+        className="bg-[color:var(--ivory)]"
+      />
 
       <section className="bg-[#f8f3ec] py-8 px-4">
         <div className="max-w-7xl mx-auto">
@@ -131,6 +137,12 @@ export default function Home() {
       </section>
 
       <ProductSection title="Best Sellers" />
+      <BannerSection
+        title="Fresh picks for today"
+        subtitle="Seasonal flowers, hand-finished hampers, and gifting moments ready to send."
+        bannerIds={['mid-fresh-flowers']}
+        className="bg-[#f8f3ec]"
+      />
       <ServicesSection />
       <CategorySection
         title="Same-Day Surprises"

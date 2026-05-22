@@ -8,7 +8,9 @@ import multer from "multer";
 import { uploadProductImages } from "./config/uploadImages.js";
 import type { JwtPayload } from "./types/index.js";
 import cors from "cors";
+import dns from "dns";
 const app = Express();
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 app.use(Express.json());
 
@@ -590,6 +592,7 @@ const assistantChatHandler = async (req: Request, res: Response) => {
   }
 
   const assistantKey = GROQ_API_KEY || GROK_API_KEY || DEEPSEEK_API_KEY;
+  console.log(assistantKey)
   if (!assistantKey) {
     return res.status(500).json({ message: "Assistant is not configured." });
   }
@@ -666,6 +669,7 @@ Catalog: ${catalogSummary || "Curated gifting collections across flowers, cakes,
 
   const callGroq = async () => {
     if (!GROQ_API_KEY) return null;
+    console.log(GROK_API_KEY)
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -677,6 +681,7 @@ Catalog: ${catalogSummary || "Curated gifting collections across flowers, cakes,
         ...requestPayload,
       }),
     });
+    console.log(res)
     return res;
   };
 

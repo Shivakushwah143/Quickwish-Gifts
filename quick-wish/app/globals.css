@@ -62,6 +62,11 @@ h3,
   100% { transform: translateX(-50%); }
 }
 
+@keyframes hero-cursor {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+
 .animate-marquee {
   display: flex;
   animation: marquee 25s linear infinite;
