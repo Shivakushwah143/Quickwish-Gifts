@@ -1,7 +1,7 @@
 import Express, { response } from "express";
 import type { NextFunction, Request, Response } from "express";
 import mongoose from "mongoose";
-import { admin, ChatMemory, Order, product, User } from "./db.js";
+import { admin, ChatMemory, Coupon, Order, product, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
@@ -170,6 +170,120 @@ const adminAuthentication = (
       next();
     });
   }
+};
+
+const normalizeCouponCode = (value: unknown) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().toUpperCase();
+};
+
+const getBaseOrderAmount = (giftProduct: any) => {
+  const candidateValues = [
+    giftProduct?.price,
+    giftProduct?.offPrice,
+    giftProduct?.originalPrice,
+  ];
+
+  for (const value of candidateValues) {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue) && parsedValue > 0) {
+      return parsedValue;
+    }
+  }
+
+  return 0;
+};
+
+const calculateCouponDiscount = (baseAmount: number, coupon: any) => {
+  const safeBaseAmount = Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : 0;
+
+  if (!coupon || safeBaseAmount <= 0) {
+    return {
+      discountAmount: 0,
+      finalAmount: safeBaseAmount,
+    };
+  }
+
+  let discountAmount = 0;
+
+  if (coupon.discountType === "flat") {
+    discountAmount = Math.min(Number(coupon.discountValue) || 0, safeBaseAmount);
+  } else {
+    discountAmount = (safeBaseAmount * (Number(coupon.discountValue) || 0)) / 100;
+  }
+
+  const roundedDiscount = Math.max(
+    0,
+    Math.min(safeBaseAmount, Number(discountAmount.toFixed(2)))
+  );
+  const finalAmount = Number((safeBaseAmount - roundedDiscount).toFixed(2));
+
+  return {
+    discountAmount: roundedDiscount,
+    finalAmount,
+  };
+};
+
+const validateCouponForAmount = async (code: unknown, baseAmount: number) => {
+  const couponCode = normalizeCouponCode(code);
+
+  if (!couponCode) {
+    return {
+      ok: true,
+      coupon: null,
+      discountAmount: 0,
+      finalAmount: baseAmount,
+    };
+  }
+
+  const coupon = await Coupon.findOne({
+    code: couponCode,
+    active: true,
+  });
+
+  if (!coupon) {
+    return {
+      ok: false,
+      message: "Invalid coupon code",
+    };
+  }
+
+  if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now()) {
+    return {
+      ok: false,
+      message: "Coupon has expired",
+    };
+  }
+
+  if (Number(coupon.minOrderAmount || 0) > baseAmount) {
+    return {
+      ok: false,
+      message: `Minimum order amount for this coupon is Rs ${coupon.minOrderAmount}`,
+    };
+  }
+
+  if (
+    typeof coupon.usageLimit === "number" &&
+    coupon.usageLimit > 0 &&
+    coupon.usedCount >= coupon.usageLimit
+  ) {
+    return {
+      ok: false,
+      message: "Coupon usage limit has been reached",
+    };
+  }
+
+  const { discountAmount, finalAmount } = calculateCouponDiscount(baseAmount, coupon);
+
+  return {
+    ok: true,
+    coupon,
+    discountAmount,
+    finalAmount,
+  };
 };
 
 app.post("/api/v1/admin/signup", async (req: Request, res: Response) => {
@@ -406,6 +520,62 @@ app.delete(
   }
 );
 
+app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
+  const { code, productId, amount } = req.body || {};
+
+  try {
+    let baseAmount = Number(amount);
+
+    if ((!Number.isFinite(baseAmount) || baseAmount <= 0) && productId) {
+      const giftProduct = await product.findById(productId);
+      if (!giftProduct) {
+        return res.status(404).json({ success: false, message: "Product not found" });
+      }
+
+      baseAmount = getBaseOrderAmount(giftProduct);
+    }
+
+    if (!Number.isFinite(baseAmount) || baseAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid amount or productId is required",
+      });
+    }
+
+    const validation = await validateCouponForAmount(code, baseAmount);
+
+    if (!validation.ok) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message,
+      });
+    }
+
+    const couponCode = normalizeCouponCode(code);
+
+    return res.status(200).json({
+      success: true,
+      message: couponCode ? "Coupon applied successfully" : "No coupon applied",
+      coupon: validation.coupon
+        ? {
+            id: validation.coupon._id,
+            code: validation.coupon.code,
+            discountType: validation.coupon.discountType,
+            discountValue: validation.coupon.discountValue,
+            creatorName: validation.coupon.creatorName,
+          }
+        : null,
+      pricing: {
+        originalAmount: baseAmount,
+        discountAmount: validation.discountAmount,
+        finalAmount: validation.finalAmount,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Coupon validation failed" });
+  }
+});
+
 const assistantChatHandler = async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   const now = Date.now();
@@ -571,7 +741,7 @@ app.post(
   "/api/v1/orders",
   authenticateUser,
   async (req: Request, res: Response) => {
-    const { productId, shippingAddress } = req.body;
+    const { productId, shippingAddress, couponCode } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
     console.log(token);
     try {
@@ -589,10 +759,71 @@ app.post(
       if (!GiftProduct)
         return res.status(404).json({ message: "Product not found" });
       console.log(req.body);
+
+      const originalAmount = getBaseOrderAmount(GiftProduct);
+      const validation = await validateCouponForAmount(couponCode, originalAmount);
+
+      if (!validation.ok) {
+        return res.status(400).json({
+          success: false,
+          message: validation.message,
+        });
+      }
+
+      let couponDoc = validation.coupon;
+      let discountAmount = validation.discountAmount;
+      let finalAmount = validation.finalAmount;
+      const normalizedCouponCode = normalizeCouponCode(couponCode);
+
+      if (normalizedCouponCode) {
+        const couponFilter: Record<string, unknown> = {
+          code: normalizedCouponCode,
+          active: true,
+        };
+
+        if (validation.coupon?.expiresAt) {
+          couponFilter.expiresAt = { $gt: new Date() };
+        }
+
+        if (
+          typeof validation.coupon?.usageLimit === "number" &&
+          validation.coupon.usageLimit > 0
+        ) {
+          couponFilter.$expr = {
+            $lt: ["$usedCount", "$usageLimit"],
+          };
+        }
+
+        couponDoc = await Coupon.findOneAndUpdate(
+          couponFilter,
+          {
+            $inc: { usedCount: 1 },
+            $set: { updatedAt: new Date() },
+          },
+          { new: true }
+        );
+
+        if (!couponDoc) {
+          return res.status(400).json({
+            success: false,
+            message: "Coupon is no longer available",
+          });
+        }
+
+        const recalculated = calculateCouponDiscount(originalAmount, couponDoc);
+        discountAmount = recalculated.discountAmount;
+        finalAmount = recalculated.finalAmount;
+      }
+
       const order = await Order.create({
         user: user._id,
         product: productId,
-        amount: (GiftProduct as any).originalPrice,
+        amount: finalAmount,
+        originalAmount,
+        discountAmount,
+        finalAmount,
+        couponCode: normalizedCouponCode || undefined,
+        couponId: couponDoc?._id,
         shippingAddress,
         status: "Processing",
       });
@@ -600,6 +831,11 @@ app.post(
       res.status(201).json({
         success: true,
         orderId: order._id,
+        amount: order.amount,
+        originalAmount: order.originalAmount,
+        discountAmount: order.discountAmount,
+        finalAmount: order.finalAmount,
+        couponCode: order.couponCode,
         whatsappUrl: `https://wa.me/9575930848?text=Order%20${order._id}`,
       });
     } catch (error) {

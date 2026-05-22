@@ -87,6 +87,84 @@ const productSchema = new mongoose.Schema({
 });
 export const product = mongoose.model("product", productSchema);
 
+const couponSchema = new mongoose.Schema({
+  code: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true,
+    uppercase: true,
+    trim: true,
+  },
+  discountType: {
+    type: String,
+    enum: ["percent", "flat"],
+    required: true,
+    default: "percent",
+  },
+  discountValue: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  minOrderAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  usageLimit: {
+    type: Number,
+    default: null,
+    min: 1,
+  },
+  usedCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  active: {
+    type: Boolean,
+    default: true,
+    index: true,
+  },
+  creatorName: {
+    type: String,
+    trim: true,
+  },
+  creatorId: {
+    type: String,
+    trim: true,
+  },
+  description: {
+    type: String,
+    trim: true,
+  },
+  expiresAt: {
+    type: Date,
+    default: null,
+    index: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+couponSchema.pre("save", function (this: any, next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+const couponModel =
+  (mongoose.models.Coupon as mongoose.Model<any>) ||
+  mongoose.model("Coupon", couponSchema);
+
+export const Coupon = couponModel as mongoose.Model<any>;
+
 interface IUser {
   clerkUserId?: string;
   password?: string;
@@ -171,6 +249,26 @@ const orderSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+  },
+  originalAmount: {
+    type: Number,
+    required: false,
+  },
+  discountAmount: {
+    type: Number,
+    default: 0,
+  },
+  finalAmount: {
+    type: Number,
+    required: false,
+  },
+  couponCode: {
+    type: String,
+    trim: true,
+  },
+  couponId: {
+    type: mongoose.Types.ObjectId,
+    ref: "Coupon",
   },
   shippingAddress: {
     name: String,
