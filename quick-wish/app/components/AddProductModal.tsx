@@ -133,7 +133,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/product`, {
+      const response = await fetch(`${API_BASE_URL}/product`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
