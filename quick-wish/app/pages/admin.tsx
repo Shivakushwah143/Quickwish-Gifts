@@ -1,5 +1,4 @@
 
-// }
 
 "use client"
 import { useState, useEffect } from 'react';
@@ -93,7 +92,7 @@ export default function AdminDashboard() {
       }
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/users`);
+      const response = await fetch(`${API_BASE_URL}/admin/users`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch users');
@@ -118,8 +117,8 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_BASE_URL}/api/v1/product`, {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${API_BASE_URL}/product`, {
 
       });
 
@@ -151,7 +150,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const API_BASE_URL = 'http://localhost:5000';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_BASE_URL}/product/${updatedProduct._id}`, {
         method: 'PUT',
         headers: {

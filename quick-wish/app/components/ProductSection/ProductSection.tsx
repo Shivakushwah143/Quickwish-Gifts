@@ -342,7 +342,7 @@ import { ShoppingBag, Star } from 'lucide-react';
 import OrderPaymentModal from '../OrderPaymentModal';
 import AuthModal from '../../components/AuthModel';
 
-const API_BASE_URL =" https://quickwish-gifts.onrender.com/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const ProductSection = ({ title }: { title: string }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -356,6 +356,10 @@ const ProductSection = ({ title }: { title: string }) => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        if (!API_BASE_URL) {
+          throw new Error('API URL is not configured');
+        }
+
         const response = await fetch(`${API_BASE_URL}/product`);
         const data = await response.json();
         console.log(data)
