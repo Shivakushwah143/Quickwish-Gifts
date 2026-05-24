@@ -6,6 +6,10 @@ import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
 import { uploadProductImages } from "./config/uploadImages.js";
+import {
+  sendOrderConfirmationEmail,
+  type OrderItem,
+} from "./services/email.service.js";
 import type { JwtPayload } from "./types/index.js";
 import cors from "cors";
 import dns from "dns";
@@ -870,10 +874,58 @@ app.patch(
         return res.status(404).json({ message: "Order not found" });
       }
 
+      const customer = await User.findById(order.user);
+      const orderedProduct = await product.findById(order.product);
+
+      if (!customer) {
+        console.error(`Order ${orderId} confirmed, but customer was not found`);
+        return res.status(500).json({
+          success: false,
+          message: "Order confirmed, but customer email could not be found",
+        });
+      }
+
+      if (!orderedProduct) {
+        console.error(`Order ${orderId} confirmed, but product was not found`);
+        return res.status(500).json({
+          success: false,
+          message: "Order confirmed, but product details could not be found",
+        });
+      }
+
+      const orderItems: OrderItem[] = [
+        {
+          name: orderedProduct.name,
+          quantity: 1,
+          price: order.finalAmount ?? order.amount,
+        },
+      ];
+
+      try {
+        await sendOrderConfirmationEmail({
+          customerName: order.shippingAddress?.name || customer.username || "Customer",
+          customerEmail: customer.email,
+          orderId: order._id.toString(),
+          items: orderItems,
+          totalAmount: order.finalAmount ?? order.amount,
+        });
+      } catch (emailError) {
+        const message =
+          emailError instanceof Error ? emailError.message : "Unknown email error";
+        console.error(
+          `Order ${orderId} confirmed, but confirmation email failed: ${message}`
+        );
+        return res.status(502).json({
+          success: false,
+          message: "Order confirmed, but confirmation email failed",
+        });
+      }
+
       console.log("level2");
       res.status(200).json({
         success: true,
         message: "Order confirmed",
+        emailSent: true,
         order,
       });
     } catch (error) {
