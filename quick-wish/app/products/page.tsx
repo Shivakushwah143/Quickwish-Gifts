@@ -262,6 +262,24 @@ import { Star, Filter, X, ArrowLeft, Home } from 'lucide-react';
 // Define API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const categoryAliases: Record<string, string[]> = {
+  'birthday hampers': ['birthday', 'cakes', 'chocolate bouquets'],
+  'couple gifts': ['anniversary', "valentine's day"],
+  'friendship gifts': ['besti'],
+  'custom hampers': ['personalized gifts', 'customized mugs', 'photo frames'],
+  coustomize: ['personalized gifts', 'customized mugs', 'photo frames'],
+  personalized: ['personalized gifts'],
+  flowers: ['fresh flowers', 'flower bouquets'],
+  chocolates: ['chocolate bouquets'],
+};
+
+const normalizeFilterValue = (value: string) => value.trim().toLowerCase();
+
+const getFilterValues = (category: string): string[] => {
+  const normalized = normalizeFilterValue(category);
+  return [normalized, ...(categoryAliases[normalized] || [])];
+};
+
 // Create a component that uses useSearchParams
 function ProductsContent() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -298,10 +316,12 @@ function ProductsContent() {
 
   useEffect(() => {
     if (selectedCategory) {
-      const selected = selectedCategory.toLowerCase();
+      const selectedValues = getFilterValues(selectedCategory);
       const filtered = products.filter(product =>
-        product.category?.toLowerCase() === selected ||
-        (product.tags || []).some(tag => tag.toLowerCase() === selected)
+        selectedValues.includes(normalizeFilterValue(product.category || '')) ||
+        (product.tags || []).some(tag =>
+          selectedValues.includes(normalizeFilterValue(tag))
+        )
       );
       setFilteredProducts(filtered);
     } else {

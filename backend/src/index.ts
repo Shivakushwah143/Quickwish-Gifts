@@ -28,8 +28,9 @@ app.use(cors({
   origin: [
     'https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app', // Your main domain
     'https://quickwish-gifts-qvbu.vercel.app', // Your previous domain
-    /\.vercel\.app$/, // All Vercel deployments (regex pattern)
-    'http://localhost:3000' // Local development
+    'https://www.onewish.fun',                 // Your custom domain (NEW)
+    /\.vercel\.app$/,                          // All Vercel deployments (regex pattern)
+    'http://localhost:3000'                    // Local development
   ],
   credentials: true,
 }));

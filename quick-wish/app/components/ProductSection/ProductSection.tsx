@@ -1,4 +1,4 @@
-﻿// // src/components/ProductSection/ProductSection.tsx
+// // src/components/ProductSection/ProductSection.tsx
 // import { Product } from '@/app/types';
 // import { Star } from 'lucide-react';
 
@@ -338,6 +338,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '../../types/index';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ShoppingBag, Star } from 'lucide-react';
 import OrderPaymentModal from '../OrderPaymentModal';
 import AuthModal from '../../components/AuthModel';
@@ -350,6 +351,7 @@ const ProductSection = ({ title }: { title: string }) => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
 
   useEffect(() => {
@@ -387,10 +389,11 @@ const ProductSection = ({ title }: { title: string }) => {
   };
 
   const urgencyTag = (price: number, discountPercent: number, index: number) => {
-    if (price > 0 && price <= 299) return 'Under ₹299';
-    if (price > 0 && price <= 499) return 'Under ₹499';
+    if (price > 0 && price <= 299) return 'Under ?299';
+    if (price > 0 && price <= 499) return 'Under ?499';
     if (discountPercent >= 40) return `${discountPercent}% OFF`;
-    return index % 2 === 0 ? 'Most Loved' : 'Trending';
+    const badges = ['Most Loved', 'Fast Selling', 'Best for Birthdays'];
+    return badges[index % badges.length];
   };
 
   const handleProductClick = (productId: string) => {
@@ -422,8 +425,8 @@ const ProductSection = ({ title }: { title: string }) => {
           </div>
           <div className="flex gap-4 overflow-x-auto pb-3 hide-scrollbar">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="w-48 flex-shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
-              <div className="h-52 bg-[color:var(--border)]/60 animate-pulse"></div>
+            <div key={i} className="w-56 flex-shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
+              <div className="h-60 bg-[color:var(--border)]/60 animate-pulse"></div>
               <div className="p-3">
                 <div className="h-4 bg-[color:var(--border)]/70 rounded w-3/4 mb-2 animate-pulse"></div>
                 <div className="h-3 bg-[color:var(--border)]/70 rounded w-1/2 mb-3 animate-pulse"></div>
@@ -447,10 +450,10 @@ const ProductSection = ({ title }: { title: string }) => {
           <div className="flex items-end justify-between gap-4 mb-5">
             <div>
               <h2 className="text-xl sm:text-2xl font-semibold lux-serif text-[color:var(--plum)]">{title}</h2>
-              <p className="text-sm text-[color:var(--muted)]">Fast picks with price tags that make choosing easy.</p>
+              <p className="text-sm text-[color:var(--muted)]">Gifts people choose when the moment really matters.</p>
             </div>
             <button
-              className="hidden rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--plum)] transition hover:border-[color:var(--gold)] sm:inline-flex"
+              className="hidden rounded-full border border-[#eadfd4] bg-white px-4 py-2 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a] sm:inline-flex"
               onClick={() => router.push('/products')}
             >
               View all
@@ -474,16 +477,22 @@ const ProductSection = ({ title }: { title: string }) => {
               : 0;
 
             return (
-              <div
+              <motion.div
                 key={product._id}
-                className="w-48 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+                className="w-56 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)]"
                 onClick={() => product._id && handleProductClick(product._id)}
+                whileHover={shouldReduceMotion ? undefined : { y: -4 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                <div className="relative">
-                  <img
+                <div className="relative overflow-hidden bg-[#fbf4ec]">
+                  <motion.img
                     src={product.images[0] || '/placeholder-image.jpg'}
                     alt={product.name}
-                    className="h-52 w-full object-cover"
+                    className="h-60 w-full object-cover transition duration-500 hover:scale-105"
+                    loading="lazy"
+                    whileHover={shouldReduceMotion ? undefined : { scale: 1.035 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
                   />
                   <div className="absolute left-2 top-2">
                     <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#b54e36] shadow-sm">
@@ -492,15 +501,15 @@ const ProductSection = ({ title }: { title: string }) => {
                   </div>
                   {discountPercent > 0 && (
                     <div className="absolute bottom-2 right-2">
-                      <span className="bg-[color:var(--gold)] text-[color:var(--plum)] px-2 py-1 rounded-full text-xs font-bold shadow-sm">
+                      <span className="rounded-full bg-[#c9a36a] px-2 py-1 text-xs font-bold text-[#2b1d25] shadow-sm">
                         {discountPercent}% OFF
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="p-3">
-                  <h3 className="font-medium text-[color:var(--plum)] text-sm mb-1 line-clamp-1">{product.name}</h3>
+                <div className="p-3.5">
+                  <h3 className="font-semibold text-[#2b1d25] text-sm mb-1 line-clamp-2 leading-snug">{product.name}</h3>
 
                   <div className="flex items-center mb-2">
                     <div className="flex items-center">
@@ -508,42 +517,43 @@ const ProductSection = ({ title }: { title: string }) => {
                         <Star
                           key={i}
                           className={`h-3 w-3 ${i < Math.floor(product.rating || 0)
-                              ? 'text-[color:var(--gold)] fill-current'
-                              : 'text-[color:var(--border)]'
+                                  ? 'text-[#c9a36a] fill-current'
+                                  : 'text-[#eadfd4]'
                             }`}
                         />
                       ))}
                     </div>
-                    <span className="text-xs text-[color:var(--muted)] ml-1">
+                    <span className="text-xs text-[#7b6a73] ml-1">
                       ({product.reviews || 0})
                     </span>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-semibold text-[color:var(--wine)]">
+                      <span className="text-lg font-semibold text-[#4a1f3b]">
                         {formatPrice(safeCurrentPrice)}
                       </span>
 
                       {hasDiscount && (
-                        <span className="text-xs text-[color:var(--muted)] line-through ml-1">
+                        <span className="text-xs text-[#7b6a73] line-through ml-1">
                           {formatPrice(computedOriginalPrice)}
                         </span>
                       )}
                     </div>
-                    <p className="rounded-md bg-[#fff4e4] px-2 py-1 text-[11px] font-semibold text-[#8b3f2f]">
-                      Same day delivery available
+                    <p className="rounded-full bg-[#fff4e4] px-2.5 py-1 text-[11px] font-semibold text-[#8b3f2f]">
+                      Same day delivery
                     </p>
-                    <button
+                    <motion.button
                       className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-[color:var(--wine)] px-3 py-2 text-xs font-semibold text-[color:var(--ivory)] transition-all hover:bg-[#3b182f]"
                       onClick={(e) => handleAddToCart(product, e)}
+                      whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
                     >
                       <ShoppingBag className="h-3.5 w-3.5" />
                       Add
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
           </div>
@@ -571,4 +581,5 @@ const ProductSection = ({ title }: { title: string }) => {
 };
 
 export default ProductSection;
+
 
