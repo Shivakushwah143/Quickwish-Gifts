@@ -1,3 +1,3 @@
 {
-  "installCommand": "npm install --omit=optional --no-audit --no-fund"
+  "installCommand": "rm -f package-lock.json && npm install --omit=optional --no-audit --no-fund"
 }
