@@ -1,7 +1,8 @@
 
 QuickWish Gifts — Full-Stack E-Commerce Gift Platform
 
-# QuickWish
+# QuickWish 
+# A gifting brand
 
 QuickWish is a premium gifting storefront focused on curated categories, same-day delivery messaging, and a polished product experience. It includes an admin dashboard for managing products and a lightweight ordering flow.
 
