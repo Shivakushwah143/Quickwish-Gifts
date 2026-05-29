@@ -56,7 +56,8 @@ export default function AssistantDrawer() {
 
     setError("");
     setInput("");
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content }].slice(-MAX_MESSAGES);
+    const userMessage: ChatMessage = { role: "user", content };
+    const nextMessages: ChatMessage[] = [...messages, userMessage].slice(-MAX_MESSAGES);
     setMessages(nextMessages);
     setLoading(true);
 
@@ -89,7 +90,8 @@ export default function AssistantDrawer() {
       }
 
       const reply = typeof data?.reply === "string" ? data.reply : "Thanks for your note. How can I help?";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }].slice(-MAX_MESSAGES));
+      const assistantMessage: ChatMessage = { role: "assistant", content: reply };
+      setMessages((prev) => [...prev, assistantMessage].slice(-MAX_MESSAGES));
     } catch {
       const fallbackMessages: ChatMessage[] = [
         {

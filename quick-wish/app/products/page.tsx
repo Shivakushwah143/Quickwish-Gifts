@@ -1,11 +1,8 @@
 import { Suspense } from "react";
-import {
-  fetchStaticProducts,
-  PRODUCT_REVALIDATE_SECONDS,
-} from "../lib/productCatalog";
+import { fetchStaticProducts } from "../lib/productCatalog";
 import ProductListClient from "./ProductListClient";
 
-export const revalidate = PRODUCT_REVALIDATE_SECONDS;
+export const revalidate = 86400;
 
 function ProductsLoading() {
   return (

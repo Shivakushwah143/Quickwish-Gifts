@@ -1,11 +1,10 @@
 import {
   fetchStaticProductById,
   fetchStaticProducts,
-  PRODUCT_REVALIDATE_SECONDS,
 } from "../../lib/productCatalog";
 import ProductDetailPage from "../../components/ProductDetailPage";
 
-export const revalidate = PRODUCT_REVALIDATE_SECONDS;
+export const revalidate = 86400;
 export const dynamicParams = true;
 
 type ProductPageProps = {
