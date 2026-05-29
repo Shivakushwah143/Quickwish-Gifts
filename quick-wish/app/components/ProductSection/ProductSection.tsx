@@ -389,8 +389,8 @@ const ProductSection = ({ title }: { title: string }) => {
   };
 
   const urgencyTag = (price: number, discountPercent: number, index: number) => {
-    if (price > 0 && price <= 299) return 'Under ?299';
-    if (price > 0 && price <= 499) return 'Under ?499';
+    if (price > 0 && price <= 299) return 'Under Rs 299';
+    if (price > 0 && price <= 499) return 'Under Rs 499';
     if (discountPercent >= 40) return `${discountPercent}% OFF`;
     const badges = ['Most Loved', 'Fast Selling', 'Best for Birthdays'];
     return badges[index % badges.length];
@@ -425,7 +425,7 @@ const ProductSection = ({ title }: { title: string }) => {
           </div>
           <div className="flex gap-4 overflow-x-auto pb-3 hide-scrollbar">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="w-56 flex-shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
+            <div key={i} className="w-[78vw] max-w-56 flex-shrink-0 min-[420px]:w-56 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
               <div className="h-60 bg-[color:var(--border)]/60 animate-pulse"></div>
               <div className="p-3">
                 <div className="h-4 bg-[color:var(--border)]/70 rounded w-3/4 mb-2 animate-pulse"></div>
@@ -479,7 +479,7 @@ const ProductSection = ({ title }: { title: string }) => {
             return (
               <motion.div
                 key={product._id}
-                className="w-56 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)]"
+                className="w-[78vw] max-w-56 flex-shrink-0 min-[420px]:w-56 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)]"
                 onClick={() => product._id && handleProductClick(product._id)}
                 whileHover={shouldReduceMotion ? undefined : { y: -4 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
@@ -581,5 +581,6 @@ const ProductSection = ({ title }: { title: string }) => {
 };
 
 export default ProductSection;
+
 
 

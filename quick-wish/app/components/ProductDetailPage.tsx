@@ -128,7 +128,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
         <div className="lux-card overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
             <div className="relative">
-              <div className="h-80 w-full overflow-hidden rounded-xl mb-4 relative bg-[#fbf4ec]">
+              <div className="h-72 w-full overflow-hidden rounded-xl mb-4 relative bg-[#fbf4ec] sm:h-80">
                 <img
                   src={selectedProductImage}
                   alt={product.title}
@@ -200,7 +200,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                 </p>
               </div>
 
-              <div className="flex items-center space-x-4 mb-6">
+              <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
                 <div className="flex items-center border border-[color:var(--border)] rounded-xl">
                   <button
                     className="px-3 py-2 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition"
@@ -226,7 +226,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                   {dynamicProduct?.price ? "Buy Now" : "Loading price"}
                 </button>
 
-                <button className="p-2 border border-[color:var(--border)] rounded-xl text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition">
+                <button className="self-start p-2 border border-[color:var(--border)] rounded-xl text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition sm:self-auto">
                   <Heart size={20} />
                 </button>
               </div>

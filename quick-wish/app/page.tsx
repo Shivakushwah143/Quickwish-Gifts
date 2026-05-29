@@ -208,7 +208,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[color:var(--ivory)]">
+    <div className="min-h-screen bg-[color:var(--ivory)] pb-28 md:pb-0">
       <TopBar />
       <Header />
 
@@ -248,7 +248,7 @@ export default function Home() {
       </section>
 
       <section className="bg-[#fffaf4] px-4 pb-7">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-2 rounded-xl border border-[#ead7c5] bg-white p-2 shadow-sm md:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2 rounded-xl border border-[#ead7c5] bg-white p-2 shadow-sm min-[420px]:grid-cols-2 md:grid-cols-4">
           {trustItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -264,7 +264,7 @@ export default function Home() {
       </section>
 
       <section className="bg-[#fffaf4] px-4 pb-8">
-        <div className="mx-auto max-w-7xl rounded-2xl border border-[#ead7c5] bg-white p-4 shadow-sm sm:p-5">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-[#ead7c5] bg-white p-4 shadow-sm sm:p-5">
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <div>
               <span className="rounded-full bg-[#fff0e7] px-3 py-1 text-xs font-bold text-[#b54e36]">
@@ -346,7 +346,7 @@ export default function Home() {
                   </div>
                 </div>
                 <motion.button
-                  className="rounded-full bg-[#c9a36a] px-6 py-3 text-sm font-bold text-[#2b1d25] shadow-sm transition hover:bg-[#b99055]"
+                  className="w-full rounded-full bg-[#c9a36a] px-6 py-3 text-sm font-bold text-[#2b1d25] shadow-sm transition hover:bg-[#b99055] sm:w-auto"
                   onClick={() => router.push(`/products?category=${encodeURIComponent(getGiftFinderCategory())}`)}
                   whileHover={shouldReduceMotion ? undefined : { scale: 1.015 }}
                   whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
@@ -361,7 +361,7 @@ export default function Home() {
 
       <section className="bg-[#f8f3ec] py-8 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-5 flex items-end justify-between gap-4">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h3 className="text-2xl sm:text-3xl font-semibold lux-serif text-[#2b1d25]">
                 Shop by gift moment
@@ -372,7 +372,7 @@ export default function Home() {
             </div>
             <span className="hidden sm:inline rounded-full bg-[#fff4e4] px-3 py-1 text-xs font-semibold text-[#8b3f2f]">Indore delivery ready</span>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
             {shoppingCategories.map((category) => {
               const Icon = category.icon;
               return (
@@ -407,7 +407,7 @@ export default function Home() {
               );
             })}
             <div
-              className="col-span-2 cursor-pointer rounded-lg border border-[#f0d1bd] bg-[#fff8ed] px-4 py-3 text-center shadow-sm transition hover:shadow-md lg:col-span-4"
+              className="col-span-1 cursor-pointer rounded-lg border border-[#f0d1bd] bg-[#fff8ed] px-4 py-3 text-center shadow-sm transition hover:shadow-md min-[420px]:col-span-2 lg:col-span-4"
               onClick={() => router.push('/products')}
             >
               <span className="text-sm font-bold text-[color:var(--wine)]">Explore all gifts and offers</span>
@@ -418,7 +418,7 @@ export default function Home() {
 
       <section className="bg-[#fffaf4] px-4 py-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-5 flex items-end justify-between gap-4">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-[#2b1d25] sm:text-3xl lux-serif">Featured gifting stories</h2>
               <p className="text-sm text-[#6f5d66]">Campaigns designed around the way people actually choose gifts.</p>
@@ -505,7 +505,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold text-[#2b1d25] sm:text-3xl lux-serif">Shop by relationship</h2>
             <p className="text-sm text-[#6f5d66]">Start with the person. We will help you reach the right feeling faster.</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 md:grid-cols-6">
             {relationshipCards.map((item) => (
               <motion.button
                 key={item.label}
@@ -554,9 +554,9 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <img src="https://images.pexels.com/photos/10720839/pexels-photo-10720839.jpeg" alt="Custom hamper" className="h-64 w-full rounded-lg object-cover" loading="lazy" />
-            <img src="https://images.pexels.com/photos/27094493/pexels-photo-27094493.jpeg" alt="Premium wrapped gift" className="mt-8 h-64 w-full rounded-lg object-cover" loading="lazy" />
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+            <img src="https://images.pexels.com/photos/10720839/pexels-photo-10720839.jpeg" alt="Custom hamper" className="h-44 w-full rounded-lg object-cover sm:h-64" loading="lazy" />
+            <img src="https://images.pexels.com/photos/27094493/pexels-photo-27094493.jpeg" alt="Premium wrapped gift" className="mt-6 h-44 w-full rounded-lg object-cover sm:mt-8 sm:h-64" loading="lazy" />
           </div>
         </div>
       </section>
@@ -582,5 +582,3 @@ export default function Home() {
     </div>
   );
 }
-
-

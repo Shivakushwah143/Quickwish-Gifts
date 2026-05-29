@@ -152,7 +152,7 @@ const CategorySection = ({
       <section className="bg-[#fffaf5] py-8 px-4 mt-2">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-xl sm:text-2xl font-semibold lux-serif text-[#2b1d25] mb-4">{title}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
             {categories.map((category, index) => (
               <div 
                 key={index} 
@@ -197,7 +197,7 @@ const CategorySection = ({
           {categories.map((category, index) => (
             <div 
               key={index} 
-              className="flex-shrink-0 w-36 sm:w-40 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-sm transition-all group hover:-translate-y-1 hover:shadow-md"
+              className="w-[42vw] max-w-40 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-sm transition-all group hover:-translate-y-1 hover:shadow-md min-[420px]:w-36 sm:w-40"
               onClick={() => handleCategoryClick(category.name)}
             >
               <div className={`${isRounded ? 'rounded-t-lg' : 'rounded-t-lg'} h-40 overflow-hidden`}>

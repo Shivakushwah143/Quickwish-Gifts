@@ -12,7 +12,7 @@ function ProductsLoading() {
     <div className="min-h-screen bg-[color:var(--ivory)] py-8">
       <div className="max-w-6xl mx-auto px-4">
         <div className="h-8 bg-[color:var(--border)]/70 rounded w-1/4 mb-6 animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[...Array(10)].map((_, index) => (
             <div key={index} className="lux-card overflow-hidden">
               <div className="w-full h-44 bg-[color:var(--border)]/70 animate-pulse" />

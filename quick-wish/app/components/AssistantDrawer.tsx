@@ -56,7 +56,7 @@ export default function AssistantDrawer() {
 
     setError("");
     setInput("");
-    const nextMessages = [...messages, { role: "user", content }].slice(-MAX_MESSAGES);
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content }].slice(-MAX_MESSAGES);
     setMessages(nextMessages);
     setLoading(true);
 
@@ -88,9 +88,9 @@ export default function AssistantDrawer() {
         throw new Error(data?.message || "Assistant unavailable.");
       }
 
-      const reply = data?.reply || "Thanks for your note. How can I help?";
+      const reply = typeof data?.reply === "string" ? data.reply : "Thanks for your note. How can I help?";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }].slice(-MAX_MESSAGES));
-    } catch (err: any) {
+    } catch {
       const fallbackMessages: ChatMessage[] = [
         {
           role: "assistant",
@@ -119,7 +119,7 @@ export default function AssistantDrawer() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-[color:var(--wine)] text-[color:var(--ivory)] px-4 py-3 shadow-lg hover:bg-[#3b182f] transition-all"
+        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-3 text-[color:var(--ivory)] shadow-lg transition-all hover:bg-[#3b182f] md:bottom-6 md:right-6"
       >
         <MessageCircle size={18} />
         Ask QuickWish

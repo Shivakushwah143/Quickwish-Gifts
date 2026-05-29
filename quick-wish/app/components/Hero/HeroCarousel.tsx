@@ -42,7 +42,7 @@
 //             </motion.span>
 
 //             <motion.h1
-//               className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-[#2b1d25] sm:text-5xl lg:text-6xl lux-serif"
+//               className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
 //               {...(shouldReduceMotion ? {} : { transition: { delay: 0.05, duration: 0.45, ease: "easeOut" } })}
 //             >
 //               Send gifts today, beautifully chosen and handmade.
@@ -73,7 +73,7 @@
 //               </motion.button>
 //             </div>
 
-//             <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
+//             <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
 //               <div className="rounded-lg bg-white p-3 shadow-sm">
 //                 <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
 //                 <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
@@ -103,9 +103,9 @@
 //               <img
 //                 src={slides[currentSlide].image}
 //                 alt={slides[currentSlide].title}
-//                 className="h-[380px] w-full rounded-[24px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+//                 className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
 //               />
-//               <div className="absolute bottom-4 right-4 max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
+//               <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
 //                 <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
 //                 <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
 //                 <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
@@ -175,7 +175,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                 <Truck className="h-3.5 w-3.5" />
                 Same day gifting in Indore
               </span>
-              <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-[#2b1d25] sm:text-5xl lg:text-6xl lux-serif">
+              <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif">
                 Send gifts today, beautifully chosen and handmade.
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg">
@@ -195,7 +195,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                   Build Custom Hamper
                 </button>
               </div>
-              <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
+              <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
                   <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
@@ -219,9 +219,9 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                 <img
                   src={slides[currentSlide].image}
                   alt={slides[currentSlide].title}
-                  className="h-[380px] w-full rounded-[24px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+                  className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
                 />
-                <div className="absolute bottom-4 right-4 max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
+                <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
                   <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
                   <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
                   <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
@@ -264,7 +264,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
             </motion.span>
 
             <motion.h1
-              className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-[#2b1d25] sm:text-5xl lg:text-6xl lux-serif"
+              className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
               {...(shouldReduceMotion ? {} : { transition: { delay: 0.05, duration: 0.45, ease: "easeOut" } })}
             >
               Send gifts today, beautifully chosen and handmade.
@@ -295,7 +295,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
               </motion.button>
             </div>
 
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
+            <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
               <div className="rounded-lg bg-white p-3 shadow-sm">
                 <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
                 <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
@@ -325,9 +325,9 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
               <img
                 src={slides[currentSlide].image}
                 alt={slides[currentSlide].title}
-                className="h-[380px] w-full rounded-[24px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+                className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
               />
-              <div className="absolute bottom-4 right-4 max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
+              <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
                 <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
                 <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
                 <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>

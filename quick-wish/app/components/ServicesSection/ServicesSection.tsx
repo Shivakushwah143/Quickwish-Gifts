@@ -5,7 +5,7 @@ const ServicesSection = () => {
   return (
     <section className="bg-[color:var(--ivory)] py-8 px-4 mt-2">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
           <div className="text-center p-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
             <Truck className="h-8 w-8 text-[color:var(--gold)] mx-auto mb-2" />
             <h3 className="font-medium text-[color:var(--plum)] mb-1">Same day delivery</h3>
