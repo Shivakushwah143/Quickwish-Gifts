@@ -187,7 +187,20 @@ const normalizeCouponCode = (value: unknown) => {
   return value.trim().toUpperCase();
 };
 
-const getBaseOrderAmount = (giftProduct: any) => {
+const DELIVERY_FEE = 49;
+
+type ProductPricingSource = {
+  price?: unknown;
+  offPrice?: unknown;
+  originalPrice?: unknown;
+};
+
+type CouponPricingSource = {
+  discountType?: unknown;
+  discountValue?: unknown;
+};
+
+const getBaseOrderAmount = (giftProduct: ProductPricingSource) => {
   const candidateValues = [
     giftProduct?.price,
     giftProduct?.offPrice,
@@ -204,7 +217,7 @@ const getBaseOrderAmount = (giftProduct: any) => {
   return 0;
 };
 
-const calculateCouponDiscount = (baseAmount: number, coupon: any) => {
+const calculateCouponDiscount = (baseAmount: number, coupon: CouponPricingSource | null) => {
   const safeBaseAmount = Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : 0;
 
   if (!coupon || safeBaseAmount <= 0) {
@@ -230,6 +243,26 @@ const calculateCouponDiscount = (baseAmount: number, coupon: any) => {
 
   return {
     discountAmount: roundedDiscount,
+    finalAmount,
+  };
+};
+
+const calculateOrderPricing = (
+  subtotal: number,
+  couponDiscount: number,
+  deliveryFee = DELIVERY_FEE
+) => {
+  const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
+  const safeCouponDiscount = Number.isFinite(couponDiscount) && couponDiscount > 0
+    ? Math.min(couponDiscount, safeSubtotal)
+    : 0;
+  const safeDeliveryFee = Number.isFinite(deliveryFee) && deliveryFee > 0 ? deliveryFee : 0;
+  const finalAmount = Number((safeSubtotal - safeCouponDiscount + safeDeliveryFee).toFixed(2));
+
+  return {
+    subtotal: safeSubtotal,
+    couponDiscount: safeCouponDiscount,
+    deliveryFee: safeDeliveryFee,
     finalAmount,
   };
 };
@@ -770,8 +803,8 @@ app.post(
         return res.status(404).json({ message: "Product not found" });
       console.log(req.body);
 
-      const originalAmount = getBaseOrderAmount(GiftProduct);
-      const validation = await validateCouponForAmount(couponCode, originalAmount);
+      const subtotal = getBaseOrderAmount(GiftProduct);
+      const validation = await validateCouponForAmount(couponCode, subtotal);
 
       if (!validation.ok) {
         return res.status(400).json({
@@ -781,8 +814,7 @@ app.post(
       }
 
       let couponDoc = validation.coupon;
-      let discountAmount = validation.discountAmount;
-      let finalAmount = validation.finalAmount;
+      let discountAmount = validation.discountAmount ?? 0;
       const normalizedCouponCode = normalizeCouponCode(couponCode);
 
       if (normalizedCouponCode) {
@@ -820,18 +852,22 @@ app.post(
           });
         }
 
-        const recalculated = calculateCouponDiscount(originalAmount, couponDoc);
+        const recalculated = calculateCouponDiscount(subtotal, couponDoc);
         discountAmount = recalculated.discountAmount;
-        finalAmount = recalculated.finalAmount;
       }
+
+      const orderPricing = calculateOrderPricing(subtotal, discountAmount);
 
       const order = await Order.create({
         user: user._id,
         product: productId,
-        amount: finalAmount,
-        originalAmount,
+        amount: orderPricing.finalAmount,
+        originalAmount: orderPricing.subtotal,
+        subtotal: orderPricing.subtotal,
         discountAmount,
-        finalAmount,
+        couponDiscount: orderPricing.couponDiscount,
+        deliveryFee: orderPricing.deliveryFee,
+        finalAmount: orderPricing.finalAmount,
         couponCode: normalizedCouponCode || undefined,
         couponId: couponDoc?._id,
         shippingAddress,
@@ -843,7 +879,10 @@ app.post(
         orderId: order._id,
         amount: order.amount,
         originalAmount: order.originalAmount,
+        subtotal: order.subtotal,
         discountAmount: order.discountAmount,
+        couponDiscount: order.couponDiscount,
+        deliveryFee: order.deliveryFee,
         finalAmount: order.finalAmount,
         couponCode: order.couponCode,
         whatsappUrl: `https://wa.me/9575930848?text=Order%20${order._id}`,
@@ -910,9 +949,10 @@ app.patch(
           items: orderItems,
           totalAmount: order.finalAmount ?? order.amount,
         });
+        console.log('sent email successfully')
       } catch (emailError) {
         const message =
-          emailError instanceof Error ? emailError.message : "Unknown email error";
+        emailError instanceof Error ? emailError.message : "Unknown email error";
         console.error(
           `Order ${orderId} confirmed, but confirmation email failed: ${message}`
         );
@@ -920,6 +960,7 @@ app.patch(
           success: false,
           message: "Order confirmed, but confirmation email failed",
         });
+        console.log('sent email successfully')
       }
 
       console.log("level2");

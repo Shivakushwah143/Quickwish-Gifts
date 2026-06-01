@@ -1,8 +1,10 @@
 ﻿
 // components/OrderPaymentModal.tsx
 import { useEffect, useState } from 'react';
-import { X, ShoppingCart, MapPin, Phone, User, CreditCard, Smartphone, Copy, ExternalLink } from 'lucide-react';
+import { X, ShoppingCart, MapPin, Phone, CreditCard, Smartphone, Copy } from 'lucide-react';
 import BannerSection from './promotional/BannerSection';
+import CartSummaryOffers, { type AppliedCartOffer } from './CartSummaryOffers';
+import OrderReceipt from './OrderReceipt';
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -35,17 +37,10 @@ export default function OrderPaymentModal({
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [orderId, setOrderId] = useState('');
+    const [orderDate, setOrderDate] = useState<Date | null>(null);
     const [whatsappUrl, setWhatsappUrl] = useState('');
     const [error, setError] = useState('');
-    const [couponCode, setCouponCode] = useState('');
-    const [couponMessage, setCouponMessage] = useState('');
-    const [couponLoading, setCouponLoading] = useState(false);
-    const [appliedCoupon, setAppliedCoupon] = useState<{
-        code: string;
-        discountAmount: number;
-        finalAmount: number;
-        originalAmount: number;
-    } | null>(null);
+    const [appliedCoupon, setAppliedCoupon] = useState<AppliedCartOffer | null>(null);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
         name: '',
         phone: '',
@@ -63,11 +58,9 @@ export default function OrderPaymentModal({
         setCurrentStep(1);
         setLoading(false);
         setOrderId('');
+        setOrderDate(null);
         setWhatsappUrl('');
         setError('');
-        setCouponCode('');
-        setCouponMessage('');
-        setCouponLoading(false);
         setAppliedCoupon(null);
         setShippingAddress({
             name: '',
@@ -88,7 +81,10 @@ export default function OrderPaymentModal({
             : safeOriginalPrice && safeOriginalPrice > 0
                 ? safeOriginalPrice
                 : 0;
-    const displayPrice = appliedCoupon?.finalAmount ?? baseAmount;
+    const subtotal = safeOriginalPrice && safeOriginalPrice > baseAmount ? safeOriginalPrice : baseAmount;
+    const productDiscount = Math.max(0, subtotal - baseAmount);
+    const deliveryFee = 49;
+    const displayPrice = appliedCoupon?.finalAmount ?? Math.max(0, baseAmount + deliveryFee);
     const displayDiscount = appliedCoupon?.discountAmount ?? 0;
 
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,76 +92,6 @@ export default function OrderPaymentModal({
             ...prev,
             [e.target.name]: e.target.value
         }));
-    };
-
-    const normalizeCouponInput = (value: string) => value.trim().toUpperCase();
-
-    const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const nextValue = e.target.value;
-        setCouponCode(nextValue);
-        setCouponMessage('');
-
-        if (appliedCoupon && normalizeCouponInput(nextValue) !== appliedCoupon.code) {
-            setAppliedCoupon(null);
-        }
-    };
-
-    const validateCoupon = async () => {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-        const normalizedCode = normalizeCouponInput(couponCode);
-
-        if (!normalizedCode) {
-            setCouponMessage('Enter a coupon code first.');
-            return null;
-        }
-
-        if (!API_BASE_URL) {
-            setCouponMessage('API URL is not configured.');
-            return null;
-        }
-
-        setCouponLoading(true);
-        setCouponMessage('');
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/coupons/validate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    code: normalizedCode,
-                    productId,
-                    amount: baseAmount
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setAppliedCoupon(null);
-                setCouponMessage(data.message || 'Coupon is invalid.');
-                return null;
-            }
-
-            const pricing = data?.pricing || {};
-            const validatedCoupon = {
-                code: data?.coupon?.code || normalizedCode,
-                discountAmount: Number(pricing.discountAmount) || 0,
-                finalAmount: Number(pricing.finalAmount) || baseAmount,
-                originalAmount: Number(pricing.originalAmount) || baseAmount
-            };
-
-            setAppliedCoupon(validatedCoupon);
-            setCouponMessage(`${validatedCoupon.code} applied. You saved ₹${validatedCoupon.discountAmount}.`);
-            return validatedCoupon;
-        } catch (err) {
-            setAppliedCoupon(null);
-            setCouponMessage('Unable to validate coupon right now.');
-            return null;
-        } finally {
-            setCouponLoading(false);
-        }
     };
 
     const handleCreateOrder = async () => {
@@ -188,15 +114,7 @@ export default function OrderPaymentModal({
                 return;
             }
 
-            let couponForOrder = appliedCoupon?.code || normalizeCouponInput(couponCode);
-            if (couponForOrder && !appliedCoupon) {
-                const validatedCoupon = await validateCoupon();
-                if (!validatedCoupon) {
-                    setLoading(false);
-                    return;
-                }
-                couponForOrder = validatedCoupon.code;
-            }
+            const couponForOrder = appliedCoupon?.code;
 
             console.log('Request payload:', {
                 productId,
@@ -222,6 +140,7 @@ export default function OrderPaymentModal({
 
             if (response.ok) {
                 setOrderId(data.orderId);
+                setOrderDate(new Date());
                 setWhatsappUrl(data.whatsappUrl);
                 setCurrentStep(2);
                 if (typeof data?.finalAmount === 'number') {
@@ -346,71 +265,7 @@ export default function OrderPaymentModal({
                                 </div>
                             </div>
 
-                            <div className="bg-[color:var(--ivory)] rounded-lg p-4 space-y-3">
-                                <h3 className="font-semibold text-[color:var(--plum)]">Coupon Code</h3>
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <input
-                                        type="text"
-                                        value={couponCode}
-                                        onChange={handleCouponChange}
-                                        className={inputClass}
-                                        placeholder="Enter coupon code"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={validateCoupon}
-                                        disabled={couponLoading || !couponCode.trim()}
-                                        className="rounded-lg bg-[color:var(--wine)] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {couponLoading ? 'Checking...' : 'Apply'}
-                                    </button>
-                                </div>
-                                {couponMessage && (
-                                    <p className={`text-sm ${appliedCoupon ? 'text-green-700' : 'text-red-600'}`}>
-                                        {couponMessage}
-                                    </p>
-                                )}
-                                {appliedCoupon && (
-                                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-medium">{appliedCoupon.code}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setAppliedCoupon(null);
-                                                    setCouponCode('');
-                                                    setCouponMessage('');
-                                                }}
-                                                className="text-xs font-semibold text-green-700 hover:text-green-900"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                        <div className="mt-1 flex items-center justify-between">
-                                            <span>You saved</span>
-                                            <span>₹{appliedCoupon.discountAmount}</span>
-                                        </div>
-                                        <div className="mt-1 flex items-center justify-between">
-                                            <span>Payable now</span>
-                                            <span>₹{appliedCoupon.finalAmount}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex items-center justify-between text-sm text-[color:var(--muted)]">
-                                    <span>Original price</span>
-                                    <span>₹{baseAmount}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm text-[color:var(--muted)]">
-                                    <span>Discount</span>
-                                    <span>-₹{displayDiscount}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm font-semibold text-[color:var(--plum)]">
-                                    <span>Total payable</span>
-                                    <span>₹{displayPrice}</span>
-                                </div>
-                            </div>
-
-                                                        <div>
+                            <div>
                                 <h3 className="font-semibold text-[color:var(--plum)] mb-4 flex items-center">
                                     <MapPin className="w-5 h-5 mr-2" />
                                     Shipping Address
@@ -490,27 +345,23 @@ export default function OrderPaymentModal({
                                 </div>
                             </div>
 
+                            <CartSummaryOffers
+                                itemCount={1}
+                                subtotal={subtotal}
+                                productDiscount={productDiscount}
+                                deliveryFee={deliveryFee}
+                                appliedOffer={appliedCoupon}
+                                onOfferChange={setAppliedCoupon}
+                                onCheckout={handleCreateOrder}
+                                checkoutDisabled={loading || !shippingAddress.name || !shippingAddress.phone || !shippingAddress.street || !shippingAddress.city || !shippingAddress.pinCode}
+                                checkoutLabel={loading ? 'Creating Order...' : 'Place Order'}
+                            />
+
                             {error && (
                                 <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
                                     {error}
                                 </div>
                             )}
-
-                            {/* Continue Button */}
-                            <button
-                                onClick={handleCreateOrder}
-                                disabled={loading || !shippingAddress.name || !shippingAddress.phone || !shippingAddress.street || !shippingAddress.city || !shippingAddress.pinCode}
-                                className="w-full bg-[color:var(--wine)] text-white py-3 px-4 rounded-lg font-semibold hover:bg-[#3b182f] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? (
-                                    <div className="flex items-center justify-center">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                        Creating Order...
-                                    </div>
-                                ) : (
-                                    'Continue to Payment'
-                                )}
-                            </button>
                         </div>
                     ) : currentStep === 2 ? (
                      
@@ -606,42 +457,22 @@ export default function OrderPaymentModal({
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            <div className="bg-[color:var(--gold)]/10 border border-[color:var(--gold)]/40 rounded-lg p-5 text-center">
-                                <h3 className="font-semibold text-[color:var(--plum)] text-lg">Payment Received</h3>
-                                <p className="text-[color:var(--muted)] text-sm mt-2">
-                                    We are verifying your payment. This usually takes a few minutes.
-                                </p>
-                                <div className="mt-4 text-xs text-[color:var(--muted)]">
-                                    Order ID: <span className="font-mono text-[color:var(--plum)]">{orderId}</span>
-                                </div>
-                            </div>
-
-                            <div className="lux-card p-5">
-                                <h4 className="font-medium text-[color:var(--plum)] mb-3">What happens next</h4>
-                                <ol className="text-[color:var(--muted)] text-sm space-y-2 list-decimal list-inside">
-                                    <li>We validate your payment proof.</li>
-                                    <li>Your order is confirmed by our team.</li>
-                                    <li>We prepare your gift with care.</li>
-                                    <li>Delivery updates are sent on WhatsApp.</li>
-                                </ol>
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setCurrentStep(2)}
-                                    className="flex-1 border border-[color:var(--border)] text-[color:var(--plum)] px-4 py-2 rounded-lg hover:bg-[color:var(--surface)] transition-colors"
-                                >
-                                    Back to payment
-                                </button>
-                                <button
-                                    onClick={onClose}
-                                    className="flex-1 bg-[color:var(--wine)] text-white px-4 py-2 rounded-lg hover:bg-[#3b182f] transition-colors"
-                                >
-                                    Done
-                                </button>
-                            </div>
-                        </div>
+                        <OrderReceipt
+                            orderId={orderId}
+                            orderDate={orderDate ?? new Date()}
+                            customerName={shippingAddress.name}
+                            productName={productName}
+                            quantity={1}
+                            productPrice={baseAmount}
+                            subtotal={subtotal}
+                            discount={productDiscount}
+                            couponDiscount={displayDiscount}
+                            deliveryFee={deliveryFee}
+                            finalAmountPaid={displayPrice}
+                            deliveryAddress={shippingAddress}
+                            onTrackOrder={() => setCurrentStep(2)}
+                            onContinueShopping={onClose}
+                        />
                     )}
                 </div>
             </div>
