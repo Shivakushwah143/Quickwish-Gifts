@@ -80,7 +80,7 @@
 //               </div>
 //               <div className="rounded-lg bg-white p-3 shadow-sm">
 //                 <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-//                 <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Deliveries</p>
+//                 <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
 //               </div>
 //               <div className="rounded-lg bg-white p-3 shadow-sm">
 //                 <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
@@ -176,10 +176,10 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                 Same day gifting in Indore
               </span>
               <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif">
-                Send gifts today, beautifully chosen and handmade.
+                🎁 Handmade gifts they'll actually remember.
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg">
-                Premium hampers, flowers, cakes, and custom notes delivered with care before the moment passes.
+                Same-day delivery in Indore. Handmade bouquets, custom hampers, crochet gifts, keychains, and surprise boxes starting at ₹149.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
@@ -195,14 +195,28 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                   Build Custom Hamper
                 </button>
               </div>
-              <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+              <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                  <Gift className="h-4 w-4 text-[#b54e36]" />
+                  <p className="text-xs font-bold text-[#2b1d25]">Handmade Gifts</p>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                  <Truck className="h-4 w-4 text-[#d46345]" />
+                  <p className="text-xs font-bold text-[#2b1d25]">Same-Day Delivery</p>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                  <Heart className="h-4 w-4 text-[#c5365b]" />
+                  <p className="text-xs font-bold text-[#2b1d25]">Free Personalized Note</p>
+                </div>
+              </div>
+              <div className="mt-5 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
                   <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-                  <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Deliveries</p>
+                  <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
@@ -267,13 +281,13 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
               className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
               {...(shouldReduceMotion ? {} : { transition: { delay: 0.05, duration: 0.45, ease: "easeOut" } })}
             >
-              Send gifts today, beautifully chosen and handmade.
+              🎁 Handmade gifts they'll actually remember.
             </motion.h1>
             <motion.p
               className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg"
               {...(shouldReduceMotion ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.12, duration: 0.4, ease: "easeOut" } })}
             >
-              Premium hampers, flowers, cakes, and custom notes delivered with care before the moment passes.
+              Same-day delivery in Indore. Handmade bouquets, custom hampers, crochet gifts, keychains, and surprise boxes starting at ₹149.
             </motion.p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -295,14 +309,29 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
               </motion.button>
             </div>
 
-            <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+            <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                <Gift className="h-4 w-4 text-[#b54e36]" />
+                <p className="text-xs font-bold text-[#2b1d25]">Handmade Gifts</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                <Truck className="h-4 w-4 text-[#d46345]" />
+                <p className="text-xs font-bold text-[#2b1d25]">Same-Day Delivery</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
+                <Heart className="h-4 w-4 text-[#c5365b]" />
+                <p className="text-xs font-bold text-[#2b1d25]">Free Personalized Note</p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
               <div className="rounded-lg bg-white p-3 shadow-sm">
                 <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
                 <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
               </div>
               <div className="rounded-lg bg-white p-3 shadow-sm">
                 <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-                <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Deliveries</p>
+                <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
               </div>
               <div className="rounded-lg bg-white p-3 shadow-sm">
                 <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
@@ -352,3 +381,4 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
 };
 
 export default HeroCarousel;
+

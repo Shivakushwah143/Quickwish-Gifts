@@ -339,7 +339,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '../../types/index';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ShoppingBag, Star } from 'lucide-react';
+import { ArrowRight, ShoppingBag } from 'lucide-react';
 import OrderPaymentModal from '../OrderPaymentModal';
 import AuthModal from '../../components/AuthModel';
 
@@ -423,10 +423,10 @@ const ProductSection = ({ title }: { title: string }) => {
               <p className="text-sm text-[color:var(--muted)]">Chosen for quiet impact and lasting warmth.</p>
             </div>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-3 hide-scrollbar">
+          <div className="flex snap-x gap-6 overflow-x-auto pb-4 pr-4 hide-scrollbar">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="w-[78vw] max-w-56 flex-shrink-0 min-[420px]:w-56 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
-              <div className="h-60 bg-[color:var(--border)]/60 animate-pulse"></div>
+            <div key={i} className="w-[86vw] max-w-[18rem] flex-shrink-0 snap-start overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm sm:w-72">
+              <div className="h-72 bg-[color:var(--border)]/60 animate-pulse"></div>
               <div className="p-3">
                 <div className="h-4 bg-[color:var(--border)]/70 rounded w-3/4 mb-2 animate-pulse"></div>
                 <div className="h-3 bg-[color:var(--border)]/70 rounded w-1/2 mb-3 animate-pulse"></div>
@@ -447,20 +447,21 @@ const ProductSection = ({ title }: { title: string }) => {
     <>
       <section className="bg-[color:var(--ivory)] py-8 px-4 mt-2">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-end justify-between gap-4 mb-5">
+          <div className="flex flex-col gap-3 mb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl sm:text-2xl font-semibold lux-serif text-[color:var(--plum)]">{title}</h2>
-              <p className="text-sm text-[color:var(--muted)]">Gifts people choose when the moment really matters.</p>
+              <p className="text-sm text-[color:var(--muted)]">A small edit of gifts people choose when the moment really matters.</p>
             </div>
             <button
-              className="hidden rounded-full border border-[#eadfd4] bg-white px-4 py-2 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a] sm:inline-flex"
+              className="inline-flex w-max items-center rounded-full border border-[#eadfd4] bg-white px-4 py-2 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a] hover:bg-[#fffaf4]"
               onClick={() => router.push('/products')}
             >
-              View all
+              View All Best Sellers
+              <ArrowRight className="ml-1.5 h-4 w-4" />
             </button>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-3 hide-scrollbar">
-          {products.slice(0, 12).map((product, index) => {
+          <div className="flex snap-x gap-6 overflow-x-auto pb-4 pr-4 hide-scrollbar">
+          {products.slice(0, 6).map((product, index) => {
             const currentPrice = Number(product.price);
             const originalCandidate = Number(product.originalPrice ?? product.offPrice ?? 0);
             const safeCurrentPrice =
@@ -479,7 +480,7 @@ const ProductSection = ({ title }: { title: string }) => {
             return (
               <motion.div
                 key={product._id}
-                className="w-[78vw] max-w-56 flex-shrink-0 min-[420px]:w-56 cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)]"
+                className="w-[86vw] max-w-[18rem] flex-shrink-0 snap-start cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)] sm:w-72"
                 onClick={() => product._id && handleProductClick(product._id)}
                 whileHover={shouldReduceMotion ? undefined : { y: -4 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
@@ -489,18 +490,18 @@ const ProductSection = ({ title }: { title: string }) => {
                   <motion.img
                     src={product.images[0] || '/placeholder-image.jpg'}
                     alt={product.name}
-                    className="h-60 w-full object-cover transition duration-500 hover:scale-105"
+                    className="h-72 w-full object-cover transition duration-500 hover:scale-105"
                     loading="lazy"
                     whileHover={shouldReduceMotion ? undefined : { scale: 1.035 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                   />
-                  <div className="absolute left-2 top-2">
+                  <div className="absolute left-3 top-3">
                     <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#b54e36] shadow-sm">
                       {urgencyTag(safeCurrentPrice, discountPercent, index)}
                     </span>
                   </div>
                   {discountPercent > 0 && (
-                    <div className="absolute bottom-2 right-2">
+                    <div className="absolute right-3 top-3">
                       <span className="rounded-full bg-[#c9a36a] px-2 py-1 text-xs font-bold text-[#2b1d25] shadow-sm">
                         {discountPercent}% OFF
                       </span>
@@ -508,25 +509,8 @@ const ProductSection = ({ title }: { title: string }) => {
                   )}
                 </div>
 
-                <div className="p-3.5">
-                  <h3 className="font-semibold text-[#2b1d25] text-sm mb-1 line-clamp-2 leading-snug">{product.name}</h3>
-
-                  <div className="flex items-center mb-2">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${i < Math.floor(product.rating || 0)
-                                  ? 'text-[#c9a36a] fill-current'
-                                  : 'text-[#eadfd4]'
-                            }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs text-[#7b6a73] ml-1">
-                      ({product.reviews || 0})
-                    </span>
-                  </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-[#2b1d25] text-base mb-2 line-clamp-2 leading-snug">{product.name}</h3>
 
                   <div className="space-y-2">
                     <div className="flex items-baseline gap-1">
@@ -540,11 +524,8 @@ const ProductSection = ({ title }: { title: string }) => {
                         </span>
                       )}
                     </div>
-                    <p className="rounded-full bg-[#fff4e4] px-2.5 py-1 text-[11px] font-semibold text-[#8b3f2f]">
-                      Same day delivery
-                    </p>
                     <motion.button
-                      className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-[color:var(--wine)] px-3 py-2 text-xs font-semibold text-[color:var(--ivory)] transition-all hover:bg-[#3b182f]"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-2.5 text-sm font-bold text-[color:var(--ivory)] transition-all hover:bg-[#3b182f]"
                       onClick={(e) => handleAddToCart(product, e)}
                       whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
                     >

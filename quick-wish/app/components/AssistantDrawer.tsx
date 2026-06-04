@@ -121,10 +121,10 @@ export default function AssistantDrawer() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-3 text-[color:var(--ivory)] shadow-lg transition-all hover:bg-[#3b182f] md:bottom-6 md:right-6"
+        className="fixed bottom-20 right-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-3 text-sm font-bold text-[color:var(--ivory)] shadow-lg transition-all hover:bg-[#3b182f] md:bottom-6 md:right-6"
       >
         <MessageCircle size={18} />
-        Ask QuickWish
+        💬 Need Help Choosing a Gift?
       </button>
 
       <div
