@@ -58,9 +58,40 @@ export const sendEmail = async (
   subject: string,
   html: string
 ): Promise<void> => {
-  const apiKey = getRequiredEnv("BREVO_API_KEY");
-  const senderEmail = getRequiredEnv("BREVO_SENDER_EMAIL");
-  const senderName = getRequiredEnv("BREVO_SENDER_NAME");
+  console.log(`[email] Preparing email. customer=${to} subject="${subject}"`);
+
+  let apiKey: string;
+  let senderEmail: string;
+  let senderName: string;
+
+  try {
+    apiKey = getRequiredEnv("BREVO_API_KEY");
+    console.log(`[email] BREVO_API_KEY loaded: ${apiKey ? "yes" : "no"} (length=${apiKey.length})`);
+  } catch (e) {
+    console.error(`[email] BREVO_API_KEY missing: ${(e as Error).message}`);
+    throw e;
+  }
+
+  try {
+    senderEmail = getRequiredEnv("BREVO_SENDER_EMAIL");
+    console.log(`[email] BREVO_SENDER_EMAIL=${senderEmail}`);
+  } catch (e) {
+    console.error(`[email] BREVO_SENDER_EMAIL missing: ${(e as Error).message}`);
+    throw e;
+  }
+
+  try {
+    senderName = getRequiredEnv("BREVO_SENDER_NAME");
+    console.log(`[email] BREVO_SENDER_NAME=${senderName}`);
+  } catch (e) {
+    console.error(`[email] BREVO_SENDER_NAME missing: ${(e as Error).message}`);
+    throw e;
+  }
+
+  if (!to) {
+    console.error(`[email] customer email missing; cannot send.`);
+    throw new Error("Customer email is missing");
+  }
 
   const payload: BrevoEmailPayload = {
     sender: {
@@ -71,6 +102,10 @@ export const sendEmail = async (
     subject,
     htmlContent: html,
   };
+
+  console.log(
+    `[email] Brevo request started. endpoint=${BREVO_EMAIL_ENDPOINT} sender=${senderEmail} to=${to} subject="${subject}"`
+  );
 
   try {
     const response = await fetch(BREVO_EMAIL_ENDPOINT, {
@@ -83,17 +118,25 @@ export const sendEmail = async (
       body: JSON.stringify(payload),
     });
 
+    const responseBody = await response.text();
+    console.log(
+      `[email] Brevo response status=${response.status} ok=${response.ok} body=${responseBody}`
+    );
+
     if (response.status !== 201) {
-      const responseBody = await response.text();
       throw new Error(
         `Brevo email API failed with status ${response.status}: ${responseBody}`
       );
     }
 
-    console.log(`Order confirmation email sent successfully to ${to}`);
+    console.log(`[email] Order confirmation email sent successfully to ${to}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown email error";
-    console.error(`Failed to send email to ${to}: ${message}`);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error(`[email] Failed to send email to ${to}: ${message}`);
+    if (stack) {
+      console.error(`[email] Full error stack: ${stack}`);
+    }
     throw error;
   }
 };
@@ -105,6 +148,15 @@ export const sendOrderConfirmationEmail = async ({
   items,
   totalAmount,
 }: OrderConfirmationEmailInput): Promise<void> => {
+  console.log(
+    `[email] sendOrderConfirmationEmail called. orderId=${orderId} customerEmail=${customerEmail} customerName=${customerName} totalAmount=${totalAmount} items=${items.length}`
+  );
+
+  if (!customerEmail) {
+    console.error(`[email] sendOrderConfirmationEmail: customerEmail missing for orderId=${orderId}`);
+    throw new Error("Customer email is missing");
+  }
+
   const safeCustomerName = escapeHtml(customerName);
   const safeOrderId = escapeHtml(orderId);
 

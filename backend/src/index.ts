@@ -898,6 +898,7 @@ app.patch(
   adminAuthentication,
   async (req: Request, res: Response) => {
     const orderId = req.params.orderId;
+    console.log(`[order] confirm endpoint hit. orderId=${orderId}`);
     console.log(orderId);
     console.log("level0");
     try {
@@ -916,6 +917,10 @@ app.patch(
 
       const customer = await User.findById(order.user);
       const orderedProduct = await product.findById(order.product);
+
+      console.log(
+        `[order] orderId=${orderId} customerEmail=${customer?.email} productFound=${!!orderedProduct} sender=${process.env.BREVO_SENDER_EMAIL}`
+      );
 
       if (!customer) {
         console.error(`Order ${orderId} confirmed, but customer was not found`);
@@ -949,25 +954,24 @@ app.patch(
           items: orderItems,
           totalAmount: order.finalAmount ?? order.amount,
         });
-        console.log('sent email successfully')
+        console.log(`[order] orderId=${orderId} confirmation email sent successfully`);
       } catch (emailError) {
         const message =
-        emailError instanceof Error ? emailError.message : "Unknown email error";
+          emailError instanceof Error ? emailError.message : "Unknown email error";
+        const stack = emailError instanceof Error ? emailError.stack : undefined;
         console.error(
-          `Order ${orderId} confirmed, but confirmation email failed: ${message}`
+          `[order] orderId=${orderId} confirmed, but confirmation email failed: ${message}`
         );
-        return res.status(502).json({
-          success: false,
-          message: "Order confirmed, but confirmation email failed",
-        });
-        console.log('sent email successfully')
+        if (stack) {
+          console.error(`[order] email error stack: ${stack}`);
+        }
+        // Order is already confirmed in DB. Email failure must NOT roll back / fail the response.
       }
 
       console.log("level2");
       res.status(200).json({
         success: true,
         message: "Order confirmed",
-        emailSent: true,
         order,
       });
     } catch (error) {

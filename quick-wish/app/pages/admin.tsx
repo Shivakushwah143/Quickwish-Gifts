@@ -291,7 +291,9 @@ export default function AdminDashboard() {
       }
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/confirm`, {
+      const confirmUrl = `${API_BASE_URL}/admin/orders/${orderId}/confirm`;
+      console.log(`[frontend] confirmOrder: about to PATCH ${confirmUrl} orderId=${orderId}`);
+      const response = await fetch(confirmUrl, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
