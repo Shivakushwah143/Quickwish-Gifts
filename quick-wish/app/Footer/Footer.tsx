@@ -24,7 +24,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold mb-3 text-[color:var(--gold)]">Quick Links</h4>
+            <h4 className="  text-sm font-semibold mb-3 text-[color:var(--gold)]">Quick Links</h4>
             <ul className="space-y-2 text-sm text-[color:var(--ivory)]/70">
               <li><a href="#" className="hover:text-[color:var(--gold)] transition-colors">About</a></li>
               <li><a href="#" className="hover:text-[color:var(--gold)] transition-colors">Contact</a></li>
