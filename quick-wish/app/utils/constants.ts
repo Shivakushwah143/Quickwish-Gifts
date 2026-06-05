@@ -6,7 +6,7 @@ export const heroSlides: HeroSlide[] = [
   {
     title: "Moments, wrapped in quiet elegance.",
     subtitle: "Premium gifting crafted for Indore, delivered with a gentle hand.",
-    image: "https://www.fnp.com/assets/images/custom/flowers_24/Explore%20Our%20Exquisite%20Range/Lily-25-9-24.jpg",
+    image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1779711074/products/hkrkwncpjjtpipv132gm.webp",
     cta: "Explore the Collection"
   },
   {
@@ -24,13 +24,13 @@ export const heroSlides: HeroSlide[] = [
   {
     title: "Handcrafted hampers, softly luxurious.",
     subtitle: "Artisan-made pieces curated for gratitude, love, and celebration.",
-    image: "https://media.istockphoto.com/id/1077280228/photo/advent-calendar-waiting-for-christmas.jpg?s=1024x1024&w=is&k=20&c=9aY5b6e8r0mOuP8JvRqJHk3rBqbzGMwp--7JirRg3wQ=",
+    image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1779687055/products/zyzvyuz6dfp4mtleitml.jpg",
     cta: "Discover Hampers"
   },
   {
     title: "Gifts that feel personal.",
     subtitle: "From refined baskets to custom details, made for lasting impressions.",
-    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQLPItVzswkJGwy8iZrysldzLvPMzyEILNcgq9X0umOQ4_2u2hvejSXJr9GwLbyOF8JCU&usqp=CAU",
+    image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1780644149/6131901195229007900_121_ayfe6j.jpg",
     cta: "Shop Artisanal"
   },
   {
@@ -42,13 +42,13 @@ export const heroSlides: HeroSlide[] = [
 {
   title: "Curated with warmth and detail.",
   subtitle: "Luxury hampers layered with handcrafted touches, ribbons, florals, and care.",
-  image: "https://images.pexels.com/photos/27094493/pexels-photo-27094493.jpeg",
+  image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1780644171/6131901195229007903_121_pzxy3i.jpg",
   cta: "View Hampers"
 },
 {
   title: "For every occasion worth holding onto.",
   subtitle: "Birthday boxes, anniversary keepsakes, and heartfelt surprises delivered beautifully.",
-  image: "https://images.pexels.com/photos/30770345/pexels-photo-30770345.jpeg",
+  image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1780644071/6131901195229007899_121_fbbodv.jpg",
   cta: "Shop Occasions"
 },
 {
@@ -60,7 +60,7 @@ export const heroSlides: HeroSlide[] = [
 {
   title: "Celebrate softly, gift beautifully.",
   subtitle: "Minimal luxury gifting crafted for friendships, love, gratitude, and joy.",
-  image: "https://images.pexels.com/photos/35055477/pexels-photo-35055477.jpeg",
+  image: "https://res.cloudinary.com/dvcbhvxd6/image/upload/v1779615238/products/fnegyxzp32uuuxzksbfa.jpg",
   cta: "Start Exploring"
 }
 ];

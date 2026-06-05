@@ -145,32 +145,38 @@ export default function Home() {
     {
       label: '❤️ For Her',
       category: 'Jewelry',
-      image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=600&h=700&fit=crop',
+      image: 'https://plus.unsplash.com/premium_photo-1665218521187-bf1f98f1fd2e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1yZWxhdGVkfDZ8fHxlbnwwfHx8fHw%3D',
+      tint: 'bg-gradient-to-br from-[#FDECEF] to-[#fff7f9]',
     },
     {
       label: '🎁 For Him',
       category: 'Watches',
-      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=700&fit=crop',
+      image: 'https://images.unsplash.com/photo-1625552187571-7ee60ac43d2b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGdpZnQlMjBib3h8ZW58MHx8MHx8fDA%3D',
+      tint: 'bg-gradient-to-br from-[#EAF4FF] to-[#f8fbff]',
     },
     {
       label: '🌸 For Mom',
       category: 'Flower Bouquets',
-      image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=600&h=700&fit=crop',
+      image: 'https://plus.unsplash.com/premium_photo-1697910940818-adb36cdfa4e7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Z2lmdCUyMGZvciUyMGZyaWVuZHN8ZW58MHx8MHx8fDA%3D',
+      tint: 'bg-gradient-to-br from-[#FFF1E8] to-[#fffaf6]',
     },
     {
       label: '🤝 For Friends',
       category: 'besti',
-      image: 'https://images.unsplash.com/photo-1529066516367-36973222c957?w=600&h=700&fit=crop',
+      image: 'https://plus.unsplash.com/premium_photo-1692845743671-dbfc435c6739?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1yZWxhdGVkfDIzfHx8ZW58MHx8fHx8',
+      tint: 'bg-gradient-to-br from-[#FFF8DC] to-[#fffdf3]',
     },
     {
       label: '💕 For Couples',
       category: 'Anniversary',
-      image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=600&h=700&fit=crop',
+      image: 'https://plus.unsplash.com/premium_photo-1691688119414-df74cb70b962?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1pbi1zYW1lLXNlcmllc3wxfHx8ZW58MHx8fHx8',
+      tint: 'bg-gradient-to-br from-[#F8EAF8] to-[#fff7ff]',
     },
     {
       label: '🎈 For Kids',
       category: 'Teddy Bears',
       image: 'https://media.istockphoto.com/id/1066672498/photo/kids-wrapping-christmas-gifts.webp?a=1&b=1&s=612x612&w=0&k=20&c=Cwlc_RZW1vtLVBdMGwGQ-S0rsvdvklKQQuWJxn3MTpU=',
+      tint: 'bg-gradient-to-br from-[#EAFBF0] to-[#f7fff9]',
     },
   ];
 
@@ -251,7 +257,7 @@ export default function Home() {
             {relationshipCards.map((item) => (
               <motion.button
                 key={item.label}
-                className="group overflow-hidden rounded-lg border border-[#ead7c5] bg-white text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                className={`group overflow-hidden rounded-lg border border-[#ead7c5] ${item.tint} text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
                 onClick={() => router.push(`/products?category=${encodeURIComponent(item.category)}`)}
                 whileHover={shouldReduceMotion ? undefined : { y: -4, scale: 1.015 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
