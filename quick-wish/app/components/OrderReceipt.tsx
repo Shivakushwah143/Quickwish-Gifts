@@ -134,7 +134,9 @@ export default function OrderReceipt({
           </div>
           <div className="flex justify-between gap-4 text-[#6f5d66]">
             <span>Delivery Fee</span>
-            <span>{formatCurrency(deliveryFee)}</span>
+            <span className={deliveryFee === 0 ? "font-semibold text-emerald-700" : ""}>
+              {deliveryFee === 0 ? "FREE 🚚" : formatCurrency(deliveryFee)}
+            </span>
           </div>
           <div className="border-t border-[#ead7c5] pt-3">
             <div className="flex justify-between gap-4 text-base font-black text-[#2b1d25]">

@@ -239,3 +239,98 @@ export const sendOrderConfirmationEmail = async ({
 
   await sendEmail(customerEmail, `Order confirmed: ${orderId}`, html);
 };
+
+export interface PaymentReceivedEmailInput {
+  customerName: string;
+  customerEmail: string;
+  orderId: string;
+  productName: string;
+  amount: number;
+  estimatedDelivery?: string;
+}
+
+export const sendPaymentReceivedEmail = async ({
+  customerName,
+  customerEmail,
+  orderId,
+  productName,
+  amount,
+  estimatedDelivery,
+}: PaymentReceivedEmailInput): Promise<void> => {
+  console.log(
+    `[email] sendPaymentReceivedEmail called. orderId=${orderId} customerEmail=${customerEmail} customerName=${customerName} amount=${amount}`
+  );
+
+  if (!customerEmail) {
+    console.error(`[email] sendPaymentReceivedEmail: customerEmail missing for orderId=${orderId}`);
+    throw new Error("Customer email is missing");
+  }
+
+  const safeCustomerName = escapeHtml(customerName);
+  const safeOrderId = escapeHtml(orderId);
+  const safeProductName = escapeHtml(productName);
+
+  const html = `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Payment Received - Order Pending</title>
+      </head>
+      <body style="margin: 0; padding: 0; background: #f8f3ec; font-family: Arial, sans-serif; color: #2b1d25;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #f8f3ec; padding: 32px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px; background: #ffffff; border: 1px solid #eadfd4; border-radius: 18px; overflow: hidden;">
+                <tr>
+                  <td style="background: #4a1f3b; padding: 28px 32px; color: #ffffff;">
+                    <h1 style="margin: 0; font-size: 26px; line-height: 1.25;">Payment Received!</h1>
+                    <p style="margin: 10px 0 0; color: #f3e7dc; font-size: 15px;">QuickWish</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 28px 32px;">
+                    <p style="margin: 0 0 18px; font-size: 16px; line-height: 1.6;">
+                      Hi <strong>${safeCustomerName}</strong>, thank you for your order!
+                    </p>
+
+                    <div style="background: #fff8ed; border: 1px solid #eadfd4; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="margin: 0; color: #7b6a73; font-size: 13px;">Order ID</p>
+                      <p style="margin: 6px 0 0; color: #2b1d25; font-size: 18px; font-weight: 700;">${safeOrderId}</p>
+                    </div>
+
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="margin: 0 0 8px; color: #7b6a73; font-size: 13px;">Item Ordered</p>
+                      <p style="margin: 0; color: #2b1d25; font-size: 16px; font-weight: 600;">${safeProductName}</p>
+                      <p style="margin: 8px 0 0; color: #4a1f3b; font-size: 20px; font-weight: 700;">${formatCurrency(amount)}</p>
+                    </div>
+
+                    <div style="background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="margin: 0; color: #2e7d32; font-size: 14px; font-weight: 600;">
+                        ⏳ Order Pending Confirmation
+                      </p>
+                      <p style="margin: 8px 0 0; color: #558b2f; font-size: 13px; line-height: 1.5;">
+                        We've received your payment! Our team will confirm your order shortly. You'll receive a confirmation email once your order is ready for delivery.
+                      </p>
+                    </div>
+
+                    <p style="margin: 0; color: #7b6a73; font-size: 14px; line-height: 1.6;">
+                      Need help? Reply to this email or WhatsApp us at +91 9575930848.
+                    </p>
+
+                    <p style="margin: 28px 0 0; color: #7b6a73; font-size: 12px; line-height: 1.6;">
+                      This is an automated message. Please do not reply directly.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+
+  await sendEmail(customerEmail, `Payment received for order ${orderId} - Pending confirmation`, html);
+};

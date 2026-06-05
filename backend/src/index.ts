@@ -8,6 +8,7 @@ import multer from "multer";
 import { uploadProductImages } from "./config/uploadImages.js";
 import {
   sendOrderConfirmationEmail,
+  sendPaymentReceivedEmail,
   type OrderItem,
 } from "./services/email.service.js";
 import type { JwtPayload } from "./types/index.js";
@@ -873,6 +874,21 @@ app.post(
         shippingAddress,
         status: "Processing",
       });
+
+      // Send "Payment Received" email immediately after order creation
+      try {
+        await sendPaymentReceivedEmail({
+          customerName: shippingAddress?.name || user.username || "Customer",
+          customerEmail: user.email,
+          orderId: order._id.toString(),
+          productName: GiftProduct.name,
+          amount: orderPricing.finalAmount,
+        });
+        console.log(`[email] Payment received email sent for order ${order._id}`);
+      } catch (emailError) {
+        console.error(`[email] Failed to send payment received email: ${emailError}`);
+        // Don't fail the order if email fails
+      }
 
       res.status(201).json({
         success: true,

@@ -21,7 +21,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([
     { type: 'Standard', time: '5-7 days', price: 0 }
   ]);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -38,26 +38,20 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   if (!isOpen) return null;
 
   const categories = [
-      "Fresh Flowers",
-      "Flower Bouquets",
-      "dresses",
-      "Plants",
-      "Chocolate Bouquets",
-      "Dry Fruits",
-      "Cakes",
-      "Personalized Gifts",
-      "Photo Frames",
-      "Customized Mugs",
-      "Birthday",
-      "Anniversary",
-      "Valentine's Day",
-      "besti",
-      "Jewelry",
-      "Watches",
-      "Perfumes",
-      "Teddy Bears",
-      "Home Decor",
-    ];
+    "Fresh Flowers",
+    "Flower Bouquets",
+    "Chocolate Bouquets",
+
+    "Personalized Gifts",
+    "Photo Frames",
+
+    "Birthday",
+    "Anniversary",
+
+    "besti",
+    "Jewelry",
+
+  ];
 
   const badges = ['Best Seller', 'New Arrival', 'Limited Edition', 'Popular', 'Sale', 'Featured'];
 
@@ -90,7 +84,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   };
 
   const updateDeliveryOption = (index: number, field: keyof DeliveryOption, value: string | number) => {
-    setDeliveryOptions(prev => prev.map((option, i) => 
+    setDeliveryOptions(prev => prev.map((option, i) =>
       i === index ? { ...option, [field]: value } : option
     ));
   };
@@ -109,7 +103,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
       }
 
       const formDataToSend = new FormData();
-      
+
       // Add form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -132,7 +126,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
       }
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-      
+
       const response = await fetch(`${API_BASE_URL}/product`, {
         method: 'POST',
         headers: {
@@ -197,7 +191,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
                 <Tag className="w-5 h-5 mr-2" />
                 Basic Information
               </h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
                 <input
@@ -321,7 +315,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
                 <Upload className="w-5 h-5 mr-2" />
                 Product Images
               </h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Upload Images</label>
                 <input
@@ -375,7 +369,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-2">
                     <input
                       type="text"

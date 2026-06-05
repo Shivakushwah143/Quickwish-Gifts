@@ -182,7 +182,7 @@ export default function Home() {
 
   const giftFinderRecipients = [
     { label: 'Her', category: 'Jewelry' },
-    { label: 'Him', category: 'Watches' },
+    { label: 'Him', category: 'Flower Bouquets' },
     { label: 'Friend', category: 'besti' },
     { label: 'Mom', category: 'Flower Bouquets' },
     { label: 'Couple', category: 'Anniversary' },

@@ -83,9 +83,30 @@ export default function OrderPaymentModal({
                 : 0;
     const subtotal = safeOriginalPrice && safeOriginalPrice > baseAmount ? safeOriginalPrice : baseAmount;
     const productDiscount = Math.max(0, subtotal - baseAmount);
-    const deliveryFee = 49;
-    const displayPrice = appliedCoupon?.finalAmount ?? Math.max(0, baseAmount + deliveryFee);
+
+    // BUG #1 FIX: Free delivery based on SUBTOTAL BEFORE coupon discount
+    const FREE_DELIVERY_THRESHOLD = 499;
+    const STANDARD_DELIVERY_FEE = 49;
+    const freeDeliveryEligible = subtotal >= FREE_DELIVERY_THRESHOLD;
+    const deliveryFee = freeDeliveryEligible ? 0 : STANDARD_DELIVERY_FEE;
+
+    // Calculate display price with coupon applied
+    const couponDiscount = appliedCoupon?.discountAmount ?? 0;
+    const afterCoupon = Math.max(0, baseAmount + deliveryFee - couponDiscount);
+    const displayPrice = appliedCoupon?.finalAmount ?? afterCoupon;
     const displayDiscount = appliedCoupon?.discountAmount ?? 0;
+
+    // Verification logs
+    console.log({
+        subtotal,
+        deliveryFee,
+        freeDeliveryEligible,
+        appliedCoupon,
+        baseAmount,
+        productDiscount,
+        couponDiscount,
+        displayPrice
+    });
 
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setShippingAddress(prev => ({
@@ -114,12 +135,17 @@ export default function OrderPaymentModal({
                 return;
             }
 
-            const couponForOrder = appliedCoupon?.code;
+            // BUG #2 FIX: Remove couponCode from API request - send discountAmount, finalAmount, freeDelivery instead
+            const discountAmount = appliedCoupon?.discountAmount ?? 0;
+            const finalAmount = displayPrice;
+            const freeDelivery = freeDeliveryEligible;
 
             console.log('Request payload:', {
                 productId,
                 shippingAddress,
-                couponCode: couponForOrder || undefined
+                discountAmount,
+                finalAmount,
+                freeDelivery
             });
 
             const response = await fetch(`${API_BASE_URL}/orders`, {
@@ -131,7 +157,9 @@ export default function OrderPaymentModal({
                 body: JSON.stringify({
                     productId,
                     shippingAddress,
-                    couponCode: couponForOrder || undefined
+                    discountAmount,
+                    finalAmount,
+                    freeDelivery
                 })
             });
 
@@ -261,9 +289,22 @@ export default function OrderPaymentModal({
                                             Same Day Delivery - ₹49 extra (Indore only)
                                         </span>
                                     </div>
-                                    
+
                                 </div>
                             </div>
+
+                            {/* Free Delivery Success Banner */}
+                            {freeDeliveryEligible && (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🎉</span>
+                                        <div>
+                                            <p className="font-semibold text-emerald-800">FREE DELIVERY UNLOCKED</p>
+                                            <p className="text-sm text-emerald-700">You saved ₹49 on shipping charges</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <h3 className="font-semibold text-[color:var(--plum)] mb-4 flex items-center">
