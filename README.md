@@ -12,6 +12,10 @@ QuickWish is a premium gifting storefront focused on curated categories, same-da
 - Product listing with category/tag filters and price/discount display
 - Product detail page with image gallery, rating, and quantity selector
 - Quick "Buy Now" flow via order modal
+
+
+
+
 - User authentication modal (JWT-based)
 - Admin dashboard with protected access and "Add Product" modal
 - Product image upload support (multi-image)
