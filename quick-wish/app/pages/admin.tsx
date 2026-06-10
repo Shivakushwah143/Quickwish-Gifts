@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield, CheckCircle, XCircle, Eye, Calendar, MapPin, Phone, CreditCard, User, Edit, Trash2 } from 'lucide-react';
 import AdminAuthModal from '../components/AdminAuthModal';
 import AddProductModal from '../components/AddProductModal';
+import CreatorManagement from '../components/CreatorManagement';
 
 
 interface User {
@@ -438,6 +439,12 @@ export default function AdminDashboard() {
             >
               Products
             </button>
+            <button
+              onClick={() => setView('creators')}
+              className={`py-4 px-6 font-medium text-sm ${view === 'creators' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Creators
+            </button>
           </div>
         </div>
 
@@ -528,6 +535,14 @@ export default function AdminDashboard() {
                   >
                     <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">Manage Products</p>
+                  </button>
+
+                  <button
+                    onClick={() => setView('creators')}
+                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all duration-200 text-center"
+                  >
+                    <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-600">Manage Creators</p>
                   </button>
                 </div>
               </div>
@@ -628,6 +643,8 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          ) : view === 'creators' ? (
+            <CreatorManagement />
           ) : (
             /* Products View */
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
@@ -838,5 +855,119 @@ export default function AdminDashboard() {
         />
       )}
     </>
+  );
+}
+
+type EditProductModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  product: Product;
+  onSuccess: (product: Product) => void;
+};
+
+function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductModalProps) {
+  const [form, setForm] = useState<Product>(product);
+
+  useEffect(() => {
+    setForm(product);
+  }, [product]);
+
+  if (!isOpen) return null;
+
+  const updateField = (field: keyof Product, value: string | number) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b p-5">
+          <h2 className="text-lg font-bold text-gray-900">Edit Product</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <XCircle size={22} />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+            <input
+              value={form.name}
+              onChange={(event) => updateField('name', event.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Price</label>
+            <input
+              type="number"
+              value={form.price}
+              onChange={(event) => updateField('price', Number(event.target.value))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Original Price</label>
+            <input
+              type="number"
+              value={form.originalPrice ?? ''}
+              onChange={(event) => updateField('originalPrice', Number(event.target.value))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Stock</label>
+            <input
+              type="number"
+              value={form.stock ?? 0}
+              onChange={(event) => updateField('stock', Number(event.target.value))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+            <input
+              value={form.category ?? ''}
+              onChange={(event) => updateField('category', event.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Badge</label>
+            <input
+              value={form.badge ?? ''}
+              onChange={(event) => updateField('badge', event.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              value={form.description ?? ''}
+              onChange={(event) => updateField('description', event.target.value)}
+              className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t p-5">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSuccess(form)}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -26,6 +26,10 @@ type CartSummaryOffersProps = {
   subtotal: number;
   productDiscount?: number;
   deliveryFee?: number;
+  giftUpgradeLines?: Array<{
+    label: string;
+    amount: number;
+  }>;
   appliedOffer: AppliedCartOffer | null;
   onOfferChange: (offer: AppliedCartOffer | null) => void;
   onCheckout: () => void;
@@ -76,6 +80,7 @@ export default function CartSummaryOffers({
   subtotal,
   productDiscount = 0,
   deliveryFee = 49,
+  giftUpgradeLines = [],
   appliedOffer,
   onOfferChange,
   onCheckout,
@@ -89,7 +94,11 @@ export default function CartSummaryOffers({
     Number.isFinite(productDiscount) && productDiscount > 0
       ? Math.min(productDiscount, safeSubtotal)
       : 0;
-  const payableBeforeCoupon = Math.max(0, safeSubtotal - safeProductDiscount);
+  const giftUpgradeTotal = giftUpgradeLines.reduce(
+    (sum, line) => sum + (Number.isFinite(line.amount) ? line.amount : 0),
+    0
+  );
+  const payableBeforeCoupon = Math.max(0, safeSubtotal - safeProductDiscount + giftUpgradeTotal);
 
   const bestEligibleOffer = useMemo(() => {
     return (
@@ -308,6 +317,12 @@ export default function CartSummaryOffers({
             <span>Coupon Discount</span>
             <span>-{formatCurrency(couponDiscount)}</span>
           </div>
+          {giftUpgradeLines.map((line) => (
+            <div key={line.label} className="flex justify-between gap-4 text-[#6f5d66]">
+              <span>{line.label}</span>
+              <span>{formatCurrency(line.amount)}</span>
+            </div>
+          ))}
           <div className="flex justify-between gap-4 text-[#6f5d66]">
             <span>Delivery Fee</span>
             <span className={deliveryFee === 0 ? "font-semibold text-emerald-700" : ""}>

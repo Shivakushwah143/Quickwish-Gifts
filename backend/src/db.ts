@@ -7,6 +7,63 @@ const adminSchema = new mongoose.Schema({
 
 export const admin = mongoose.model("admin", adminSchema);
 
+const creatorSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+  phone: {
+    type: String,
+    trim: true,
+  },
+  password: {
+    type: String,
+    default: null,
+  },
+  preferredCode: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  assignedCouponId: {
+    type: mongoose.Types.ObjectId,
+    ref: "Coupon",
+  },
+  active: {
+    type: Boolean,
+    default: true,
+    index: true,
+  },
+  role: {
+    type: String,
+    enum: ["CREATOR"],
+    default: "CREATOR",
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+creatorSchema.pre("save", function (this: any, next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const Creator = mongoose.model("Creator", creatorSchema);
+
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -132,8 +189,18 @@ const couponSchema = new mongoose.Schema({
     trim: true,
   },
   creatorId: {
-    type: String,
-    trim: true,
+    type: mongoose.Types.ObjectId,
+    ref: "Creator",
+  },
+  isCreatorCode: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  commissionPerOrder: {
+    type: Number,
+    default: 100,
+    min: 0,
   },
   description: {
     type: String,
@@ -270,6 +337,38 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  giftUpgradeTotal: {
+    type: Number,
+    default: 0,
+  },
+  giftUpgrades: {
+    giftWrap: {
+      type: Boolean,
+      default: false,
+    },
+    personalisedCard: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      message: {
+        type: String,
+        default: "",
+        maxlength: 250,
+      },
+    },
+    chocolatePack: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      type: {
+        type: String,
+        enum: ["FERRERO_ROCHER"],
+        default: "FERRERO_ROCHER",
+      },
+    },
+  },
   finalAmount: {
     type: Number,
     required: false,
@@ -281,6 +380,25 @@ const orderSchema = new mongoose.Schema({
   couponId: {
     type: mongoose.Types.ObjectId,
     ref: "Coupon",
+  },
+  creatorId: {
+    type: mongoose.Types.ObjectId,
+    ref: "Creator",
+  },
+  creatorCode: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  creatorCommission: {
+    type: Number,
+    default: 0,
+  },
+  creatorCommissionStatus: {
+    type: String,
+    enum: ["none", "pending", "earned", "cancelled"],
+    default: "none",
+    index: true,
   },
   shippingAddress: {
     name: String,

@@ -5,6 +5,11 @@ import { X, ShoppingCart, MapPin, Phone, CreditCard, Smartphone, Copy } from 'lu
 import BannerSection from './promotional/BannerSection';
 import CartSummaryOffers, { type AppliedCartOffer } from './CartSummaryOffers';
 import OrderReceipt from './OrderReceipt';
+import CompleteYourGift, {
+    getGiftUpgradeLines,
+    getGiftUpgradeTotal,
+    type GiftUpgradeSelection,
+} from './CompleteYourGift';
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -25,6 +30,18 @@ interface ShippingAddress {
     state?: string;
 }
 
+const defaultGiftUpgrades: GiftUpgradeSelection = {
+    giftWrap: false,
+    personalisedCard: {
+        enabled: false,
+        message: '',
+    },
+    chocolatePack: {
+        enabled: false,
+        type: 'FERRERO_ROCHER',
+    },
+};
+
 export default function OrderPaymentModal({
     isOpen,
     onClose,
@@ -41,6 +58,7 @@ export default function OrderPaymentModal({
     const [whatsappUrl, setWhatsappUrl] = useState('');
     const [error, setError] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<AppliedCartOffer | null>(null);
+    const [giftUpgrades, setGiftUpgrades] = useState<GiftUpgradeSelection>(defaultGiftUpgrades);
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
         name: '',
         phone: '',
@@ -62,6 +80,7 @@ export default function OrderPaymentModal({
         setWhatsappUrl('');
         setError('');
         setAppliedCoupon(null);
+        setGiftUpgrades(defaultGiftUpgrades);
         setShippingAddress({
             name: '',
             phone: '',
@@ -83,6 +102,8 @@ export default function OrderPaymentModal({
                 : 0;
     const subtotal = safeOriginalPrice && safeOriginalPrice > baseAmount ? safeOriginalPrice : baseAmount;
     const productDiscount = Math.max(0, subtotal - baseAmount);
+    const giftUpgradeLines = getGiftUpgradeLines(giftUpgrades);
+    const giftUpgradeTotal = getGiftUpgradeTotal(giftUpgrades);
 
     // BUG #1 FIX: Free delivery based on SUBTOTAL BEFORE coupon discount
     const FREE_DELIVERY_THRESHOLD = 499;
@@ -92,7 +113,7 @@ export default function OrderPaymentModal({
 
     // Calculate display price with coupon applied
     const couponDiscount = appliedCoupon?.discountAmount ?? 0;
-    const afterCoupon = Math.max(0, baseAmount + deliveryFee - couponDiscount);
+    const afterCoupon = Math.max(0, baseAmount + giftUpgradeTotal + deliveryFee - couponDiscount);
     const displayPrice = appliedCoupon?.finalAmount ?? afterCoupon;
     const displayDiscount = appliedCoupon?.discountAmount ?? 0;
 
@@ -105,6 +126,7 @@ export default function OrderPaymentModal({
         baseAmount,
         productDiscount,
         couponDiscount,
+        giftUpgradeTotal,
         displayPrice
     });
 
@@ -145,7 +167,8 @@ export default function OrderPaymentModal({
                 shippingAddress,
                 discountAmount,
                 finalAmount,
-                freeDelivery
+                freeDelivery,
+                giftUpgrades
             });
 
             const response = await fetch(`${API_BASE_URL}/orders`, {
@@ -159,7 +182,8 @@ export default function OrderPaymentModal({
                     shippingAddress,
                     discountAmount,
                     finalAmount,
-                    freeDelivery
+                    freeDelivery,
+                    giftUpgrades
                 })
             });
 
@@ -306,6 +330,11 @@ export default function OrderPaymentModal({
                                 </div>
                             )}
 
+                            <CompleteYourGift
+                                value={giftUpgrades}
+                                onChange={setGiftUpgrades}
+                            />
+
                             <div>
                                 <h3 className="font-semibold text-[color:var(--plum)] mb-4 flex items-center">
                                     <MapPin className="w-5 h-5 mr-2" />
@@ -391,6 +420,7 @@ export default function OrderPaymentModal({
                                 subtotal={subtotal}
                                 productDiscount={productDiscount}
                                 deliveryFee={deliveryFee}
+                                giftUpgradeLines={giftUpgradeLines}
                                 appliedOffer={appliedCoupon}
                                 onOfferChange={setAppliedCoupon}
                                 onCheckout={handleCreateOrder}
@@ -520,7 +550,6 @@ export default function OrderPaymentModal({
         </div>
     );
 }
-
 
 
 

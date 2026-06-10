@@ -1,7 +1,7 @@
 import Express, { response } from "express";
 import type { NextFunction, Request, Response } from "express";
 import mongoose from "mongoose";
-import { admin, ChatMemory, Coupon, Order, product, User } from "./db.js";
+import { admin, ChatMemory, Coupon, Creator, Order, product, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
@@ -45,6 +45,8 @@ const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY as string;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
 const rateLimitMap = new Map<string, { count: number; start: number }>();
+const CREATOR_COMMISSION_PER_ORDER = 100;
+const CREATOR_THREE_ORDER_BONUS = 200;
 
 export const getClientIp = (req: Request): string => {
   const forwardedHeader = req.headers["x-forwarded-for"];
@@ -180,6 +182,37 @@ const adminAuthentication = (
   }
 };
 
+const creatorAuthentication = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(400).json({ error: "Token not provided" });
+  }
+
+  Jwt.verify(token, SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+
+    const payload = decoded as JwtPayload & { role?: string; creatorId?: string };
+    if (payload.role !== "CREATOR" || !payload.creatorId) {
+      return res.status(403).json({ message: "Creator access required" });
+    }
+
+    req.user = payload;
+    next();
+  });
+};
+
 const normalizeCouponCode = (value: unknown) => {
   if (typeof value !== "string") {
     return "";
@@ -189,6 +222,12 @@ const normalizeCouponCode = (value: unknown) => {
 };
 
 const DELIVERY_FEE = 49;
+const FREE_DELIVERY_THRESHOLD = 499;
+const GIFT_UPGRADE_PRICES = {
+  giftWrap: 99,
+  personalisedCard: 49,
+  ferreroRocher: 149,
+} as const;
 
 type ProductPricingSource = {
   price?: unknown;
@@ -199,6 +238,18 @@ type ProductPricingSource = {
 type CouponPricingSource = {
   discountType?: unknown;
   discountValue?: unknown;
+};
+
+type GiftUpgradesInput = {
+  giftWrap?: unknown;
+  personalisedCard?: {
+    enabled?: unknown;
+    message?: unknown;
+  };
+  chocolatePack?: {
+    enabled?: unknown;
+    type?: unknown;
+  };
 };
 
 const getBaseOrderAmount = (giftProduct: ProductPricingSource) => {
@@ -251,20 +302,57 @@ const calculateCouponDiscount = (baseAmount: number, coupon: CouponPricingSource
 const calculateOrderPricing = (
   subtotal: number,
   couponDiscount: number,
-  deliveryFee = DELIVERY_FEE
+  giftUpgradeTotal = 0
 ) => {
   const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
   const safeCouponDiscount = Number.isFinite(couponDiscount) && couponDiscount > 0
     ? Math.min(couponDiscount, safeSubtotal)
     : 0;
-  const safeDeliveryFee = Number.isFinite(deliveryFee) && deliveryFee > 0 ? deliveryFee : 0;
-  const finalAmount = Number((safeSubtotal - safeCouponDiscount + safeDeliveryFee).toFixed(2));
+  const safeGiftUpgradeTotal =
+    Number.isFinite(giftUpgradeTotal) && giftUpgradeTotal > 0 ? giftUpgradeTotal : 0;
+  const safeDeliveryFee = safeSubtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const finalAmount = Number(
+    (safeSubtotal - safeCouponDiscount + safeGiftUpgradeTotal + safeDeliveryFee).toFixed(2)
+  );
 
   return {
     subtotal: safeSubtotal,
     couponDiscount: safeCouponDiscount,
+    giftUpgradeTotal: safeGiftUpgradeTotal,
     deliveryFee: safeDeliveryFee,
     finalAmount,
+  };
+};
+
+const normalizeGiftUpgrades = (input: GiftUpgradesInput | undefined) => {
+  const giftWrap = input?.giftWrap === true;
+  const personalisedCardEnabled = input?.personalisedCard?.enabled === true;
+  const message =
+    typeof input?.personalisedCard?.message === "string"
+      ? input.personalisedCard.message.trim().slice(0, 250)
+      : "";
+  const chocolatePackEnabled = input?.chocolatePack?.enabled === true;
+
+  const normalized = {
+    giftWrap,
+    personalisedCard: {
+      enabled: personalisedCardEnabled,
+      message: personalisedCardEnabled ? message : "",
+    },
+    chocolatePack: {
+      enabled: chocolatePackEnabled,
+      type: "FERRERO_ROCHER" as const,
+    },
+  };
+
+  const total =
+    (normalized.giftWrap ? GIFT_UPGRADE_PRICES.giftWrap : 0) +
+    (normalized.personalisedCard.enabled ? GIFT_UPGRADE_PRICES.personalisedCard : 0) +
+    (normalized.chocolatePack.enabled ? GIFT_UPGRADE_PRICES.ferreroRocher : 0);
+
+  return {
+    upgrades: normalized,
+    total,
   };
 };
 
@@ -374,6 +462,282 @@ app.post("/api/v1/admin/signin", async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+const buildCreatorDashboard = async (creatorId: string) => {
+  const creator = await Creator.findById(creatorId).lean();
+  if (!creator) {
+    return null;
+  }
+
+  const coupon: any = creator.assignedCouponId
+    ? await Coupon.findById(creator.assignedCouponId).lean()
+    : await Coupon.findOne({ creatorId: creator._id, isCreatorCode: true }).lean();
+
+  const confirmedOrders = await Order.find({
+    creatorId: creator._id,
+    creatorCommissionStatus: "earned",
+  }).lean();
+
+  const ordersGenerated = confirmedOrders.length;
+  const revenueGenerated = confirmedOrders.reduce(
+    (sum: number, order: any) => sum + (Number(order.finalAmount ?? order.amount) || 0),
+    0
+  );
+  const baseCommissionEarned = confirmedOrders.reduce(
+    (sum: number, order: any) => sum + (Number(order.creatorCommission) || 0),
+    0
+  );
+  const threeOrderBonusUnlocked = ordersGenerated >= 3;
+  const prPackageUnlocked = ordersGenerated >= 5;
+  const bonusEarned = threeOrderBonusUnlocked ? CREATOR_THREE_ORDER_BONUS : 0;
+
+  return {
+    creator: {
+      id: creator._id,
+      name: creator.name,
+      email: creator.email,
+      phone: creator.phone,
+      preferredCode: creator.preferredCode,
+      active: creator.active,
+    },
+    referralCode: coupon?.code || null,
+    ordersGenerated,
+    revenueGenerated,
+    totalCommissionEarned: baseCommissionEarned + bonusEarned,
+    baseCommissionEarned,
+    bonusEarned,
+    bonusProgress: {
+      orders: ordersGenerated,
+      nextBonusAt: ordersGenerated < 3 ? 3 : ordersGenerated < 5 ? 5 : null,
+      threeOrderBonusUnlocked,
+      prPackageUnlocked,
+    },
+    rewardMilestones: [
+      {
+        label: "3 orders",
+        reward: "Rs 200 bonus",
+        unlocked: threeOrderBonusUnlocked,
+      },
+      {
+        label: "5 orders",
+        reward: "PR package",
+        unlocked: prPackageUnlocked,
+      },
+    ],
+  };
+};
+
+app.post("/api/v1/creator/request-code", async (req: Request, res: Response) => {
+  const { name, email, phone, preferredCode, password } = req.body || {};
+  const normalizedCode = normalizeCouponCode(preferredCode);
+
+  if (!name || !email || !normalizedCode) {
+    return res.status(400).json({
+      success: false,
+      message: "Name, email, and preferred code are required",
+    });
+  }
+
+  try {
+    const existingCoupon = await Coupon.findOne({ code: normalizedCode });
+    if (existingCoupon) {
+      return res.status(409).json({
+        success: false,
+        message: "This code is already taken",
+      });
+    }
+
+    const hashedPassword = password ? await bcrypt.hash(String(password), 8) : null;
+    const creator = await Creator.findOneAndUpdate(
+      { email: String(email).toLowerCase().trim() },
+      {
+        name,
+        email: String(email).toLowerCase().trim(),
+        phone,
+        preferredCode: normalizedCode,
+        ...(hashedPassword ? { password: hashedPassword } : {}),
+        active: true,
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Creator code request saved. Admin can approve and assign it.",
+      creator,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator request failed" });
+  }
+});
+
+app.post("/api/v1/creator/signin", async (req: Request, res: Response) => {
+  const { email, password } = req.body || {};
+
+  try {
+    const creator = await Creator.findOne({ email: String(email).toLowerCase().trim(), active: true });
+    if (!creator) {
+      return res.status(401).json({ success: false, message: "Creator not found" });
+    }
+
+    if (creator.password) {
+      const passwordValid = await bcrypt.compare(String(password || ""), String(creator.password));
+      if (!passwordValid) {
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
+    }
+
+    const token = Jwt.sign(
+      { creatorId: creator._id.toString(), email: creator.email, role: "CREATOR" },
+      SECRET,
+      { expiresIn: "24h" }
+    );
+
+    return res.status(200).json({
+      success: true,
+      token,
+      creator: {
+        id: creator._id,
+        name: creator.name,
+        email: creator.email,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator signin failed" });
+  }
+});
+
+app.get("/api/v1/creator/dashboard", creatorAuthentication, async (req: Request, res: Response) => {
+  const payload = req.user as JwtPayload & { creatorId?: string };
+
+  try {
+    const dashboard = await buildCreatorDashboard(payload.creatorId || "");
+    if (!dashboard) {
+      return res.status(404).json({ success: false, message: "Creator not found" });
+    }
+
+    return res.status(200).json({ success: true, dashboard });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator dashboard failed" });
+  }
+});
+
+app.get("/api/v1/admin/creators", adminAuthentication, async (_req: Request, res: Response) => {
+  try {
+    const creators = await Creator.find({}).sort({ createdAt: -1 }).lean();
+    const dashboards = await Promise.all(
+      creators.map((creator: any) => buildCreatorDashboard(creator._id.toString()))
+    );
+
+    return res.status(200).json({
+      success: true,
+      creators: dashboards.filter(Boolean),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch creators" });
+  }
+});
+
+app.post("/api/v1/admin/creators", adminAuthentication, async (req: Request, res: Response) => {
+  const { name, email, phone, preferredCode, password, active } = req.body || {};
+
+  if (!name || !email) {
+    return res.status(400).json({ success: false, message: "Name and email are required" });
+  }
+
+  try {
+    const hashedPassword = password ? await bcrypt.hash(String(password), 8) : undefined;
+    const creator = await Creator.create({
+      name,
+      email: String(email).toLowerCase().trim(),
+      phone,
+      preferredCode: preferredCode ? normalizeCouponCode(preferredCode) : undefined,
+      ...(hashedPassword ? { password: hashedPassword } : {}),
+      active: active !== false,
+    });
+
+    return res.status(201).json({ success: true, creator });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator creation failed" });
+  }
+});
+
+app.post("/api/v1/admin/creators/:creatorId/code", adminAuthentication, async (req: Request, res: Response) => {
+  const { creatorId } = req.params;
+  const { code, minOrderAmount = 399, usageLimit, active = true } = req.body || {};
+  const normalizedCode = normalizeCouponCode(code);
+
+  if (!normalizedCode) {
+    return res.status(400).json({ success: false, message: "Creator code is required" });
+  }
+
+  try {
+    const creator = await Creator.findById(creatorId);
+    if (!creator) {
+      return res.status(404).json({ success: false, message: "Creator not found" });
+    }
+
+    const existingCoupon = await Coupon.findOne({
+      code: normalizedCode,
+      creatorId: { $ne: creator._id },
+    });
+
+    if (existingCoupon) {
+      return res.status(409).json({ success: false, message: "Code already exists" });
+    }
+
+    const coupon = await Coupon.findOneAndUpdate(
+      { code: normalizedCode },
+      {
+        code: normalizedCode,
+        discountType: "flat",
+        discountValue: 50,
+        minOrderAmount: Number(minOrderAmount) || 399,
+        usageLimit: usageLimit ? Number(usageLimit) : null,
+        active,
+        isCreatorCode: true,
+        creatorId: creator._id,
+        creatorName: creator.name,
+        commissionPerOrder: CREATOR_COMMISSION_PER_ORDER,
+        description: `Use ${normalizedCode}'s code and save Rs 50`,
+        updatedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    creator.assignedCouponId = coupon._id;
+    creator.preferredCode = normalizedCode;
+    await creator.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Creator code assigned",
+      creator,
+      coupon,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator code assignment failed" });
+  }
+});
+
+app.get("/api/v1/admin/creators/:creatorId/performance", adminAuthentication, async (req: Request, res: Response) => {
+  const creatorId = req.params.creatorId;
+  if (!creatorId) {
+    return res.status(400).json({ success: false, message: "Creator ID is required" });
+  }
+
+  try {
+    const dashboard = await buildCreatorDashboard(creatorId);
+    if (!dashboard) {
+      return res.status(404).json({ success: false, message: "Creator not found" });
+    }
+
+    return res.status(200).json({ success: true, dashboard });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Creator performance failed" });
+  }
+});
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/api/v1/user/sync-clerk", async (req: Request, res: Response) => {
@@ -594,9 +958,18 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
 
     const couponCode = normalizeCouponCode(code);
 
+    const isCreatorCode = Boolean(validation.coupon?.isCreatorCode);
+    const creatorCodeMessage = validation.coupon
+      ? `Use ${validation.coupon.code}'s code and save Rs ${validation.discountAmount}`
+      : null;
+
     return res.status(200).json({
       success: true,
-      message: couponCode ? "Coupon applied successfully" : "No coupon applied",
+      message: isCreatorCode && creatorCodeMessage
+        ? creatorCodeMessage
+        : couponCode
+          ? "Coupon applied successfully"
+          : "No coupon applied",
       coupon: validation.coupon
         ? {
             id: validation.coupon._id,
@@ -604,6 +977,9 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
             discountType: validation.coupon.discountType,
             discountValue: validation.coupon.discountValue,
             creatorName: validation.coupon.creatorName,
+            isCreatorCode,
+            creatorId: validation.coupon.creatorId,
+            displayMessage: isCreatorCode ? creatorCodeMessage : undefined,
           }
         : null,
       pricing: {
@@ -785,7 +1161,7 @@ app.post(
   "/api/v1/orders",
   authenticateUser,
   async (req: Request, res: Response) => {
-    const { productId, shippingAddress, couponCode } = req.body;
+    const { productId, shippingAddress, couponCode, giftUpgrades } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
     console.log(token);
     try {
@@ -857,7 +1233,24 @@ app.post(
         discountAmount = recalculated.discountAmount;
       }
 
-      const orderPricing = calculateOrderPricing(subtotal, discountAmount);
+      const normalizedGiftUpgrades = normalizeGiftUpgrades(giftUpgrades);
+      const orderPricing = calculateOrderPricing(
+        subtotal,
+        discountAmount,
+        normalizedGiftUpgrades.total
+      );
+      const creatorReferral =
+        couponDoc && couponDoc.isCreatorCode
+          ? {
+              creatorId: couponDoc.creatorId,
+              creatorCode: couponDoc.code,
+              creatorCommission: Number(couponDoc.commissionPerOrder) || CREATOR_COMMISSION_PER_ORDER,
+              creatorCommissionStatus: "pending",
+            }
+          : {
+              creatorCommission: 0,
+              creatorCommissionStatus: "none",
+            };
 
       const order = await Order.create({
         user: user._id,
@@ -868,9 +1261,12 @@ app.post(
         discountAmount,
         couponDiscount: orderPricing.couponDiscount,
         deliveryFee: orderPricing.deliveryFee,
+        giftUpgrades: normalizedGiftUpgrades.upgrades,
+        giftUpgradeTotal: orderPricing.giftUpgradeTotal,
         finalAmount: orderPricing.finalAmount,
         couponCode: normalizedCouponCode || undefined,
         couponId: couponDoc?._id,
+        ...creatorReferral,
         shippingAddress,
         status: "Processing",
       });
@@ -899,8 +1295,14 @@ app.post(
         discountAmount: order.discountAmount,
         couponDiscount: order.couponDiscount,
         deliveryFee: order.deliveryFee,
+        giftUpgrades: order.giftUpgrades,
+        giftUpgradeTotal: order.giftUpgradeTotal,
         finalAmount: order.finalAmount,
         couponCode: order.couponCode,
+        creatorId: order.creatorId,
+        creatorCode: order.creatorCode,
+        creatorCommission: order.creatorCommission,
+        creatorCommissionStatus: order.creatorCommissionStatus,
         whatsappUrl: `https://wa.me/9575930848?text=Order%20${order._id}`,
       });
     } catch (error) {
@@ -923,6 +1325,11 @@ app.patch(
         {
           status: "orderConfirmed",
           paidAt: new Date(),
+          ...(await Order.findById(orderId).then((existingOrder: any) =>
+            existingOrder?.creatorCommissionStatus === "pending"
+              ? { creatorCommissionStatus: "earned" }
+              : {}
+          )),
         },
         { new: true }
       );

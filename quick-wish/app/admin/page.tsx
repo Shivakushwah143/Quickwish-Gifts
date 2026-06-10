@@ -7,6 +7,7 @@ import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield } from '
 import AdminAuthModal from '../components/AdminAuthModal';
 import AddProductModal from '../components/AddProductModal';
 import AdminHeader from '../components/AdminHeader';
+import CreatorManagement from '../components/CreatorManagement';
 
 export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -91,6 +92,10 @@ export default function AdminDashboard() {
 
                             {/* ... other action buttons ... */}
                         </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <CreatorManagement />
                     </div>
 
                     {/* Recent Activity */}
