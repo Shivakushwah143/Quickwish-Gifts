@@ -1,3 +1,5 @@
+import { clearAuthState } from './auth';
+
 export const adminAuth = {
   // Check if admin is authenticated
   isAuthenticated: (): boolean => {
@@ -21,9 +23,8 @@ export const adminAuth = {
   // Logout admin
   logout: (): void => {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUsername');
-    window.location.href = '/';
+    clearAuthState();
+    window.location.replace('/admin/login');
   },
 
   // Make authenticated API request

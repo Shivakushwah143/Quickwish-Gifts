@@ -181,6 +181,7 @@
 
 import { useState } from 'react';
 import { X, Shield, Eye, EyeOff, Lock, User } from 'lucide-react';
+import { clearAuthState } from '../utils/auth';
 
 interface AdminAuthModalProps {
     isOpen: boolean;
@@ -234,6 +235,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const data = await response.json();
 
     if (response.ok) {
+      clearAuthState();
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUsername', formData.username);
       localStorage.setItem('userRole', 'admin');

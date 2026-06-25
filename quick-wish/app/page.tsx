@@ -22,6 +22,7 @@ import Testimonials from './components/Testimonials';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, BadgePercent, Cake, CalendarHeart, Flower2, Gift, Heart, MessageSquareText, Palette, Search, ShieldCheck, Sparkles, Truck, Users } from 'lucide-react';
 import BannerSection from './components/promotional/BannerSection';
+import { clearAuthState, hasJwtExpired } from './utils/auth';
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -218,7 +219,18 @@ export default function Home() {
     const userRole = localStorage.getItem('userRole');
 
     // Set to true only if admin credentials are present
-    setIsAdmin(!!adminToken || userRole === 'admin');
+    if (adminToken && !hasJwtExpired(adminToken)) {
+      setIsAdmin(true);
+      return;
+    }
+
+    if (userRole === 'admin') {
+      setIsAdmin(true);
+      return;
+    }
+
+    clearAuthState();
+    setIsAdmin(false);
   }, []);
 
   return (

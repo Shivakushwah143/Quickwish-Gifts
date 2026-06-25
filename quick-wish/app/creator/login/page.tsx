@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Gift, Loader2, LogIn, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { clearAuthState, hasJwtExpired } from "../../utils/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -15,8 +16,10 @@ export default function CreatorLoginPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("creatorToken");
-    if (token) {
+    if (token && !hasJwtExpired(token)) {
       router.replace("/creator/dashboard");
+    } else {
+      clearAuthState();
     }
   }, [router]);
 

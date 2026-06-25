@@ -99,12 +99,15 @@ import AuthModal from '../components/AuthModel';
 
 // components/Header.tsx
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Gift, Menu, X, Shield } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 // import AuthModal from '../components/AuthModal';
 import AdminAuthModal from '../components/AdminAuthModal';
+import { clearAuthState } from '../utils/auth';
 
 export default function Header() {
+  const router = useRouter();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -134,16 +137,15 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearAuthState();
     setIsLoggedIn(false);
-    window.location.reload();
+    router.replace('/');
   };
 
   const handleAdminLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUsername');
+    clearAuthState();
     setIsAdmin(false);
-    window.location.reload();
+    router.replace('/admin/login');
   };
 
   const handleAdminAuthSuccess = () => {

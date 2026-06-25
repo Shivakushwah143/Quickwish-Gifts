@@ -7,6 +7,7 @@ import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield, CheckCi
 import AdminAuthModal from '../components/AdminAuthModal';
 import AddProductModal from '../components/AddProductModal';
 import CreatorManagement from '../components/CreatorManagement';
+import { clearAuthState, hasJwtExpired } from '../utils/auth';
 
 
 interface User {
@@ -73,13 +74,14 @@ export default function AdminDashboard() {
     const token = localStorage.getItem('adminToken');
     const username = localStorage.getItem('adminUsername');
 
-    if (token && username) {
+    if (token && username && !hasJwtExpired(token)) {
       setIsAuthenticated(true);
       setAdminUsername(username);
       fetchOrders();
       fetchUsers();
       fetchAllProducts();
     } else {
+      clearAuthState();
       setShowAuthModal(true);
     }
   }, []);
@@ -330,11 +332,10 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUsername');
+    clearAuthState();
     setIsAuthenticated(false);
     setAdminUsername('');
-    router.push('/');
+    router.replace('/admin/login');
   };
 
   const handleProductSuccess = () => {
@@ -369,7 +370,10 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <AdminAuthModal
           isOpen={showAuthModal}
-          onClose={() => router.push('/')}
+          onClose={() => {
+            clearAuthState();
+            router.replace('/admin/login');
+          }}
           onSuccess={handleAuthSuccess}
         />
       </div>

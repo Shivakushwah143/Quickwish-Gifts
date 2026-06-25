@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import AdminAuthModal from './AdminAuthModal';
+import { clearAuthState, hasJwtExpired } from '../utils/auth';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -17,9 +18,10 @@ export default function AdminRoute({ children }: AdminRouteProps) {
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem('adminToken');
-      if (token) {
+      if (token && !hasJwtExpired(token)) {
         setIsAuthenticated(true);
       } else {
+        clearAuthState();
         setShowAuthModal(true);
       }
       setIsLoading(false);
@@ -34,7 +36,8 @@ export default function AdminRoute({ children }: AdminRouteProps) {
   };
 
   const handleAuthClose = () => {
-    router.push('/');
+    clearAuthState();
+    router.replace('/admin/login');
   };
 
   if (isLoading) {
