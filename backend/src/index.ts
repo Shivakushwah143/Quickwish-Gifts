@@ -71,15 +71,16 @@ export const getClientIp = (req: Request): string => {
 app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
   const { email, password, username } = req.body;
   try {
+    const normalizedEmail = String(email).toLowerCase().trim();
     // Check if user exists (email or username)
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ $or: [{ email: normalizedEmail }, { username }] });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
     const hashPassword = await bcrypt.hash(password, 8);
     const user = await User.create({
-      email,
+      email: normalizedEmail,
       username,
       password: hashPassword,
     });
@@ -109,15 +110,16 @@ app.post("/api/v1/user/signin", async (req: Request, res: Response) => {
   const { email, password } = req.body;
   console.log(req.body);
   try {
-    const user = await User.findOne({ email });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // const passwordValid = await bcrypt.compare(password, password);
-    // if (!passwordValid) {
-    //   return res.status(401).json({ message: "Invalid credentials" });
-    // }
+    const passwordValid = await bcrypt.compare(String(password || ""), String(user.password));
+    if (!passwordValid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const token = Jwt.sign({ userId: user._id, email: user.email }, SECRET, {
       expiresIn: "1h",

@@ -150,7 +150,7 @@ export default function OrderPaymentModal({
                 return;
             }
 
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
             if (!token) {
                 setError('Please login to place order');
                 setLoading(false);
@@ -550,7 +550,6 @@ export default function OrderPaymentModal({
         </div>
     );
 }
-
 
 
 

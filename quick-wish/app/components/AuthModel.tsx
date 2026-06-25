@@ -1,6 +1,7 @@
 // components/AuthModal.tsx
 import { useState } from 'react';
 import { X, Eye, EyeOff, Gift, Heart, Star } from 'lucide-react';
+import { clearCustomerAuthState } from '../utils/auth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -46,7 +47,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
       const data = await response.json();
 
       if (response.ok) {
+        clearCustomerAuthState();
         localStorage.setItem('token', data.token);
+        localStorage.setItem('customerToken', data.token);
+        localStorage.setItem('customerData', JSON.stringify({
+          role: 'customer',
+          token: data.token,
+          user: data.user || null,
+          email: data.user?.email || formData.email || null,
+        }));
         onClose();
         window.location.reload();
       } else {
@@ -90,10 +99,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
             </h2>
             <p className="text-[color:var(--muted)] text-sm">
               {mode === 'signin' 
-                ? 'Sign in to send something quietly beautiful.'
-                : 'Save your favorites and gift with intention.'
+                ? 'Customer sign in only.'
+                : 'Create a customer account to buy gifts.'
               }
             </p>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-[color:var(--border)] bg-[color:var(--ivory)]/70 px-4 py-3 text-xs font-semibold text-[color:var(--muted)]">
+            Customer authentication only. Creators should use the dedicated Creator Login page.
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

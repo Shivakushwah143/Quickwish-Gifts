@@ -4,15 +4,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield } from 'lucide-react';
-import AdminAuthModal from '../components/AdminAuthModal';
 import AddProductModal from '../components/AddProductModal';
 import AdminHeader from '../components/AdminHeader';
 import CreatorManagement from '../components/CreatorManagement';
-import { clearAuthState, hasJwtExpired } from '../utils/auth';
+import { clearAdminAuthState, hasJwtExpired } from '../utils/auth';
 
 export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [showAuthModal, setShowAuthModal] = useState(false);
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [adminUsername, setAdminUsername] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -27,8 +25,8 @@ export default function AdminDashboard() {
             setIsAuthenticated(true);
             setAdminUsername(username);
         } else {
-            clearAuthState();
-            setShowAuthModal(true);
+            clearAdminAuthState();
+            router.replace('/admin/login');
         }
     }, []);
 
@@ -36,11 +34,10 @@ export default function AdminDashboard() {
         setIsAuthenticated(true);
         const username = localStorage.getItem('adminUsername') || '';
         setAdminUsername(username);
-        setShowAuthModal(false);
     };
 
     const handleLogout = () => {
-        clearAuthState();
+        clearAdminAuthState();
         setIsAuthenticated(false);
         setAdminUsername('');
         router.replace('/admin/login');
@@ -50,20 +47,7 @@ export default function AdminDashboard() {
         alert('Product created successfully!');
     };
 
-    if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-                <AdminAuthModal
-                    isOpen={showAuthModal}
-                    onClose={() => {
-                        clearAuthState();
-                        router.replace('/admin/login');
-                    }}
-                    onSuccess={handleAuthSuccess}
-                />
-            </div>
-        );
-    }
+    if (!isAuthenticated) return null;
     // Define the props interface
     interface AdminHeaderProps {
         onLogout: () => void;

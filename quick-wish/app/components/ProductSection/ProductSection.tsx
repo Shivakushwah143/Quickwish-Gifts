@@ -403,7 +403,7 @@ const ProductSection = ({ title }: { title: string }) => {
   const handleAddToCart = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
     if (!token) {
       setIsAuthModalOpen(true);
       return;

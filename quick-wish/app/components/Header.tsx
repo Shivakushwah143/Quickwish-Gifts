@@ -104,7 +104,7 @@ import { User, Gift, Menu, X, Shield } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 // import AuthModal from '../components/AuthModal';
 import AdminAuthModal from '../components/AdminAuthModal';
-import { clearAuthState } from '../utils/auth';
+import { clearAdminAuthState, clearCustomerAuthState } from '../utils/auth';
 
 export default function Header() {
   const router = useRouter();
@@ -117,7 +117,7 @@ export default function Header() {
 
   useEffect(() => {
     // Check if user is logged in
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
     setIsLoggedIn(!!token);
     
     // Check if admin is logged in
@@ -137,13 +137,13 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    clearAuthState();
+    clearCustomerAuthState();
     setIsLoggedIn(false);
     router.replace('/');
   };
 
   const handleAdminLogout = () => {
-    clearAuthState();
+    clearAdminAuthState();
     setIsAdmin(false);
     router.replace('/admin/login');
   };
@@ -228,6 +228,12 @@ export default function Header() {
                     <Shield size={16} className="mr-1" />
                     Admin
                   </button>
+                  <button
+                    onClick={() => router.push('/creator/login')}
+                    className="hidden md:flex items-center text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
+                  >
+                    Creator Login
+                  </button>
                 </div>
               ) : (
                 <div className="hidden md:flex items-center space-x-3">
@@ -307,6 +313,12 @@ export default function Header() {
                 >
                   <Shield size={16} className="mr-2" />
                   Admin Login
+                </button>
+                <button
+                  onClick={() => router.push('/creator/login')}
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
+                >
+                  Creator Login
                 </button>
               </div>
             ) : (

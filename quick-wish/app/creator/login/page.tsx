@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Gift, Loader2, LogIn, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { clearAuthState, hasJwtExpired } from "../../utils/auth";
+import { clearCreatorAuthState, hasJwtExpired } from "../../utils/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -19,7 +19,7 @@ export default function CreatorLoginPage() {
     if (token && !hasJwtExpired(token)) {
       router.replace("/creator/dashboard");
     } else {
-      clearAuthState();
+      clearCreatorAuthState();
     }
   }, [router]);
 
@@ -58,8 +58,20 @@ export default function CreatorLoginPage() {
         return;
       }
 
+      clearCreatorAuthState();
+      const creatorData = {
+        role: data?.role || "CREATOR",
+        token: data.token,
+        creator: {
+          id: data?.creator?.id || data?.creator?._id || null,
+          name: data?.creator?.name || "Creator",
+          email: data?.creator?.email || email.trim(),
+          referralCode: data?.creator?.referralCode || null,
+        },
+      };
       localStorage.setItem("creatorToken", data.token);
-      localStorage.setItem("creatorName", data?.creator?.name || "Creator");
+      localStorage.setItem("creatorName", creatorData.creator.name);
+      localStorage.setItem("creatorData", JSON.stringify(creatorData));
       router.replace("/creator/dashboard");
     } catch {
       setError("Unable to login right now. Please try again.");

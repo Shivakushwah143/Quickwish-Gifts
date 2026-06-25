@@ -7,7 +7,7 @@ import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield, CheckCi
 import AdminAuthModal from '../components/AdminAuthModal';
 import AddProductModal from '../components/AddProductModal';
 import CreatorManagement from '../components/CreatorManagement';
-import { clearAuthState, hasJwtExpired } from '../utils/auth';
+import { clearAdminAuthState, hasJwtExpired } from '../utils/auth';
 
 
 interface User {
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
       fetchUsers();
       fetchAllProducts();
     } else {
-      clearAuthState();
+      clearAdminAuthState();
       setShowAuthModal(true);
     }
   }, []);
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    clearAuthState();
+    clearAdminAuthState();
     setIsAuthenticated(false);
     setAdminUsername('');
     router.replace('/admin/login');
@@ -371,7 +371,7 @@ export default function AdminDashboard() {
         <AdminAuthModal
           isOpen={showAuthModal}
           onClose={() => {
-            clearAuthState();
+            clearAdminAuthState();
             router.replace('/admin/login');
           }}
           onSuccess={handleAuthSuccess}

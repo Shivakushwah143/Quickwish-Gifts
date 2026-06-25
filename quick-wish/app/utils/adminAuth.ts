@@ -1,4 +1,4 @@
-import { clearAuthState } from './auth';
+import { clearAdminAuthState } from './auth';
 
 export const adminAuth = {
   // Check if admin is authenticated
@@ -23,7 +23,7 @@ export const adminAuth = {
   // Logout admin
   logout: (): void => {
     if (typeof window === 'undefined') return;
-    clearAuthState();
+    clearAdminAuthState();
     window.location.replace('/admin/login');
   },
 

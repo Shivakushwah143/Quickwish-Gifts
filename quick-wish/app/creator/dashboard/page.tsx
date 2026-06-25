@@ -13,7 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { clearAuthState, hasJwtExpired } from "../../utils/auth";
+import { clearCreatorAuthState, hasJwtExpired } from "../../utils/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -61,7 +61,7 @@ export default function CreatorDashboardPage() {
     const token = localStorage.getItem("creatorToken");
 
     if (!token || hasJwtExpired(token)) {
-      clearAuthState();
+      clearCreatorAuthState();
       router.replace("/creator/login");
       return;
     }
@@ -84,7 +84,7 @@ export default function CreatorDashboardPage() {
 
         if (!response.ok || !data?.dashboard) {
           if (response.status === 401 || response.status === 403) {
-            clearAuthState();
+            clearCreatorAuthState();
             router.replace("/creator/login");
             return;
           }
@@ -118,7 +118,7 @@ export default function CreatorDashboardPage() {
   };
 
   const handleLogout = () => {
-    clearAuthState();
+    clearCreatorAuthState();
     router.replace("/creator/login");
   };
 

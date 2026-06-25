@@ -19,7 +19,7 @@ export default function AssistantDrawer() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
     if (!token) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -36,7 +36,7 @@ export default function AssistantDrawer() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
     if (!token) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)));
     }
@@ -61,7 +61,7 @@ export default function AssistantDrawer() {
     setMessages(nextMessages);
     setLoading(true);
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
     if (!API_BASE_URL) {
       setError("Assistant is unavailable. API URL is not configured.");

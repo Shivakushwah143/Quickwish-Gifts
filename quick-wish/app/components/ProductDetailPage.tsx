@@ -97,7 +97,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
       return;
     }
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
 
     if (!token) {
       setIsAuthModalOpen(true);

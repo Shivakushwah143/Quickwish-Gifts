@@ -1,13 +1,17 @@
 const AUTH_KEYS = [
   "token",
+  "customerToken",
+  "customerData",
   "adminToken",
+  "adminData",
   "adminUsername",
   "creatorToken",
+  "creatorData",
   "creatorName",
   "userRole",
 ];
 
-export const clearAuthState = (): void => {
+export const clearAllAuthState = (): void => {
   if (typeof window === "undefined") return;
 
   AUTH_KEYS.forEach((key) => {
@@ -15,6 +19,29 @@ export const clearAuthState = (): void => {
   });
 
   sessionStorage.clear();
+};
+
+export const clearCustomerAuthState = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+  localStorage.removeItem("customerToken");
+  localStorage.removeItem("customerData");
+  sessionStorage.removeItem("token");
+};
+
+export const clearAdminAuthState = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("adminToken");
+  localStorage.removeItem("adminData");
+  localStorage.removeItem("adminUsername");
+  localStorage.removeItem("userRole");
+};
+
+export const clearCreatorAuthState = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("creatorToken");
+  localStorage.removeItem("creatorData");
+  localStorage.removeItem("creatorName");
 };
 
 export const hasJwtExpired = (token: string | null): boolean => {
