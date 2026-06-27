@@ -337,6 +337,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Product } from '../../types/index';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, ShoppingBag } from 'lucide-react';
@@ -487,14 +488,19 @@ const ProductSection = ({ title }: { title: string }) => {
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
                 <div className="relative overflow-hidden bg-[#fbf4ec]">
-                  <motion.img
-                    src={product.images[0] || '/placeholder-image.jpg'}
-                    alt={product.name}
-                    className="h-72 w-full object-cover transition duration-500 hover:scale-105"
-                    loading="lazy"
+                  <motion.div
                     whileHover={shouldReduceMotion ? undefined : { scale: 1.035 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
-                  />
+                  >
+                    <Image
+                      src={product.images[0] || '/placeholder-image.jpg'}
+                      alt={product.name}
+                      width={720}
+                      height={720}
+                      sizes="(max-width: 640px) 86vw, 288px"
+                      className="h-72 w-full object-cover transition duration-500"
+                    />
+                  </motion.div>
                   <div className="absolute left-3 top-3">
                     <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#b54e36] shadow-sm">
                       {urgencyTag(safeCurrentPrice, discountPercent, index)}

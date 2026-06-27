@@ -22,6 +22,7 @@ const creatorSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
+    
     trim: true,
   },
   password: {
@@ -29,6 +30,7 @@ const creatorSchema = new mongoose.Schema({
     default: null,
   },
   preferredCode: {
+
     type: String,
     uppercase: true,
     trim: true,

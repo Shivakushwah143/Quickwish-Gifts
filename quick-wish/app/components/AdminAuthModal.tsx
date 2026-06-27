@@ -207,20 +207,22 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
   setError('');
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
+  const normalizedUsername = formData.username.trim().toLowerCase();
 
   try {
     const endpoint = mode === 'signin' 
       ? `${API_BASE_URL}/admin/signin` 
       : `${API_BASE_URL}/admin/signup`;
+    console.log(`[frontend][admin] ${mode} -> ${endpoint} username=${normalizedUsername}`);
 
     // Prepare request body based on mode
     const requestBody = mode === 'signin' 
       ? {
-          username: formData.username,
+          username: normalizedUsername,
           password: formData.password
         }
       : {
-          username: formData.username,
+          username: normalizedUsername,
           password: formData.password,
         };
 
@@ -237,12 +239,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (response.ok) {
       clearAdminAuthState();
       localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminUsername', formData.username);
+      localStorage.setItem('adminUsername', normalizedUsername);
       localStorage.setItem('adminData', JSON.stringify({
         role: data?.role || 'admin',
         token: data.token,
         admin: {
-          username: formData.username,
+          username: normalizedUsername,
           email: data?.admin?.email || formData.email || null,
         },
       }));

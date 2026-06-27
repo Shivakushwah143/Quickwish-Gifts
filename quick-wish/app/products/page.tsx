@@ -1,8 +1,22 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { fetchStaticProducts } from "../lib/productCatalog";
 import ProductListClient from "./ProductListClient";
 
 export const revalidate = 86400;
+
+export const metadata: Metadata = {
+  title: "All Gifts & Hampers in Indore",
+  description:
+    "Browse QuickWish Gifts by category, occasion, budget, and gift type. Shop flowers, hampers, chocolate bouquets, personalized gifts, and same-day delivery in Indore.",
+  alternates: {
+    canonical: "/products",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 function ProductsLoading() {
   return (

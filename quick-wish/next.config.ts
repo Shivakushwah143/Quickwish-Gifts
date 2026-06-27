@@ -2,8 +2,15 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    images: {
-    domains: ["images.unsplash.com", "floreal.in"],
+  images: {
+    domains: [
+      "images.unsplash.com",
+      "plus.unsplash.com",
+      "images.pexels.com",
+      "media.istockphoto.com",
+      "floreal.in",
+      "api.qrserver.com",
+    ],
   },
   eslint: {
     ignoreDuringBuilds: true, 

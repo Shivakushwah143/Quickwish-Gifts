@@ -101,6 +101,7 @@
 
 import { Category } from '@/app/types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 interface CategorySectionProps {
@@ -159,10 +160,13 @@ const CategorySection = ({
                 className="relative cursor-pointer overflow-hidden rounded-lg border border-[#f1d8c8] bg-white shadow-sm transition-all group hover:-translate-y-1 hover:shadow-md"
                 onClick={() => handleCategoryClick(category.name)}
               >
-                <img 
-                  src={category.image} 
+                <Image
+                  src={category.image}
                   alt={category.name}
-                  className="w-full h-36 object-cover transition-transform duration-500 group-hover:scale-105"
+                  width={480}
+                  height={320}
+                  sizes="(max-width: 640px) 50vw, 16vw"
+                  className="h-36 w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="p-2 text-center">
                   <p className="line-clamp-1 text-sm font-semibold text-[#2b1d25]">{category.name}</p>
@@ -201,10 +205,13 @@ const CategorySection = ({
               onClick={() => handleCategoryClick(category.name)}
             >
               <div className={`${isRounded ? 'rounded-t-lg' : 'rounded-t-lg'} h-40 overflow-hidden`}>
-                <img 
-                  src={category.image} 
+                <Image
+                  src={category.image}
                   alt={category.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  width={320}
+                  height={320}
+                  sizes="(max-width: 640px) 42vw, 160px"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
               <div className="px-2 py-2 text-center">

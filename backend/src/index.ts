@@ -434,10 +434,13 @@ app.post("/api/v1/admin/signup", async (req: Request, res: Response) => {
   }
 });
 
+
 app.post("/api/v1/admin/signin", async (req: Request, res: Response) => {
   const { username, password } = req.body;
   try {
-    const user = await admin.findOne({ username });
+    const normalizedUsername = String(username).toLowerCase().trim();
+    console.log(`[admin] signin request username=${normalizedUsername} db=${mongoose.connection.name}`);
+    const user = await admin.findOne({ username: normalizedUsername });
     if (!user) {
       res.status(401).json({ message: "admin not found" });
       return;
