@@ -398,7 +398,7 @@ const ProductSection = ({ title }: { title: string }) => {
   };
 
   const handleProductClick = (productId: string) => {
-    router.push(`/products/${productId}`);
+    router.push(`/products/${encodeURIComponent(productId)}`);
   };
 
   const handleAddToCart = (product: Product, e: React.MouseEvent) => {
@@ -480,9 +480,14 @@ const ProductSection = ({ title }: { title: string }) => {
 
             return (
               <motion.div
-                key={product._id}
+                key={product._id || product.name}
                 className="w-[86vw] max-w-[18rem] flex-shrink-0 snap-start cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)] sm:w-72"
-                onClick={() => product._id && handleProductClick(product._id)}
+                onClick={() => {
+                  const productId = product._id;
+                  if (productId) {
+                    handleProductClick(productId);
+                  }
+                }}
                 whileHover={shouldReduceMotion ? undefined : { y: -4 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
@@ -551,7 +556,7 @@ const ProductSection = ({ title }: { title: string }) => {
         <OrderPaymentModal
           isOpen={isOrderModalOpen}
           onClose={() => setIsOrderModalOpen(false)}
-          productId={selectedProduct._id!}
+          productId={selectedProduct._id || selectedProduct.name}
           productName={selectedProduct.name}
           productPrice={selectedProduct.price}
           productImage={selectedProduct.images[0]}

@@ -39,6 +39,7 @@ const isProductResponse = (
 };
 
 export default function ProductDetailPage({ product }: ProductDetailPageProps) {
+  const images = Array.isArray(product.images) ? product.images : [];
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -79,15 +80,15 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
   }, [product.id]);
 
   const nextImage = () => {
-    if (product.images.length > 0) {
-      setSelectedImage((prev) => (prev + 1) % product.images.length);
+    if (images.length > 0) {
+      setSelectedImage((prev) => (prev + 1) % images.length);
     }
   };
 
   const prevImage = () => {
-    if (product.images.length > 0) {
+    if (images.length > 0) {
       setSelectedImage(
-        (prev) => (prev - 1 + product.images.length) % product.images.length
+        (prev) => (prev - 1 + images.length) % images.length
       );
     }
   };
@@ -108,7 +109,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
   };
 
   const selectedProductImage =
-    product.images[selectedImage] || product.images[0] || "/placeholder.jpg";
+    images[selectedImage] || images[0] || "/placeholder.jpg";
   const currentPrice = Number(dynamicProduct?.price || 0);
   const originalPrice = Number(
     dynamicProduct?.originalPrice || dynamicProduct?.offPrice || 0
@@ -135,7 +136,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                   className="h-full w-full object-cover"
                 />
 
-                {product.images.length > 1 && (
+                {images.length > 1 && (
                   <>
                     <button
                       onClick={prevImage}
@@ -155,9 +156,9 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                 )}
               </div>
 
-              {product.images.length > 1 && (
+              {images.length > 1 && (
                 <div className="grid grid-cols-4 gap-2">
-                  {product.images.map((image, index) => (
+                  {images.map((image, index) => (
                     <button
                       key={`${image}-${index}`}
                       onClick={() => setSelectedImage(index)}

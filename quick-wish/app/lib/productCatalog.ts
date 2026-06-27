@@ -86,9 +86,27 @@ export const fetchStaticProductById = async (
 ): Promise<StaticProduct> => {
   const response = await fetch(`${getApiBaseUrl()}/product/${productId}`, {
     next: { revalidate: PRODUCT_REVALIDATE_SECONDS },
-  });
+  }).catch(() => null);
+
+  if (!response) {
+    const catalog = await fetchStaticProducts().catch(() => []);
+    const fallback = catalog.find(
+      (item) => item.id === productId || item.slug === productId
+    );
+    if (fallback) {
+      return fallback;
+    }
+    notFound();
+  }
 
   if (response.status === 404) {
+    const catalog = await fetchStaticProducts().catch(() => []);
+    const fallback = catalog.find(
+      (item) => item.id === productId || item.slug === productId
+    );
+    if (fallback) {
+      return fallback;
+    }
     notFound();
   }
 

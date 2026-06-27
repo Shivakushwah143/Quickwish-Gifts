@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       title: product.title,
       description: product.description,
       url: `${siteUrl}/products/${product.slug}`,
-      type: "product",
+      type: "website",
       images: product.images.slice(0, 1),
     },
     twitter: {
