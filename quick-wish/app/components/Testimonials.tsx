@@ -31,23 +31,23 @@ const moments = [
 
 export default function Testimonials() {
   return (
-    <section className="w-full bg-[#fffaf4] px-4 py-12">
+    <section className="w-full bg-[color:var(--tint-cream)] px-4 py-12">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <span className="rounded-full bg-[#fff0e7] px-3 py-1 text-xs font-bold text-[#b54e36]">
+            <span className="rounded-full bg-[color:var(--tint-peach)] px-3 py-1 text-xs font-bold text-[color:var(--wine)]">
               Real moments
             </span>
-            <h2 className="mt-3 text-2xl font-semibold text-[#2b1d25] sm:text-4xl lux-serif">
+            <h2 className="mt-3 text-2xl font-semibold text-[color:var(--plum)] sm:text-4xl lux-serif">
               Delivered today. Remembered longer.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f5d66]">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--muted)]">
               Customer photos, unboxing moments, and small messages that made the gift feel alive.
             </p>
           </div>
-          <div className="rounded-lg border border-[#ead7c5] bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#8b3f2f]">100+ happy deliveries</p>
-            <p className="text-sm font-semibold text-[#2b1d25]">Across Indore, with same-day care.</p>
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--wine)]">100+ happy deliveries</p>
+            <p className="text-sm font-semibold text-[color:var(--plum)]">Across Indore, with same-day care.</p>
           </div>
         </div>
 
@@ -55,9 +55,9 @@ export default function Testimonials() {
           {moments.map((moment) => (
             <div
               key={moment.id}
-              className="overflow-hidden rounded-lg border border-[#ead7c5] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="relative h-72 bg-[#fbf4ec]">
+              <div className="relative h-72 bg-[color:var(--ivory)]">
                 <Image
                   src={moment.img}
                   alt={moment.label}
@@ -65,13 +65,13 @@ export default function Testimonials() {
                   sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
                   className="object-cover"
                 />
-                <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-[#b54e36] shadow-sm">
+                <span className="absolute left-3 top-3 rounded-full bg-[color:var(--surface)] px-3 py-1 text-xs font-bold text-[color:var(--wine)] shadow-sm">
                   {moment.label}
                 </span>
               </div>
               <div className="p-3">
-                <p className="rounded-lg bg-[#f8f3ec] px-3 py-2 text-sm font-semibold text-[#2b1d25]">
-                  "{moment.text}"
+                <p className="rounded-lg bg-[color:var(--ivory)] px-3 py-2 text-sm font-semibold text-[color:var(--plum)]">
+                  “{moment.text}”
                 </p>
               </div>
             </div>

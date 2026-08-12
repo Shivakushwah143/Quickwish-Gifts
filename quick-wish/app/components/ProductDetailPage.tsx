@@ -13,6 +13,8 @@ import type { StaticProduct } from "../lib/productCatalog";
 import ProductDynamicFields from "../products/ProductDynamicFields";
 import OrderPaymentModal from "./OrderPaymentModal";
 import AuthModal from "./AuthModel";
+import ProductShareButton from "./ProductShareButton";
+import { captureReferralFromCurrentUrl } from "../lib/productShare";
 
 type ProductDetailPageProps = {
   product: StaticProduct;
@@ -23,6 +25,7 @@ type DynamicProduct = {
   originalPrice?: number;
   offPrice?: number;
   discountPercent?: number;
+  stock?: number;
 };
 
 type ProductResponse = {
@@ -48,6 +51,12 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
     null
   );
   const router = useRouter();
+
+  // Persist any ?ref=CODE creator referral from a shared link so it survives
+  // through gift customization and checkout.
+  useEffect(() => {
+    captureReferralFromCurrentUrl();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,6 +123,8 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
   const originalPrice = Number(
     dynamicProduct?.originalPrice || dynamicProduct?.offPrice || 0
   );
+  const availableStock = Number(dynamicProduct?.stock || 0);
+  const maxQuantity = availableStock > 0 ? availableStock : 10;
 
   return (
     <div className="min-h-screen bg-[color:var(--ivory)] py-8">
@@ -192,44 +203,64 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                 <ProductDynamicFields productId={product.id} mode="detail" />
               </div>
 
-              <div className="mb-6">
-                <h2 className="text-lg font-medium text-[color:var(--plum)] mb-2">
-                  Description
-                </h2>
-                <p className="text-[color:var(--muted)] leading-7">
-                  {product.description}
-                </p>
-              </div>
-
               <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
                 <div className="flex items-center border border-[color:var(--border)] rounded-xl">
                   <button
-                    className="px-3 py-2 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition"
+                    className="px-4 py-3 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
                   >
                     -
                   </button>
-                  <span className="px-3 py-2">{quantity}</span>
+                  <span className="min-w-8 px-3 py-3 text-center">{quantity}</span>
                   <button
-                    className="px-3 py-2 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition"
-                    onClick={() => setQuantity(quantity + 1)}
+                    className="px-4 py-3 text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                    disabled={availableStock > 0 && quantity >= availableStock}
+                    aria-label="Increase quantity"
                   >
                     +
                   </button>
                 </div>
+                {availableStock > 0 && availableStock <= 5 && (
+                  <span className="text-xs font-semibold text-[color:var(--warning)]">
+                    Only {availableStock} left in stock
+                  </span>
+                )}
 
                 <button
                   onClick={handleBuyNow}
                   disabled={!dynamicProduct?.price}
-                  className="flex-1 bg-[color:var(--wine)] text-[color:var(--ivory)] py-2 px-4 rounded-xl font-medium hover:bg-[#3b182f] flex items-center justify-center transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 min-h-12 bg-[color:var(--wine)] text-[color:var(--ivory)] py-3 px-4 rounded-xl font-medium hover:bg-[#3b182f] flex items-center justify-center transition-all disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ShoppingCart size={20} className="mr-2" />
                   {dynamicProduct?.price ? "Buy Now" : "Loading price"}
                 </button>
 
-                <button className="self-start p-2 border border-[color:var(--border)] rounded-xl text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition sm:self-auto">
+                <button
+                  className="self-start p-3 border border-[color:var(--border)] rounded-xl text-[color:var(--muted)] hover:bg-[color:var(--border)]/30 transition sm:self-auto"
+                  aria-label="Save this gift"
+                >
                   <Heart size={20} />
                 </button>
+
+                <ProductShareButton
+                  slug={product.slug}
+                  title={product.title}
+                  price={currentPrice > 0 ? currentPrice : undefined}
+                  image={selectedProductImage !== "/placeholder.jpg" ? selectedProductImage : undefined}
+                  description={product.description}
+                />
+              </div>
+
+              <div className="mb-6">
+                <h2 className="text-lg font-medium text-[color:var(--plum)] mb-2">
+                  Description
+                </h2>
+                <p className="max-w-prose text-[color:var(--muted)] leading-7">
+                  {product.description}
+                </p>
               </div>
 
               <div className="border-t border-[color:var(--border)] pt-4">
@@ -261,6 +292,8 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
         productImage={selectedProductImage}
         originalPrice={Number.isFinite(originalPrice) ? originalPrice : undefined}
         discountPercent={dynamicProduct?.discountPercent}
+        quantity={quantity}
+        maxStock={availableStock}
       />
 
       <AuthModal

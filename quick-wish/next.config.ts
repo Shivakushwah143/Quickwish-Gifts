@@ -9,7 +9,7 @@ const nextConfig = {
       "images.pexels.com",
       "media.istockphoto.com",
       "floreal.in",
-      "api.qrserver.com",
+      "res.cloudinary.com",
     ],
   },
   eslint: {

@@ -9,6 +9,10 @@ export const revalidate = 86400;
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
+  "https://www.onewish.fun";
+
 type ProductPageProps = {
   params: Promise<{
     id: string;
@@ -38,13 +42,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
       },
     };
   }
-  const siteUrl = "https://www.onewish.fun";
-
   return {
     title: `${product.title} | QuickWish`,
     description: product.description,
     alternates: {
-      canonical: `${siteUrl}/products/${product.slug}`,
+      canonical: `${SITE_URL}/products/${product.slug}`,
     },
     robots: {
       index: true,
@@ -53,7 +55,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     openGraph: {
       title: product.title,
       description: product.description,
-      url: `${siteUrl}/products/${product.slug}`,
+      url: `${SITE_URL}/products/${product.slug}`,
       type: "website",
       images: product.images.slice(0, 1),
     },
@@ -90,7 +92,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       "@type": "Offer",
       priceCurrency: "INR",
       availability: "https://schema.org/InStock",
-      url: `https://www.onewish.fun/products/${product.slug}`,
+      url: `${SITE_URL}/products/${product.slug}`,
     },
   };
 

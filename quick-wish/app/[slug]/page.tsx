@@ -80,7 +80,7 @@ export default async function SeoLandingPage({ params }: SeoPageProps) {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-[#2b1d25]">
+    <main className="mx-auto max-w-6xl px-4 py-10 text-[color:var(--plum)]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
@@ -90,31 +90,31 @@ export default async function SeoLandingPage({ params }: SeoPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <nav className="mb-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#8b3f2f]">
+      <nav className="mb-6 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--wine)]">
         <Link href="/">Home</Link> / <span>{page.title}</span>
       </nav>
 
-      <section className="rounded-3xl border border-[#ead7c5] bg-white p-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b54e36]">
+      <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-[color:var(--wine)]">
           SEO landing page
         </p>
         <h1 className="mt-3 text-3xl font-semibold lux-serif sm:text-5xl">{page.h1}</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[#6f5d66] sm:text-base">
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
           {page.intro}
         </p>
       </section>
 
       <section className="mt-8 grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-3xl border border-[#ead7c5] bg-[#fffaf4] p-6">
+        <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--tint-cream)] p-6">
           <h2 className="text-2xl font-semibold lux-serif">{page.h2}</h2>
-          <div className="mt-4 space-y-4 text-sm leading-7 text-[#6f5d66]">
+          <div className="mt-4 space-y-4 text-sm leading-7 text-[color:var(--muted)]">
             {page.seoCopy.map((line) => (
               <p key={line}>{line}</p>
             ))}
           </div>
         </div>
 
-        <aside className="rounded-3xl border border-[#ead7c5] bg-white p-6">
+        <aside className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6">
           <h2 className="text-xl font-semibold lux-serif">Related links</h2>
           <ul className="mt-4 space-y-3">
             {page.relatedLinks.map((link) => (
@@ -128,13 +128,13 @@ export default async function SeoLandingPage({ params }: SeoPageProps) {
         </aside>
       </section>
 
-      <section className="mt-8 rounded-3xl border border-[#ead7c5] bg-white p-6">
+      <section className="mt-8 rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6">
         <h2 className="text-2xl font-semibold lux-serif">FAQ</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {page.faq.map((item) => (
-            <div key={item.question} className="rounded-2xl bg-[#fffaf4] p-4">
-              <h3 className="text-sm font-black text-[#2b1d25]">{item.question}</h3>
-              <p className="mt-2 text-sm leading-6 text-[#6f5d66]">{item.answer}</p>
+            <div key={item.question} className="rounded-2xl bg-[color:var(--tint-cream)] p-4">
+              <h3 className="text-sm font-black text-[color:var(--plum)]">{item.question}</h3>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{item.answer}</p>
             </div>
           ))}
         </div>

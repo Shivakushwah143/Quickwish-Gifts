@@ -1,46 +1,115 @@
-import Express, { response } from "express";
+import Express from "express";
 import type { NextFunction, Request, Response } from "express";
+import crypto from "crypto";
 import mongoose from "mongoose";
 import { admin, ChatMemory, Coupon, Creator, Order, product, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
 import { uploadProductImages } from "./config/uploadImages.js";
+import whatsappRouter from "./modules/whatsapp/routes.js";
+import { generateAssistantReply, type AssistantMessage } from "./services/assistant.service.js";
+import { getWhatsAppConfig } from "./modules/whatsapp/config.js";
 import {
-  sendOrderConfirmationEmail,
-  sendPaymentReceivedEmail,
-  type OrderItem,
-} from "./services/email.service.js";
+  authenticateUser,
+  authenticateUserOrAdmin,
+  optionalUser,
+  requireAdmin,
+  requireCreator,
+} from "./middleware/auth.js";
+import {
+  getUnitPrice,
+  normalizeCouponCode,
+  validateCouponForAmount,
+} from "./services/pricing.js";
+import {
+  buildOrderPublicView,
+  cancelOrder,
+  confirmOrder,
+  createOrder,
+} from "./services/order.service.js";
+import {
+  createPaymentInstructions,
+  getAwaitingVerificationOrders,
+  getUPIConfig,
+  rejectPayment,
+  reportPayment,
+  verifyPayment,
+} from "./services/payment.service.js";
 import type { JwtPayload } from "./types/index.js";
 import cors from "cors";
 import dns from "dns";
+
 const app = Express();
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
-app.use(Express.json());
+// ---------------------------------------------------------------------------
+// Startup configuration validation — security-critical config fails fast.
+// ---------------------------------------------------------------------------
+const SECRET = process.env.SECRET?.trim();
+const mongoUri = process.env.MONGO_URI?.trim();
 
-// app.use(
-//   cors({
-//     origin: "https://quickwish-gifts-qvbu-mtw2oh8wf-shivakushwah143s-projects.vercel.app",
-//     credentials: true,
-//   })
-// );
-app.use(cors({
-  origin: [
-    'https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app', // Your main domain
-    'https://quickwish-gifts-qvbu.vercel.app', // Your previous domain
-    'https://www.onewish.fun',                 // Your custom domain (NEW)
-    /\.vercel\.app$/,                          // All Vercel deployments (regex pattern)
-    'http://localhost:3000'                    // Local development
-  ],
-  credentials: true,
-}));
+if (!SECRET) {
+  console.error(
+    "[fatal] SECRET environment variable is required. Refusing to start without a JWT secret."
+  );
+  process.exit(1);
+}
+
+if (!mongoUri) {
+  console.error("[fatal] MONGO_URI environment variable is required.");
+  process.exit(1);
+}
+
+// Direct-UPI payment configuration is security/commerce-critical: a missing or
+// mistyped UPI ID would silently send customer money to the wrong account.
+// Fail fast exactly like SECRET/MONGO_URI.
+try {
+  getUPIConfig();
+} catch (error) {
+  console.error(
+    "[fatal] Payment configuration error:",
+    error instanceof Error ? error.message : "unknown error"
+  );
+  process.exit(1);
+}
+
+// WhatsApp integration is optional at startup — degrades to per-request errors
+// when unconfigured instead of crashing the server.
+try {
+  getWhatsAppConfig();
+} catch (error) {
+  console.warn(
+    "[config] WhatsApp integration is not configured:",
+    error instanceof Error ? error.message : "unknown error"
+  );
+}
+
+app.use(
+  Express.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => {
+      (req as Request).rawBody = Buffer.from(buf);
+    },
+  })
+);
+
+app.use(
+  cors({
+    origin: [
+      "https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app",
+      "https://quickwish-gifts-qvbu.vercel.app",
+      "https://www.onewish.fun",
+      /\.vercel\.app$/,
+      "http://localhost:3000",
+    ],
+    credentials: true,
+  })
+);
+
+app.use("/api/v1/whatsapp", whatsappRouter);
+
 const port = process.env.PORT || 5000;
-const mongoUri = process.env.MONGO_URI as string;
-const SECRET = process.env.SECRET || "fallback_secret";
-const GROK_API_KEY = process.env.GROK_API_KEY as string;
-const GROQ_API_KEY = process.env.GROQ_API_KEY as string;
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY as string;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
@@ -68,12 +137,87 @@ export const getClientIp = (req: Request): string => {
   return "unknown";
 };
 
+// ---------------------------------------------------------------------------
+// Error contract — JSON errors, never HTML or stack traces.
+// ---------------------------------------------------------------------------
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const error = err as { type?: string; message?: string; code?: string };
+
+  if (error?.type === "entity.too.large") {
+    res.status(413).json({
+      success: false,
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body is too large",
+    });
+    return;
+  }
+
+  if (error?.code === "LIMIT_FILE_SIZE") {
+    res.status(413).json({
+      success: false,
+      code: "FILE_TOO_LARGE",
+      message: "Image exceeds the 5 MB size limit",
+    });
+    return;
+  }
+
+  if (error?.code === "LIMIT_FILE_COUNT") {
+    res.status(400).json({
+      success: false,
+      code: "TOO_MANY_FILES",
+      message: "Maximum 5 images per product",
+    });
+    return;
+  }
+
+  if (error?.code === "LIMIT_UNEXPECTED_FILE") {
+    res.status(400).json({
+      success: false,
+      code: "UNEXPECTED_FILE",
+      message: "Unexpected upload field",
+    });
+    return;
+  }
+
+  if (error?.type === "entity.parse.failed") {
+    res.status(400).json({
+      success: false,
+      code: "INVALID_JSON",
+      message: "Invalid JSON payload",
+    });
+    return;
+  }
+
+  res.status(400).json({
+    success: false,
+    code: "BAD_REQUEST",
+    message: error?.message || "Bad request",
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Customer authentication
+// ---------------------------------------------------------------------------
 app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
   const { email, password, username } = req.body;
+
+  if (
+    typeof email !== "string" ||
+    typeof password !== "string" ||
+    password.length < 6
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Valid email and password (min 6 characters) are required" });
+  }
+
   try {
-    const normalizedEmail = String(email).toLowerCase().trim();
-    // Check if user exists (email or username)
-    const existingUser = await User.findOne({ $or: [{ email: normalizedEmail }, { username }] });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username }],
+    });
+
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -85,391 +229,230 @@ app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
       password: hashPassword,
     });
 
-    const token = Jwt.sign({ userId: user._id }, SECRET, { expiresIn: "1h" });
+    const token = Jwt.sign(
+      { userId: user._id, email: user.email, role: "CUSTOMER" },
+      SECRET,
+      { expiresIn: "24h" }
+    );
+
     res.status(200).json({
       message: "User registered successfully",
       token,
       success: true,
+      user: { id: user._id, email: user.email, username: user.username },
     });
   } catch (error) {
     res.status(500).json({ message: "Error in user registration" });
   }
 });
 
-app.get("/api/v1/admin/users", async (req: Request, res: Response) => {
-  try {
-    const allusers = await User.find({});
-    res.status(200).json({ message: "all users", allusers });
-  } catch (error) {
-    res.status(500).json({ message: "all users" });
-
-  }
-});
-
 app.post("/api/v1/user/signin", async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  console.log(req.body);
+
   try {
     const normalizedEmail = String(email).toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
+
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
 
-    const passwordValid = await bcrypt.compare(String(password || ""), String(user.password));
+    const passwordValid = await bcrypt.compare(
+      String(password || ""),
+      String(user.password)
+    );
+
     if (!passwordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = Jwt.sign({ userId: user._id, email: user.email }, SECRET, {
-      expiresIn: "1h",
-    });
+    const token = Jwt.sign(
+      { userId: user._id, email: user.email, role: "CUSTOMER" },
+      SECRET,
+      { expiresIn: "24h" }
+    );
+
     res.status(200).json({
       success: true,
       token,
       message: "Signin successful",
+      user: { id: user._id, email: user.email, username: user.username },
     });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// Authentication middleware
-const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+// ---------------------------------------------------------------------------
+// Admin authentication
+// ---------------------------------------------------------------------------
 
-  if (!authHeader) {
-    res.status(401).json({ message: "Authorization header missing" });
-    return;
-  }
+/**
+ * Admin signup is only possible with an explicit bootstrap key configured via
+ * the ADMIN_BOOTSTRAP_KEY environment variable. Without it the endpoint is
+ * disabled — arbitrary public requests can never create admins.
+ */
+app.post("/api/v1/admin/signup", async (req: Request, res: Response) => {
+  const bootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY?.trim();
 
-  const token = authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(400).json({ error: "Token not provided" });
-  }
-
-  Jwt.verify(token, SECRET, (err, decoded) => {
-    if (err) {
-      res.status(403).json({ message: "Invalid or expired token" });
-      return;
-    }
-
-    const payload = decoded as JwtPayload;
-    req.user = payload;
-
-    next();
-  });
-};
-const adminAuthentication = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers.authorization;
-  console.log(authHeader);
-  if (authHeader) {
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      return res.status(400).json({ error: "Token not provided" });
-    }
-
-    Jwt.verify(token, SECRET, (err, admin) => {
-      if (err) {
-        return res.sendStatus(403);
-      }
-      const payload = admin as JwtPayload;
-      req.admin = payload;
-      next();
+  if (!bootstrapKey) {
+    return res.status(404).json({
+      success: false,
+      message: "Admin signup is disabled",
     });
   }
-};
 
-const creatorAuthentication = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers.authorization;
+  const providedKey = req.headers["x-bootstrap-key"];
+  const provided = typeof providedKey === "string" ? providedKey.trim() : "";
+  const keyMatches =
+    provided.length === bootstrapKey.length &&
+    crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(bootstrapKey));
 
-  if (!authHeader) {
-    return res.status(401).json({ message: "Authorization header missing" });
+  if (!keyMatches) {
+    return res.status(403).json({
+      success: false,
+      message: "Invalid bootstrap key",
+    });
   }
 
-  const token = authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(400).json({ error: "Token not provided" });
-  }
-
-  Jwt.verify(token, SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: "Invalid or expired token" });
-    }
-
-    const payload = decoded as JwtPayload & { role?: string; creatorId?: string };
-    if (payload.role !== "CREATOR" || !payload.creatorId) {
-      return res.status(403).json({ message: "Creator access required" });
-    }
-
-    req.user = payload;
-    next();
-  });
-};
-
-const normalizeCouponCode = (value: unknown) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().toUpperCase();
-};
-
-const DELIVERY_FEE = 49;
-const FREE_DELIVERY_THRESHOLD = 499;
-const GIFT_UPGRADE_PRICES = {
-  giftWrap: 99,
-  personalisedCard: 49,
-  ferreroRocher: 149,
-} as const;
-
-type ProductPricingSource = {
-  price?: unknown;
-  offPrice?: unknown;
-  originalPrice?: unknown;
-};
-
-type CouponPricingSource = {
-  discountType?: unknown;
-  discountValue?: unknown;
-};
-
-type GiftUpgradesInput = {
-  giftWrap?: unknown;
-  personalisedCard?: {
-    enabled?: unknown;
-    message?: unknown;
-  };
-  chocolatePack?: {
-    enabled?: unknown;
-    type?: unknown;
-  };
-};
-
-const getBaseOrderAmount = (giftProduct: ProductPricingSource) => {
-  const candidateValues = [
-    giftProduct?.price,
-    giftProduct?.offPrice,
-    giftProduct?.originalPrice,
-  ];
-
-  for (const value of candidateValues) {
-    const parsedValue = Number(value);
-    if (Number.isFinite(parsedValue) && parsedValue > 0) {
-      return parsedValue;
-    }
-  }
-
-  return 0;
-};
-
-const calculateCouponDiscount = (baseAmount: number, coupon: CouponPricingSource | null) => {
-  const safeBaseAmount = Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : 0;
-
-  if (!coupon || safeBaseAmount <= 0) {
-    return {
-      discountAmount: 0,
-      finalAmount: safeBaseAmount,
-    };
-  }
-
-  let discountAmount = 0;
-
-  if (coupon.discountType === "flat") {
-    discountAmount = Math.min(Number(coupon.discountValue) || 0, safeBaseAmount);
-  } else {
-    discountAmount = (safeBaseAmount * (Number(coupon.discountValue) || 0)) / 100;
-  }
-
-  const roundedDiscount = Math.max(
-    0,
-    Math.min(safeBaseAmount, Number(discountAmount.toFixed(2)))
-  );
-  const finalAmount = Number((safeBaseAmount - roundedDiscount).toFixed(2));
-
-  return {
-    discountAmount: roundedDiscount,
-    finalAmount,
-  };
-};
-
-const calculateOrderPricing = (
-  subtotal: number,
-  couponDiscount: number,
-  giftUpgradeTotal = 0
-) => {
-  const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
-  const safeCouponDiscount = Number.isFinite(couponDiscount) && couponDiscount > 0
-    ? Math.min(couponDiscount, safeSubtotal)
-    : 0;
-  const safeGiftUpgradeTotal =
-    Number.isFinite(giftUpgradeTotal) && giftUpgradeTotal > 0 ? giftUpgradeTotal : 0;
-  const safeDeliveryFee = safeSubtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
-  const finalAmount = Number(
-    (safeSubtotal - safeCouponDiscount + safeGiftUpgradeTotal + safeDeliveryFee).toFixed(2)
-  );
-
-  return {
-    subtotal: safeSubtotal,
-    couponDiscount: safeCouponDiscount,
-    giftUpgradeTotal: safeGiftUpgradeTotal,
-    deliveryFee: safeDeliveryFee,
-    finalAmount,
-  };
-};
-
-const normalizeGiftUpgrades = (input: GiftUpgradesInput | undefined) => {
-  const giftWrap = input?.giftWrap === true;
-  const personalisedCardEnabled = input?.personalisedCard?.enabled === true;
-  const message =
-    typeof input?.personalisedCard?.message === "string"
-      ? input.personalisedCard.message.trim().slice(0, 250)
-      : "";
-  const chocolatePackEnabled = input?.chocolatePack?.enabled === true;
-
-  const normalized = {
-    giftWrap,
-    personalisedCard: {
-      enabled: personalisedCardEnabled,
-      message: personalisedCardEnabled ? message : "",
-    },
-    chocolatePack: {
-      enabled: chocolatePackEnabled,
-      type: "FERRERO_ROCHER" as const,
-    },
-  };
-
-  const total =
-    (normalized.giftWrap ? GIFT_UPGRADE_PRICES.giftWrap : 0) +
-    (normalized.personalisedCard.enabled ? GIFT_UPGRADE_PRICES.personalisedCard : 0) +
-    (normalized.chocolatePack.enabled ? GIFT_UPGRADE_PRICES.ferreroRocher : 0);
-
-  return {
-    upgrades: normalized,
-    total,
-  };
-};
-
-const validateCouponForAmount = async (code: unknown, baseAmount: number) => {
-  const couponCode = normalizeCouponCode(code);
-
-  if (!couponCode) {
-    return {
-      ok: true,
-      coupon: null,
-      discountAmount: 0,
-      finalAmount: baseAmount,
-    };
-  }
-
-  const coupon = await Coupon.findOne({
-    code: couponCode,
-    active: true,
-  });
-
-  if (!coupon) {
-    return {
-      ok: false,
-      message: "Invalid coupon code",
-    };
-  }
-
-  if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now()) {
-    return {
-      ok: false,
-      message: "Coupon has expired",
-    };
-  }
-
-  if (Number(coupon.minOrderAmount || 0) > baseAmount) {
-    return {
-      ok: false,
-      message: `Minimum order amount for this coupon is Rs ${coupon.minOrderAmount}`,
-    };
-  }
-
-  if (
-    typeof coupon.usageLimit === "number" &&
-    coupon.usageLimit > 0 &&
-    coupon.usedCount >= coupon.usageLimit
-  ) {
-    return {
-      ok: false,
-      message: "Coupon usage limit has been reached",
-    };
-  }
-
-  const { discountAmount, finalAmount } = calculateCouponDiscount(baseAmount, coupon);
-
-  return {
-    ok: true,
-    coupon,
-    discountAmount,
-    finalAmount,
-  };
-};
-
-app.post("/api/v1/admin/signup", async (req: Request, res: Response) => {
   const { username, password } = req.body;
+
+  if (typeof username !== "string" || typeof password !== "string") {
+    return res.status(400).json({ message: "Username and password are required" });
+  }
+
   try {
     const hashPassword = await bcrypt.hash(password, 8);
     const user = await admin.create({
       username,
       password: hashPassword,
+      role: "ADMIN",
     });
-    const token = Jwt.sign({ userId: user._id }, SECRET, { expiresIn: "1h" });
-    res
-      .status(200)
-      .json({ message: "admin register succesfully", token, success: true });
+
+    const token = Jwt.sign(
+      { userId: user._id, username: user.username, role: "ADMIN" },
+      SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.status(200).json({
+      message: "admin registered successfully",
+      token,
+      success: true,
+    });
   } catch (error) {
-    res.status(500).json({ message: "error i user register" });
+    res.status(500).json({ message: "error in admin registration" });
   }
 });
 
-
 app.post("/api/v1/admin/signin", async (req: Request, res: Response) => {
   const { username, password } = req.body;
+
   try {
     const normalizedUsername = String(username).toLowerCase().trim();
-    console.log(`[admin] signin request username=${normalizedUsername} db=${mongoose.connection.name}`);
     const user = await admin.findOne({ username: normalizedUsername });
+
     if (!user) {
       res.status(401).json({ message: "admin not found" });
       return;
     }
+
     const passwordValid = await bcrypt.compare(
-      password as string,
-      user?.password as string
+      String(password || ""),
+      String(user.password || "")
     );
+
     if (!passwordValid) {
       res.status(401).json({ message: "Invalid credentials" });
       return;
     }
 
     const token = Jwt.sign(
-      { username: user.username, userID: user._id.toString() },
+      { userId: user._id, username: user.username, role: "ADMIN" },
       SECRET,
-      { expiresIn: "1hr" }
+      { expiresIn: "24h" }
     );
-    res
-      .status(200)
-      .json({ success: true, token, message: " admin Signin successful" });
+
+    res.status(200).json({
+      success: true,
+      token,
+      message: " admin Signin successful",
+    });
   } catch (error) {
-    console.error("Signin error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
+app.get(
+  "/api/v1/admin/users",
+  requireAdmin,
+  async (_req: Request, res: Response) => {
+    try {
+      const allusers = await User.find({}).select("-password").lean();
+      res.status(200).json({ message: "all users", allusers });
+    } catch (error) {
+      res.status(500).json({ message: "all users" });
+    }
+  }
+);
+
+app.get(
+  "/api/v1/admin/allOrders",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { paymentStatus } = req.query;
+      const filter: Record<string, unknown> = {};
+
+      if (typeof paymentStatus === "string" && paymentStatus.trim()) {
+        const value = paymentStatus.trim();
+
+        // The customer-facing name is AWAITING_VERIFICATION, but legacy orders
+        // still carry PROOF_SUBMITTED — the filter must surface both.
+        filter.paymentStatus =
+          value === "AWAITING_VERIFICATION"
+            ? { $in: ["AWAITING_VERIFICATION", "PROOF_SUBMITTED"] }
+            : value;
+      }
+
+      const allOrders = await Order.find(filter).sort({ orderedAt: -1 }).lean();
+      res.status(200).json({ message: "all orders fetched", allOrders });
+    } catch (error) {
+      res.status(500).json({ message: "error all orders fetched" });
+    }
+  }
+);
+
+/**
+ * Lightweight admin attention queue — how many payments are waiting for manual
+ * verification. Powers the dashboard badge and the verification list.
+ */
+app.get(
+  "/api/v1/admin/payments/awaiting",
+  requireAdmin,
+  async (_req: Request, res: Response) => {
+    try {
+      const queue = await getAwaitingVerificationOrders();
+      res.status(200).json({
+        success: true,
+        count: queue.count,
+        orders: queue.orders,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch awaiting payments",
+      });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Creator / referral
+// ---------------------------------------------------------------------------
 const buildCreatorDashboard = async (creatorId: string) => {
   const creator = await Creator.findById(creatorId).lean();
+
   if (!creator) {
     return null;
   }
@@ -485,7 +468,8 @@ const buildCreatorDashboard = async (creatorId: string) => {
 
   const ordersGenerated = confirmedOrders.length;
   const revenueGenerated = confirmedOrders.reduce(
-    (sum: number, order: any) => sum + (Number(order.finalAmount ?? order.amount) || 0),
+    (sum: number, order: any) =>
+      sum + (Number(order.finalAmount ?? order.amount) || 0),
     0
   );
   const baseCommissionEarned = confirmedOrders.reduce(
@@ -545,6 +529,7 @@ app.post("/api/v1/creator/request-code", async (req: Request, res: Response) => 
 
   try {
     const existingCoupon = await Coupon.findOne({ code: normalizedCode });
+
     if (existingCoupon) {
       return res.status(409).json({
         success: false,
@@ -580,13 +565,21 @@ app.post("/api/v1/creator/signin", async (req: Request, res: Response) => {
   const { email, password } = req.body || {};
 
   try {
-    const creator = await Creator.findOne({ email: String(email).toLowerCase().trim(), active: true });
+    const creator = await Creator.findOne({
+      email: String(email).toLowerCase().trim(),
+      active: true,
+    });
+
     if (!creator) {
       return res.status(401).json({ success: false, message: "Creator not found" });
     }
 
     if (creator.password) {
-      const passwordValid = await bcrypt.compare(String(password || ""), String(creator.password));
+      const passwordValid = await bcrypt.compare(
+        String(password || ""),
+        String(creator.password)
+      );
+
       if (!passwordValid) {
         return res.status(401).json({ success: false, message: "Invalid credentials" });
       }
@@ -612,192 +605,249 @@ app.post("/api/v1/creator/signin", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/creator/dashboard", creatorAuthentication, async (req: Request, res: Response) => {
-  const payload = req.user as JwtPayload & { creatorId?: string };
+app.get(
+  "/api/v1/creator/dashboard",
+  requireCreator,
+  async (req: Request, res: Response) => {
+    const payload = req.user as JwtPayload & { creatorId?: string };
 
-  try {
-    const dashboard = await buildCreatorDashboard(payload.creatorId || "");
-    if (!dashboard) {
-      return res.status(404).json({ success: false, message: "Creator not found" });
+    try {
+      const dashboard = await buildCreatorDashboard(payload.creatorId || "");
+
+      if (!dashboard) {
+        return res.status(404).json({ success: false, message: "Creator not found" });
+      }
+
+      return res.status(200).json({ success: true, dashboard });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Creator dashboard failed" });
     }
-
-    return res.status(200).json({ success: true, dashboard });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Creator dashboard failed" });
   }
-});
+);
 
-app.get("/api/v1/admin/creators", adminAuthentication, async (_req: Request, res: Response) => {
-  try {
-    const creators = await Creator.find({}).sort({ createdAt: -1 }).lean();
-    const dashboards = await Promise.all(
-      creators.map((creator: any) => buildCreatorDashboard(creator._id.toString()))
-    );
+app.get(
+  "/api/v1/admin/creators",
+  requireAdmin,
+  async (_req: Request, res: Response) => {
+    try {
+      const creators = await Creator.find({}).sort({ createdAt: -1 }).lean();
+      const dashboards = await Promise.all(
+        creators.map((creator: any) =>
+          buildCreatorDashboard(creator._id.toString())
+        )
+      );
 
-    return res.status(200).json({
-      success: true,
-      creators: dashboards.filter(Boolean),
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to fetch creators" });
-  }
-});
-
-app.post("/api/v1/admin/creators", adminAuthentication, async (req: Request, res: Response) => {
-  const { name, email, phone, preferredCode, password, active } = req.body || {};
-
-  if (!name || !email) {
-    return res.status(400).json({ success: false, message: "Name and email are required" });
-  }
-
-  try {
-    const hashedPassword = password ? await bcrypt.hash(String(password), 8) : undefined;
-    const creator = await Creator.create({
-      name,
-      email: String(email).toLowerCase().trim(),
-      phone,
-      preferredCode: preferredCode ? normalizeCouponCode(preferredCode) : undefined,
-      ...(hashedPassword ? { password: hashedPassword } : {}),
-      active: active !== false,
-    });
-
-    return res.status(201).json({ success: true, creator });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Creator creation failed" });
-  }
-});
-
-app.post("/api/v1/admin/creators/:creatorId/code", adminAuthentication, async (req: Request, res: Response) => {
-  const { creatorId } = req.params;
-  const { code, minOrderAmount = 399, usageLimit, active = true } = req.body || {};
-  const normalizedCode = normalizeCouponCode(code);
-
-  if (!normalizedCode) {
-    return res.status(400).json({ success: false, message: "Creator code is required" });
-  }
-
-  try {
-    const creator = await Creator.findById(creatorId);
-    if (!creator) {
-      return res.status(404).json({ success: false, message: "Creator not found" });
-    }
-
-    const existingCoupon = await Coupon.findOne({
-      code: normalizedCode,
-      creatorId: { $ne: creator._id },
-    });
-
-    if (existingCoupon) {
-      return res.status(409).json({ success: false, message: "Code already exists" });
-    }
-
-    const coupon = await Coupon.findOneAndUpdate(
-      { code: normalizedCode },
-      {
-        code: normalizedCode,
-        discountType: "flat",
-        discountValue: 50,
-        minOrderAmount: Number(minOrderAmount) || 399,
-        usageLimit: usageLimit ? Number(usageLimit) : null,
-        active,
-        isCreatorCode: true,
-        creatorId: creator._id,
-        creatorName: creator.name,
-        commissionPerOrder: CREATOR_COMMISSION_PER_ORDER,
-        description: `Use ${normalizedCode}'s code and save Rs 50`,
-        updatedAt: new Date(),
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    creator.assignedCouponId = coupon._id;
-    creator.preferredCode = normalizedCode;
-    await creator.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Creator code assigned",
-      creator,
-      coupon,
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Creator code assignment failed" });
-  }
-});
-
-app.get("/api/v1/admin/creators/:creatorId/performance", adminAuthentication, async (req: Request, res: Response) => {
-  const creatorId = req.params.creatorId;
-  if (!creatorId) {
-    return res.status(400).json({ success: false, message: "Creator ID is required" });
-  }
-
-  try {
-    const dashboard = await buildCreatorDashboard(creatorId);
-    if (!dashboard) {
-      return res.status(404).json({ success: false, message: "Creator not found" });
-    }
-
-    return res.status(200).json({ success: true, dashboard });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Creator performance failed" });
-  }
-});
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-app.post("/api/v1/user/sync-clerk", async (req: Request, res: Response) => {
-  const { clerkUserId, email, username } = req.body;
-
-  try {
-    let user = await User.findOne({
-      $or: [{ clerkUserId }, { email }],
-    });
-
-    if (!user) {
-      // Create new user
-      user = await User.create({
-        clerkUserId,
-        email,
-        username,
+      return res.status(200).json({
+        success: true,
+        creators: dashboards.filter(Boolean),
       });
-    } else {
-      // Update existing user
-      user.clerkUserId = clerkUserId;
-      user.username = username || user.username;
-      await user.save();
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to fetch creators" });
+    }
+  }
+);
+
+app.post(
+  "/api/v1/admin/creators",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const { name, email, phone, preferredCode, password, active } = req.body || {};
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: "Name and email are required" });
     }
 
-    const token = Jwt.sign({ userId: user._id, clerkUserId }, SECRET, {
-      expiresIn: "24h",
-    });
+    try {
+      const hashedPassword = password ? await bcrypt.hash(String(password), 8) : undefined;
+      const creator = await Creator.create({
+        name,
+        email: String(email).toLowerCase().trim(),
+        phone,
+        preferredCode: preferredCode ? normalizeCouponCode(preferredCode) : undefined,
+        ...(hashedPassword ? { password: hashedPassword } : {}),
+        active: active !== false,
+      });
 
-    res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-      },
-    });
-  } catch (error) {
-    console.error("Clerk sync error:", error);
-    res.status(500).json({ message: "Error syncing user with Clerk" });
+      return res.status(201).json({ success: true, creator });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Creator creation failed" });
+    }
   }
+);
+
+app.post(
+  "/api/v1/admin/creators/:creatorId/code",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const { creatorId } = req.params;
+    const { code, minOrderAmount = 399, usageLimit, active = true } = req.body || {};
+    const normalizedCode = normalizeCouponCode(code);
+
+    if (!normalizedCode) {
+      return res.status(400).json({ success: false, message: "Creator code is required" });
+    }
+
+    try {
+      const creator = await Creator.findById(creatorId);
+
+      if (!creator) {
+        return res.status(404).json({ success: false, message: "Creator not found" });
+      }
+
+      const existingCoupon = await Coupon.findOne({
+        code: normalizedCode,
+        creatorId: { $ne: creator._id },
+      });
+
+      if (existingCoupon) {
+        return res.status(409).json({ success: false, message: "Code already exists" });
+      }
+
+      const coupon = await Coupon.findOneAndUpdate(
+        { code: normalizedCode },
+        {
+          code: normalizedCode,
+          discountType: "flat",
+          discountValue: 50,
+          minOrderAmount: Number(minOrderAmount) || 399,
+          usageLimit: usageLimit ? Number(usageLimit) : null,
+          active,
+          isCreatorCode: true,
+          creatorId: creator._id,
+          creatorName: creator.name,
+          commissionPerOrder: CREATOR_COMMISSION_PER_ORDER,
+          description: `Use ${normalizedCode}'s code and save Rs 50`,
+          updatedAt: new Date(),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      creator.assignedCouponId = coupon._id;
+      creator.preferredCode = normalizedCode;
+      await creator.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Creator code assigned",
+        creator,
+        coupon,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Creator code assignment failed" });
+    }
+  }
+);
+
+app.get(
+  "/api/v1/admin/creators/:creatorId/performance",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const creatorId = req.params.creatorId;
+
+    if (!creatorId) {
+      return res.status(400).json({ success: false, message: "Creator ID is required" });
+    }
+
+    try {
+      const dashboard = await buildCreatorDashboard(creatorId);
+
+      if (!dashboard) {
+        return res.status(404).json({ success: false, message: "Creator not found" });
+      }
+
+      return res.status(200).json({ success: true, dashboard });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Creator performance failed" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Product catalog — admin mutations, public reads
+// ---------------------------------------------------------------------------
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+];
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_IMAGE_COUNT = 5;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_IMAGE_SIZE_MB * 1024 * 1024,
+    files: MAX_IMAGE_COUNT,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files (JPEG, PNG, WebP, GIF, HEIC) are allowed"));
+    }
+  },
 });
 
-app.get("/api/v1/admin/allOrders", async (req: Request, res: Response) => {
-  try {
-    const allOrders = await Order.find({});
-    res.status(200).json({ message: "all orders fetched", allOrders });
-  } catch (error) {
-    res.status(200).json({ message: "erorall orders fetched" });
+const PRODUCT_UPDATABLE_FIELDS = [
+  "name",
+  "price",
+  "category",
+  "description",
+  "discountPercent",
+  "originalPrice",
+  "offPrice",
+  "stock",
+  "badge",
+  "deliveryOptions",
+  "tags",
+  "images",
+] as const;
+
+const parseTags = (tags: unknown): string[] => {
+  if (typeof tags === "string") {
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
   }
-});
+
+  if (Array.isArray(tags)) {
+    return tags
+      .map((tag) => String(tag).trim())
+      .filter((tag) => tag.length > 0);
+  }
+
+  return [];
+};
+
+const toNumberOrUndefined = (value: unknown): number | undefined => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
+const escapeRegExp = (value: string): string => {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const SORT_WHITELIST: Record<string, Record<string, 1 | -1>> = {
+  "price-asc": { price: 1 },
+  "price-desc": { price: -1 },
+  newest: { createdAt: -1 },
+  "name-asc": { name: 1 },
+};
 
 app.post(
   "/api/v1/product",
-  upload.array("images"),
+  requireAdmin,
+  upload.array("images", MAX_IMAGE_COUNT),
   async (req: Request, res: Response) => {
     const {
       name,
@@ -813,25 +863,37 @@ app.post(
       tags,
     } = req.body;
 
-    console.log("Received body:", req.body);
-    console.log("Received files:", (req as any).files);
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      !category ||
+      !Number.isFinite(Number(price))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "name, price and category are required",
+      });
+    }
 
     try {
       const imageUrls = (req as any).files
         ? await uploadProductImages((req as any).files)
         : [];
 
-      const parsedTags =
-        typeof tags === "string"
-          ? tags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter((tag) => tag.length > 0)
-          : Array.isArray(tags)
-            ? tags
-                .map((tag) => String(tag).trim())
-                .filter((tag) => tag.length > 0)
-            : [];
+      let parsedDeliveryOptions: unknown;
+
+      if (typeof deliveryOptions === "string") {
+        try {
+          parsedDeliveryOptions = JSON.parse(deliveryOptions);
+        } catch {
+          return res.status(400).json({
+            success: false,
+            message: "deliveryOptions must be valid JSON",
+          });
+        }
+      } else if (deliveryOptions) {
+        parsedDeliveryOptions = deliveryOptions;
+      }
 
       const newProduct = new product({
         name,
@@ -840,14 +902,13 @@ app.post(
         badge,
         images: imageUrls,
         description,
-        discountPercent: discountPercent ? Number(discountPercent) : undefined,
-        originalPrice: originalPrice ? Number(originalPrice) : undefined,
-        offPrice: offPrice ? Number(offPrice) : undefined,
-        deliveryOptions: deliveryOptions
-          ? JSON.parse(deliveryOptions)
-          : undefined,
-        stock: Number(stock),
-        tags: parsedTags,
+        discountPercent: toNumberOrUndefined(discountPercent),
+        originalPrice: toNumberOrUndefined(originalPrice),
+        offPrice: toNumberOrUndefined(offPrice),
+        deliveryOptions: parsedDeliveryOptions,
+        stock: Math.max(0, toNumberOrUndefined(stock) || 1),
+        tags: parseTags(tags),
+        isArchived: false,
       });
 
       await newProduct.save();
@@ -855,12 +916,11 @@ app.post(
       res.status(201).json({
         message: "Product created successfully",
         product: newProduct,
+        success: true,
       });
     } catch (error) {
-      console.error("Product creation error:", error);
       res.status(500).json({
         message: "Error creating product",
-        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -868,7 +928,72 @@ app.post(
 
 app.get("/api/v1/product", async (req: Request, res: Response) => {
   try {
-    const products = await product.find({});
+    const { search, category, sort, minPrice, maxPrice, includeArchived } = req.query;
+
+    // Archived products are hidden from the storefront unless an authenticated
+    // admin explicitly requests them.
+    let isAdminView = false;
+
+    if (typeof req.headers.authorization === "string") {
+      const token = req.headers.authorization.split(" ")[1];
+
+      if (token) {
+        try {
+          const payload = Jwt.verify(token, SECRET) as JwtPayload;
+
+          if (payload.role === "ADMIN") {
+            isAdminView = true;
+          }
+        } catch {
+          // Ignore invalid tokens for the public listing.
+        }
+      }
+    }
+
+    const filter: Record<string, unknown> = {};
+
+    if (!isAdminView || includeArchived !== "true") {
+      filter.isArchived = { $ne: true };
+    }
+
+    if (category) {
+      filter.category = String(category);
+    }
+
+    const searchTerm = typeof search === "string" ? search.trim() : "";
+
+    if (searchTerm) {
+      const escaped = escapeRegExp(searchTerm);
+      filter.$or = [
+        { name: { $regex: escaped, $options: "i" } },
+        { description: { $regex: escaped, $options: "i" } },
+        { category: { $regex: escaped, $options: "i" } },
+        { tags: { $regex: escaped, $options: "i" } },
+      ];
+    }
+
+    const priceFilter: Record<string, unknown> = {};
+    const min = Number(minPrice);
+    const max = Number(maxPrice);
+
+    if (Number.isFinite(min) && min >= 0) {
+      priceFilter.$gte = min;
+    }
+
+    if (Number.isFinite(max) && max >= 0) {
+      priceFilter.$lte = max;
+    }
+
+    if (Object.keys(priceFilter).length > 0) {
+      filter.price = priceFilter;
+    }
+
+    const sortOption = typeof sort === "string" ? SORT_WHITELIST[sort] : undefined;
+
+    const products = sortOption
+      ? await product.find(filter).sort(sortOption)
+      : await product.find(filter);
+
     res.status(200).json({ message: "productList", products, success: true });
   } catch (error) {
     res.status(500).json({ message: "error while getting productList" });
@@ -877,59 +1002,106 @@ app.get("/api/v1/product", async (req: Request, res: Response) => {
 
 app.get("/api/v1/product/:productId", async (req: Request, res: Response) => {
   const productId = req.params.productId;
-  console.log(productId);
+
   try {
-    if (!productId) {
-      res.status(404).json({ message: "product not found" });
+    const singleProduct = await product.findOne({
+      _id: productId,
+      isArchived: { $ne: true },
+    });
+
+    if (!singleProduct) {
+      return res.status(404).json({ success: false, message: "product not found" });
     }
-    const singleProduct = await product.findById(productId);
+
     res.status(200).json({ success: true, singleProduct });
   } catch (error) {
-    res.status(500).json({ success: false, message: "intetnal server error" });
+    res.status(500).json({ success: false, message: "internal server error" });
   }
 });
 
-app.put("/api/v1/product/:productId", async (req: Request, res: Response) => {
-  const productId = await req.params.productId;
-  const userWantTOupdate = req.body;
-  console.log(req.body);
-
-  try {
-    if (!productId) {
-      res.status(404).json({ message: "product not found" });
-    }
-    console.log(productId);
-    if (typeof userWantTOupdate.tags === "string") {
-      userWantTOupdate.tags = userWantTOupdate.tags
-        .split(",")
-        .map((tag: string) => tag.trim())
-        .filter((tag: string) => tag.length > 0);
-    }
-
-    const updateProduct = await product.findByIdAndUpdate(productId, userWantTOupdate, {
-      new: true,
-    });
-    res.status(200).json({ success: true, updateProduct });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "intetnal server error" });
-  }
-});
-app.delete(
+app.put(
   "/api/v1/product/:productId",
+  requireAdmin,
   async (req: Request, res: Response) => {
-    const productId = await req.params.productId;
-    console.log(productId);
+    const productId = req.params.productId;
+    const body = req.body || {};
+
+    // Whitelist fields — never trust arbitrary client keys on the document.
+    const update: Record<string, unknown> = {};
+
+    for (const field of PRODUCT_UPDATABLE_FIELDS) {
+      if (field in body && body[field] !== undefined) {
+        if (field === "tags") {
+          update.tags = parseTags(body[field]);
+        } else if (field === "deliveryOptions") {
+          if (typeof body[field] === "string") {
+            try {
+              update.deliveryOptions = JSON.parse(body[field]);
+            } catch {
+              return res
+                .status(400)
+                .json({ success: false, message: "deliveryOptions must be valid JSON" });
+            }
+          } else {
+            update.deliveryOptions = body[field];
+          }
+        } else if (
+          ["price", "discountPercent", "originalPrice", "offPrice", "stock"].includes(
+            field
+          )
+        ) {
+          update[field] = toNumberOrUndefined(body[field]);
+        } else {
+          update[field] = body[field];
+        }
+      }
+    }
+
     try {
-      const deletedProduct = await product.findByIdAndDelete(productId);
-      res.status(200).json({ success: true, deletedProduct });
+      const updateProduct = await product.findByIdAndUpdate(productId, update, {
+        new: true,
+      });
+
+      if (!updateProduct) {
+        return res.status(404).json({ success: false, message: "product not found" });
+      }
+
+      res.status(200).json({ success: true, updateProduct });
     } catch (error) {
-      res
-        .status(500)
-        .json({ success: false, message: "intetnal server error" });
+      res.status(500).json({ success: false, message: "internal server error" });
     }
   }
 );
 
+app.delete(
+  "/api/v1/product/:productId",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const productId = req.params.productId;
+
+    try {
+      // Soft delete — historical orders stay readable and the document can be
+      // restored. Archived products disappear from the storefront.
+      const archivedProduct = await product.findByIdAndUpdate(
+        productId,
+        { isArchived: true, deletedAt: new Date() },
+        { new: true }
+      );
+
+      if (!archivedProduct) {
+        return res.status(404).json({ success: false, message: "product not found" });
+      }
+
+      res.status(200).json({ success: true, deletedProduct: archivedProduct });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "internal server error" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Coupons
+// ---------------------------------------------------------------------------
 app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
   const { code, productId, amount } = req.body || {};
 
@@ -938,11 +1110,12 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
 
     if ((!Number.isFinite(baseAmount) || baseAmount <= 0) && productId) {
       const giftProduct = await product.findById(productId);
+
       if (!giftProduct) {
         return res.status(404).json({ success: false, message: "Product not found" });
       }
 
-      baseAmount = getBaseOrderAmount(giftProduct);
+      baseAmount = getUnitPrice(giftProduct);
     }
 
     if (!Number.isFinite(baseAmount) || baseAmount <= 0) {
@@ -962,7 +1135,6 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
     }
 
     const couponCode = normalizeCouponCode(code);
-
     const isCreatorCode = Boolean(validation.coupon?.isCreatorCode);
     const creatorCodeMessage = validation.coupon
       ? `Use ${validation.coupon.code}'s code and save Rs ${validation.discountAmount}`
@@ -970,11 +1142,12 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message: isCreatorCode && creatorCodeMessage
-        ? creatorCodeMessage
-        : couponCode
-          ? "Coupon applied successfully"
-          : "No coupon applied",
+      message:
+        isCreatorCode && creatorCodeMessage
+          ? creatorCodeMessage
+          : couponCode
+            ? "Coupon applied successfully"
+            : "No coupon applied",
       coupon: validation.coupon
         ? {
             id: validation.coupon._id,
@@ -998,65 +1171,69 @@ app.post("/api/v1/coupons/validate", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Assistant chat
+// ---------------------------------------------------------------------------
 const assistantChatHandler = async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   const now = Date.now();
   const bucket = rateLimitMap.get(ip);
+
   if (!bucket || now - bucket.start > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(ip, { count: 1, start: now });
   } else {
     bucket.count += 1;
+
     if (bucket.count > RATE_LIMIT_MAX) {
-      return res.status(429).json({ message: "Too many requests. Please try again shortly." });
+      return res
+        .status(429)
+        .json({ message: "Too many requests. Please try again shortly." });
     }
   }
 
-  const assistantKey = GROQ_API_KEY || GROK_API_KEY || DEEPSEEK_API_KEY;
-  console.log(assistantKey)
-  if (!assistantKey) {
-    return res.status(500).json({ message: "Assistant is not configured." });
-  }
-
   const { message, messages } = req.body || {};
+
   if (typeof message !== "string" || message.trim().length === 0) {
     return res.status(400).json({ message: "Message is required." });
   }
+
   if (message.length > 500) {
     return res.status(400).json({ message: "Message is too long." });
   }
 
-  const normalizedMessages = Array.isArray(messages)
+  const normalizedMessages: AssistantMessage[] = Array.isArray(messages)
     ? messages
-        .filter((m) => m && typeof m.content === "string" && typeof m.role === "string")
-        .map((m) => ({ role: m.role, content: m.content }))
+        .filter(
+          (m) =>
+            m && typeof m.content === "string" && typeof m.role === "string"
+        )
+        .map((m) => ({
+          role: m.role as AssistantMessage["role"],
+          content: m.content,
+        }))
     : [];
 
-  let userId: string | null = null;
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    const token = authHeader.split(" ")[1];
-    if (token) {
-      try {
-        const decoded = Jwt.verify(token, SECRET) as JwtPayload;
-        userId = decoded.userId;
-      } catch {
-        userId = null;
-      }
-    }
-  }
+  const userId = req.user?.userId || null;
 
-  let history: { role: string; content: string }[] = [];
+  let history: AssistantMessage[] = [];
+
   if (userId) {
     const memory = await ChatMemory.findOne({ userId }).lean();
+
     if (memory?.messages?.length) {
-      history = memory.messages.slice(-20).map((m: any) => ({ role: m.role, content: m.content }));
+      history = memory.messages
+        .slice(-20)
+        .map((m: { role: AssistantMessage["role"]; content: string }) => ({
+          role: m.role,
+          content: m.content,
+        }));
     }
   } else {
     history = normalizedMessages.slice(-20);
   }
 
   const products = await product
-    .find({})
+    .find({ isArchived: { $ne: true } })
     .select("name category price tags")
     .limit(10)
     .lean();
@@ -1078,66 +1255,12 @@ Context: Same Day Delivery - ₹49 extra (Indore only).
 Catalog: ${catalogSummary || "Curated gifting collections across flowers, cakes, personalized gifts, plants, and keepsakes."}
 `.trim();
 
-  const requestPayload = {
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: message.trim() },
-    ],
-    temperature: 0.4,
-  };
-
-  const callGroq = async () => {
-    if (!GROQ_API_KEY) return null;
-    console.log(GROK_API_KEY)
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
-        ...requestPayload,
-      }),
-    });
-    console.log(res)
-    return res;
-  };
-
-  const callDeepSeek = async () => {
-    if (!DEEPSEEK_API_KEY) return null;
-    const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        ...requestPayload,
-      }),
-    });
-    return res;
-  };
-
   try {
-    let assistantRes = await callGroq();
-    if (!assistantRes || !assistantRes.ok) {
-      const fallbackRes = await callDeepSeek();
-      assistantRes = fallbackRes || assistantRes;
-    }
-
-    if (!assistantRes || !assistantRes.ok) {
-      const errText = assistantRes ? await assistantRes.text() : "No provider configured";
-      return res.status(502).json({ message: "Assistant unavailable.", details: errText });
-    }
-
-    const data = await assistantRes.json();
-    const reply = data?.choices?.[0]?.message?.content?.trim();
-    if (!reply) {
-      return res.status(502).json({ message: "Assistant returned no response." });
-    }
+    const reply = await generateAssistantReply({
+      systemPrompt,
+      messages: [...history, { role: "user", content: message.trim() }],
+      temperature: 0.4,
+    });
 
     if (userId) {
       const updated = [
@@ -1159,263 +1282,302 @@ Catalog: ${catalogSummary || "Curated gifting collections across flowers, cakes,
   }
 };
 
-app.post("/api/assistant/chat", assistantChatHandler);
-app.post("/api/v1/assistant/chat", assistantChatHandler);
+app.post("/api/assistant/chat", optionalUser, assistantChatHandler);
+app.post("/api/v1/assistant/chat", optionalUser, assistantChatHandler);
 
-app.post(
-  "/api/v1/orders",
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+app.post("/api/v1/orders", authenticateUser, async (req: Request, res: Response) => {
+  const {
+    productId,
+    shippingAddress,
+    couponCode,
+    giftUpgrades,
+    quantity,
+    idempotencyKey,
+  } = req.body || {};
+
+  if (typeof productId !== "string") {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_PRODUCT",
+      message: "productId is required",
+    });
+  }
+
+  try {
+    const result = await createOrder({
+      userId: req.user!.userId,
+      productId,
+      quantity,
+      shippingAddress,
+      couponCode,
+      giftUpgrades,
+      idempotencyKey,
+    });
+
+    if (result.kind === "error") {
+      return res.status(result.http).json({
+        success: false,
+        code: result.code,
+        message: result.message,
+        ...(typeof result.availableStock === "number"
+          ? { availableStock: result.availableStock }
+          : {}),
+      });
+    }
+
+    const isDuplicate = result.kind === "duplicate";
+
+    res.status(isDuplicate ? 200 : 201).json({
+      success: true,
+      ...(isDuplicate ? { duplicate: true } : {}),
+      ...buildOrderPublicView(result.order),
+      orderId: result.order._id,
+      // Server-built, order-specific UPI payment payload (QR source of truth).
+      paymentInstructions: createPaymentInstructions(result.order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      code: "ORDER_CREATION_FAILED",
+      message: "Order creation failed",
+    });
+  }
+});
+
+app.get(
+  "/api/v1/orders/me",
   authenticateUser,
   async (req: Request, res: Response) => {
-    const { productId, shippingAddress, couponCode, giftUpgrades } = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
-    console.log(token);
     try {
-      if (!token) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
+      const orders = await Order.find({ user: req.user!.userId })
+        .sort({ orderedAt: -1 })
+        .lean();
 
-      // Verify token (JWT users)
-      const decoded = Jwt.verify(token, SECRET) as JwtPayload;
-      const user = await User.findById(decoded.userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-
-      // Create order
-      const GiftProduct = await product.findById(productId);
-      if (!GiftProduct)
-        return res.status(404).json({ message: "Product not found" });
-      console.log(req.body);
-
-      const subtotal = getBaseOrderAmount(GiftProduct);
-      const validation = await validateCouponForAmount(couponCode, subtotal);
-
-      if (!validation.ok) {
-        return res.status(400).json({
-          success: false,
-          message: validation.message,
-        });
-      }
-
-      let couponDoc = validation.coupon;
-      let discountAmount = validation.discountAmount ?? 0;
-      const normalizedCouponCode = normalizeCouponCode(couponCode);
-
-      if (normalizedCouponCode) {
-        const couponFilter: Record<string, unknown> = {
-          code: normalizedCouponCode,
-          active: true,
-        };
-
-        if (validation.coupon?.expiresAt) {
-          couponFilter.expiresAt = { $gt: new Date() };
-        }
-
-        if (
-          typeof validation.coupon?.usageLimit === "number" &&
-          validation.coupon.usageLimit > 0
-        ) {
-          couponFilter.$expr = {
-            $lt: ["$usedCount", "$usageLimit"],
-          };
-        }
-
-        couponDoc = await Coupon.findOneAndUpdate(
-          couponFilter,
-          {
-            $inc: { usedCount: 1 },
-            $set: { updatedAt: new Date() },
-          },
-          { new: true }
-        );
-
-        if (!couponDoc) {
-          return res.status(400).json({
-            success: false,
-            message: "Coupon is no longer available",
-          });
-        }
-
-        const recalculated = calculateCouponDiscount(subtotal, couponDoc);
-        discountAmount = recalculated.discountAmount;
-      }
-
-      const normalizedGiftUpgrades = normalizeGiftUpgrades(giftUpgrades);
-      const orderPricing = calculateOrderPricing(
-        subtotal,
-        discountAmount,
-        normalizedGiftUpgrades.total
-      );
-      const creatorReferral =
-        couponDoc && couponDoc.isCreatorCode
-          ? {
-              creatorId: couponDoc.creatorId,
-              creatorCode: couponDoc.code,
-              creatorCommission: Number(couponDoc.commissionPerOrder) || CREATOR_COMMISSION_PER_ORDER,
-              creatorCommissionStatus: "pending",
-            }
-          : {
-              creatorCommission: 0,
-              creatorCommissionStatus: "none",
-            };
-
-      const order = await Order.create({
-        user: user._id,
-        product: productId,
-        amount: orderPricing.finalAmount,
-        originalAmount: orderPricing.subtotal,
-        subtotal: orderPricing.subtotal,
-        discountAmount,
-        couponDiscount: orderPricing.couponDiscount,
-        deliveryFee: orderPricing.deliveryFee,
-        giftUpgrades: normalizedGiftUpgrades.upgrades,
-        giftUpgradeTotal: orderPricing.giftUpgradeTotal,
-        finalAmount: orderPricing.finalAmount,
-        couponCode: normalizedCouponCode || undefined,
-        couponId: couponDoc?._id,
-        ...creatorReferral,
-        shippingAddress,
-        status: "Processing",
-      });
-
-      // Send "Payment Received" email immediately after order creation
-      try {
-        await sendPaymentReceivedEmail({
-          customerName: shippingAddress?.name || user.username || "Customer",
-          customerEmail: user.email,
-          orderId: order._id.toString(),
-          productName: GiftProduct.name,
-          amount: orderPricing.finalAmount,
-        });
-        console.log(`[email] Payment received email sent for order ${order._id}`);
-      } catch (emailError) {
-        console.error(`[email] Failed to send payment received email: ${emailError}`);
-        // Don't fail the order if email fails
-      }
-
-      res.status(201).json({
+      res.status(200).json({
         success: true,
-        orderId: order._id,
-        amount: order.amount,
-        originalAmount: order.originalAmount,
-        subtotal: order.subtotal,
-        discountAmount: order.discountAmount,
-        couponDiscount: order.couponDiscount,
-        deliveryFee: order.deliveryFee,
-        giftUpgrades: order.giftUpgrades,
-        giftUpgradeTotal: order.giftUpgradeTotal,
-        finalAmount: order.finalAmount,
-        couponCode: order.couponCode,
-        creatorId: order.creatorId,
-        creatorCode: order.creatorCode,
-        creatorCommission: order.creatorCommission,
-        creatorCommissionStatus: order.creatorCommissionStatus,
-        whatsappUrl: `https://wa.me/9575930848?text=Order%20${order._id}`,
+        orders: orders.map(buildOrderPublicView),
       });
     } catch (error) {
-      res.status(500).json({ message: "Order creation failed" });
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch orders",
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/v1/orders/:orderId",
+  authenticateUserOrAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const order = await Order.findById(req.params.orderId).lean();
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          code: "ORDER_NOT_FOUND",
+          message: "Order not found",
+        });
+      }
+
+      const isOwner = String(order.user) === req.user?.userId;
+
+      if (!isOwner && !req.admin) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          message: "You do not have access to this order",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        order: buildOrderPublicView(order),
+        paymentInstructions: createPaymentInstructions(order),
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch order",
+      });
+    }
+  }
+);
+
+/**
+ * Customer reports they completed the UPI payment. Sets AWAITING_VERIFICATION
+ * only — the payment is never marked VERIFIED by this endpoint. The legacy
+ * /payment-proof route is registered below as an alias so old clients degrade
+ * gracefully into the same state.
+ */
+const paymentReportedHandler = async (req: Request, res: Response) => {
+  try {
+    const result = await reportPayment(
+      req.params.orderId ?? "",
+      req.user!.userId
+    );
+
+    if (result.kind === "error") {
+      return res.status(result.http).json({
+        success: false,
+        code: result.code,
+        message: result.message,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      ...buildOrderPublicView(result.order),
+      orderId: result.order._id,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to report payment",
+    });
+  }
+};
+
+app.post(
+  "/api/v1/orders/:orderId/payment-reported",
+  authenticateUser,
+  paymentReportedHandler
+);
+
+// Legacy alias — same behavior, kept so deployed older frontends keep working
+// until they are replaced.
+app.post(
+  "/api/v1/orders/:orderId/payment-proof",
+  authenticateUser,
+  paymentReportedHandler
+);
+
+/**
+ * Admin-only payment verification. Only this action can move a reported
+ * payment to VERIFIED (and the order to CONFIRMED).
+ */
+const confirmPaymentHandler = async (req: Request, res: Response) => {
+  try {
+    const result = await verifyPayment(
+      req.params.orderId ?? "",
+      req.admin!.userId
+    );
+
+    if (result.kind === "error") {
+      return res.status(result.http).json({
+        success: false,
+        code: result.code,
+        message: result.message,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: result.alreadyDone ? "Order already confirmed" : "Payment verified — order confirmed",
+      order: result.order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+    });
+  }
+};
+
+app.patch(
+  "/api/v1/admin/orders/:orderId/confirm-payment",
+  requireAdmin,
+  confirmPaymentHandler
+);
+
+// Legacy alias for the pre-existing admin confirm route.
+app.patch(
+  "/api/v1/admin/orders/:orderId/confirm",
+  requireAdmin,
+  confirmPaymentHandler
+);
+
+app.patch(
+  "/api/v1/admin/orders/:orderId/reject-payment",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const result = await rejectPayment(
+        req.params.orderId ?? "",
+        req.admin!.userId,
+        (req.body as { reason?: unknown } | undefined)?.reason as string | undefined
+      );
+
+      if (result.kind === "error") {
+        return res.status(result.http).json({
+          success: false,
+          code: result.code,
+          message: result.message,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: result.alreadyDone ? "Payment already rejected" : "Payment rejected",
+        order: result.order,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Payment rejection failed",
+      });
     }
   }
 );
 
 app.patch(
-  "/api/v1/admin/orders/:orderId/confirm",
-  adminAuthentication,
+  "/api/v1/admin/orders/:orderId/cancel",
+  requireAdmin,
   async (req: Request, res: Response) => {
-    const orderId = req.params.orderId;
-    console.log(`[order] confirm endpoint hit. orderId=${orderId}`);
-    console.log(orderId);
-    console.log("level0");
     try {
-      const order = await Order.findByIdAndUpdate(
-        orderId,
-        {
-          status: "orderConfirmed",
-          paidAt: new Date(),
-          ...(await Order.findById(orderId).then((existingOrder: any) =>
-            existingOrder?.creatorCommissionStatus === "pending"
-              ? { creatorCommissionStatus: "earned" }
-              : {}
-          )),
-        },
-        { new: true }
-      );
-      console.log("level1");
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
+      const result = await cancelOrder(req.params.orderId ?? "");
 
-      const customer = await User.findById(order.user);
-      const orderedProduct = await product.findById(order.product);
-
-      console.log(
-        `[order] orderId=${orderId} customerEmail=${customer?.email} productFound=${!!orderedProduct} sender=${process.env.BREVO_SENDER_EMAIL}`
-      );
-
-      if (!customer) {
-        console.error(`Order ${orderId} confirmed, but customer was not found`);
-        return res.status(500).json({
+      if (result.kind === "error") {
+        return res.status(result.http).json({
           success: false,
-          message: "Order confirmed, but customer email could not be found",
+          code: result.code,
+          message: result.message,
         });
       }
 
-      if (!orderedProduct) {
-        console.error(`Order ${orderId} confirmed, but product was not found`);
-        return res.status(500).json({
-          success: false,
-          message: "Order confirmed, but product details could not be found",
-        });
-      }
-
-      const orderItems: OrderItem[] = [
-        {
-          name: orderedProduct.name,
-          quantity: 1,
-          price: order.finalAmount ?? order.amount,
-        },
-      ];
-
-      try {
-        await sendOrderConfirmationEmail({
-          customerName: order.shippingAddress?.name || customer.username || "Customer",
-          customerEmail: customer.email,
-          orderId: order._id.toString(),
-          items: orderItems,
-          totalAmount: order.finalAmount ?? order.amount,
-        });
-        console.log(`[order] orderId=${orderId} confirmation email sent successfully`);
-      } catch (emailError) {
-        const message =
-          emailError instanceof Error ? emailError.message : "Unknown email error";
-        const stack = emailError instanceof Error ? emailError.stack : undefined;
-        console.error(
-          `[order] orderId=${orderId} confirmed, but confirmation email failed: ${message}`
-        );
-        if (stack) {
-          console.error(`[order] email error stack: ${stack}`);
-        }
-        // Order is already confirmed in DB. Email failure must NOT roll back / fail the response.
-      }
-
-      console.log("level2");
       res.status(200).json({
         success: true,
-        message: "Order confirmed",
-        order,
+        message: result.alreadyDone ? "Order already cancelled" : "Order cancelled",
+        order: result.order,
       });
     } catch (error) {
-      res.status(500).json({ message: "Order confirmation failed" });
+      res.status(500).json({
+        success: false,
+        message: "Order cancellation failed",
+      });
     }
   }
 );
 
-mongoose
-  .connect(mongoUri, { dbName: "QuickWish" })
-  .then(() => {
-    console.log("database is connected");
-    app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
-    });
-  })
-  .catch((error) => {
-    console.error("database is not connected", error);
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
+const start = async (): Promise<void> => {
+  await mongoose.connect(mongoUri, { dbName: "QuickWish" });
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
   });
+};
+
+if (process.env.NODE_ENV !== "test") {
+  start().catch((error) => {
+    console.error("database is not connected", error);
+    process.exit(1);
+  });
+}
+
+export { app };

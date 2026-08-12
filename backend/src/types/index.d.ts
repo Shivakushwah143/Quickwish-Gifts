@@ -1,4 +1,3 @@
-
 import { File } from 'multer';
 
 declare global {
@@ -10,21 +9,40 @@ declare global {
           }
         | File[]
         | undefined;
+      rawBody?: Buffer;
     }
   }
 }
 
-interface JwtPayload {
-  userId: string;
-  username: string;
+export interface JwtPayload {
+  userId?: string;
+  userID?: string;
+  username?: string;
+  email?: string;
+  role?: string;
+  creatorId?: string;
   iat?: number;
   exp?: number;
 }
+
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload;
-      admin?: JwtPayload;
+      user?: {
+        userId: string;
+        role: "CUSTOMER" | "ADMIN" | "CREATOR";
+        email?: string;
+        username?: string;
+        creatorId?: string;
+      };
+      admin?: {
+        userId: string;
+        role: "ADMIN";
+        username?: string;
+      };
+      traceId?: string;
     }
   }
 }
+
+export {};

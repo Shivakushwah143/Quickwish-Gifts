@@ -3,15 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Copy,
+  ExternalLink,
   Gift,
   Loader2,
   LogOut,
   PackageCheck,
+  Share2,
   Sparkles,
   TrendingUp,
   Trophy,
   Wallet,
 } from "lucide-react";
+import {
+  buildProductShareUrl,
+  canUseNativeShare,
+  copyProductLink,
+  shareNative,
+  shareWhatsAppUrl,
+} from "../../lib/productShare";
 import { useRouter } from "next/navigation";
 import { clearCreatorAuthState, hasJwtExpired } from "../../utils/auth";
 
@@ -55,6 +64,10 @@ export default function CreatorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [generatedLink, setGeneratedLink] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [promoLinkCopied, setPromoLinkCopied] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -122,12 +135,94 @@ export default function CreatorDashboardPage() {
     router.replace("/creator/login");
   };
 
+  const extractProductSlug = (input: string): string | null => {
+    const trimmed = input.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    const match = trimmed.match(/\/products\/([^\/?#]+)/);
+    const slug = match ? decodeURIComponent(match[1]) : trimmed;
+
+    if (!slug || slug.includes(" ") || slug.length > 120) {
+      return null;
+    }
+
+    return slug;
+  };
+
+  const handleGeneratePromoLink = () => {
+    setPromoError("");
+    setGeneratedLink("");
+
+    if (!dashboard?.referralCode) {
+      setPromoError("Your referral code is not assigned yet.");
+      return;
+    }
+
+    const slug = extractProductSlug(promoInput);
+
+    if (!slug) {
+      setPromoError(
+        "Paste a product link like https://www.onewish.fun/products/gift-123"
+      );
+      return;
+    }
+
+    setGeneratedLink(
+      buildProductShareUrl({
+        slug,
+        referralCode: dashboard.referralCode,
+      })
+    );
+  };
+
+  const handleCopyPromoLink = async () => {
+    if (!generatedLink) {
+      return;
+    }
+
+    const result = await copyProductLink(generatedLink);
+
+    if (result.ok) {
+      setPromoLinkCopied(true);
+      window.setTimeout(() => setPromoLinkCopied(false), 1800);
+    }
+  };
+
+  const handleWhatsAppPromo = () => {
+    if (!generatedLink) {
+      return;
+    }
+
+    const message = [
+      "Check out this beautiful gift on QuickWish 🎁",
+      "",
+      generatedLink,
+    ].join("\n");
+
+    window.open(shareWhatsAppUrl(message), "_blank", "noopener,noreferrer");
+  };
+
+  const handleNativePromo = async () => {
+    if (!generatedLink || !canUseNativeShare()) {
+      return;
+    }
+
+    await shareNative({
+      title: "QuickWish Gift",
+      text: `Check out this beautiful gift on QuickWish 🎁\n\n${generatedLink}`,
+      url: generatedLink,
+    });
+  };
+
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fffaf4] px-4 text-[#2b1d25]">
-        <div className="rounded-2xl border border-[#ead7c5] bg-white p-6 text-center shadow-sm">
-          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[#b54e36]" />
-          <p className="text-sm font-bold text-[#6f5d66]">Loading creator dashboard...</p>
+      <main className="flex min-h-screen items-center justify-center bg-[color:var(--tint-cream)] px-4 text-[color:var(--plum)]">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-center shadow-sm">
+          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[color:var(--wine)]" />
+          <p className="text-sm font-bold text-[color:var(--muted)]">Loading creator dashboard...</p>
         </div>
       </main>
     );
@@ -135,14 +230,14 @@ export default function CreatorDashboardPage() {
 
   if (error || !dashboard) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fffaf4] px-4 text-[#2b1d25]">
-        <div className="max-w-md rounded-2xl border border-[#ead7c5] bg-white p-6 text-center shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-[color:var(--tint-cream)] px-4 text-[color:var(--plum)]">
+        <div className="max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-center shadow-sm">
           <h1 className="text-xl font-semibold lux-serif">Creator Dashboard</h1>
           <p className="mt-2 text-sm text-red-600">{error || "Dashboard not found."}</p>
           <button
             type="button"
             onClick={() => router.replace("/creator/login")}
-            className="mt-5 rounded-full bg-[#4a1f3b] px-5 py-3 text-sm font-black text-white"
+            className="mt-5 rounded-full bg-[color:var(--wine)] px-5 py-3 text-sm font-black text-[color:var(--ivory)]"
           >
             Back to Login
           </button>
@@ -175,21 +270,21 @@ export default function CreatorDashboardPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#fffaf4] px-4 py-8 text-[#2b1d25]">
+    <main className="min-h-screen bg-[color:var(--tint-cream)] px-4 py-8 text-[color:var(--plum)]">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#ead7c5] bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <header className="mb-6 flex flex-col gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff0e7] text-[#b54e36]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--tint-peach)] text-[color:var(--wine)]">
               <Gift className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b54e36]">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[color:var(--wine)]">
                 Creator Dashboard
               </p>
               <h1 className="text-2xl font-semibold lux-serif">
                 Hi, {dashboard.creator.name}
               </h1>
-              <p className="text-sm text-[#6f5d66]">
+              <p className="text-sm text-[color:var(--muted)]">
                 Track your code, rewards, and confirmed commissions.
               </p>
             </div>
@@ -198,7 +293,7 @@ export default function CreatorDashboardPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex w-max items-center rounded-full border border-[#ead7c5] px-4 py-2 text-sm font-black text-[#2b1d25] transition hover:bg-[#fffaf4]"
+            className="inline-flex w-max items-center rounded-full border border-[color:var(--border)] px-4 py-2 text-sm font-black text-[color:var(--plum)] transition hover:bg-[color:var(--tint-cream)]"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Logout
@@ -206,37 +301,37 @@ export default function CreatorDashboardPage() {
         </header>
 
         <section className="mb-6 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-2xl border border-[#ead7c5] bg-gradient-to-br from-[#FDECEF] to-[#fffaf4] p-5 shadow-sm">
-            <p className="text-sm font-black text-[#8b3f2f]">Your referral code</p>
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--tint-rose)] p-5 shadow-sm">
+            <p className="text-sm font-black text-[color:var(--wine)]">Your referral code</p>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-dashed border-[#c9a36a] bg-white px-5 py-4 text-3xl font-black tracking-[0.16em] text-[#4a1f3b]">
+              <div className="rounded-2xl border border-dashed border-[color:var(--gold)] bg-[color:var(--surface)] px-5 py-4 text-3xl font-black tracking-[0.16em] text-[color:var(--wine)]">
                 {dashboard.referralCode || "PENDING"}
               </div>
               <button
                 type="button"
                 onClick={handleCopyCode}
                 disabled={!dashboard.referralCode}
-                className="inline-flex items-center justify-center rounded-full bg-[#4a1f3b] px-5 py-3 text-sm font-black text-white transition hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-full bg-[color:var(--wine)] px-5 py-3 text-sm font-black text-[color:var(--ivory)] transition hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Copy className="mr-2 h-4 w-4" />
                 {copied ? "Copied" : "Copy Code"}
               </button>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#6f5d66]">
+            <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
               Customers save Rs 50 when they use your code. You earn Rs 100
               after each successful confirmed order.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#ead7c5] bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-sm font-black text-[#2b1d25]">Bonus Progress</p>
-                <p className="text-xs text-[#6f5d66]">
+                <p className="text-sm font-black text-[color:var(--plum)]">Bonus Progress</p>
+                <p className="text-xs text-[color:var(--muted)]">
                   {dashboard.ordersGenerated} confirmed orders
                 </p>
               </div>
-              <Sparkles className="h-5 w-5 text-[#b54e36]" />
+              <Sparkles className="h-5 w-5 text-[color:var(--wine)]" />
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-[#f0e4da]">
               <div
@@ -251,7 +346,7 @@ export default function CreatorDashboardPage() {
                   className={`rounded-xl border p-3 ${
                     milestone.unlocked
                       ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                      : "border-[#ead7c5] bg-[#fffaf4] text-[#2b1d25]"
+                      : "border-[color:var(--border)] bg-[color:var(--tint-cream)] text-[color:var(--plum)]"
                   }`}
                 >
                   <p className="text-sm font-black">{milestone.label}</p>
@@ -269,17 +364,101 @@ export default function CreatorDashboardPage() {
           {metricCards.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div key={metric.label} className="rounded-2xl border border-[#ead7c5] bg-white p-5 shadow-sm">
-                <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#fff0e7] text-[#b54e36]">
+              <div key={metric.label} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-sm">
+                <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--tint-peach)] text-[color:var(--wine)]">
                   <Icon className="h-5 w-5" />
                 </span>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#7a6570]">
+                <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--muted)]">
                   {metric.label}
                 </p>
-                <p className="mt-2 text-2xl font-black text-[#2b1d25]">{metric.value}</p>
+                <p className="mt-2 text-2xl font-black text-[color:var(--plum)]">{metric.value}</p>
               </div>
             );
           })}
+        </section>
+
+        {/* Promote a gift with your creator referral code */}
+        <section className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--tint-peach)] text-[color:var(--wine)]">
+              <Share2 className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold lux-serif">Promote a Gift</h2>
+              <p className="text-sm text-[color:var(--muted)]">
+                Paste any product link to get your personal referral link — your code is added automatically.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={promoInput}
+              onChange={(event) => {
+                setPromoInput(event.target.value);
+                setPromoError("");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleGeneratePromoLink();
+                }
+              }}
+              placeholder="https://www.onewish.fun/products/gift-123"
+              className="min-w-0 flex-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--tint-cream)] px-4 py-3 text-sm text-[color:var(--plum)] outline-none transition focus:border-[color:var(--gold)] focus:ring-2 focus:ring-[#c9a36a]/25"
+            />
+            <button
+              type="button"
+              onClick={handleGeneratePromoLink}
+              className="shrink-0 rounded-full bg-[color:var(--wine)] px-6 py-3 text-sm font-black text-[color:var(--ivory)] transition hover:bg-[#3b182f]"
+            >
+              Get My Link
+            </button>
+          </div>
+
+          {promoError && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {promoError}
+            </p>
+          )}
+
+          {generatedLink && (
+            <div className="mt-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--tint-cream)] p-3">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--wine)]" />
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-[color:var(--muted)]">
+                  {generatedLink}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyPromoLink()}
+                  className="shrink-0 rounded-lg bg-[color:var(--wine)] px-3 py-2 text-xs font-black text-[color:var(--ivory)] transition hover:bg-[#3b182f]"
+                >
+                  {promoLinkCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleWhatsAppPromo}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-xs font-black text-[color:var(--ivory)] transition hover:brightness-95"
+                >
+                  WhatsApp
+                </button>
+                {canUseNativeShare() && (
+                  <button
+                    type="button"
+                    onClick={() => void handleNativePromo()}
+                    className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-xs font-black text-[color:var(--plum)] transition hover:bg-[color:var(--tint-cream)]"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    More Apps
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </main>

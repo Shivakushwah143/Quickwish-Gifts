@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type DynamicProductFields = {
+export type DynamicProductFields = {
   price: number;
   stock: number;
   availability: "in-stock" | "out-of-stock";
@@ -35,6 +35,8 @@ type ProductResponse = {
 type ProductDynamicFieldsProps = {
   productId: string;
   mode?: "card" | "detail";
+  /** When provided (e.g. batch-fetched by a listing page), no request is made. */
+  initialFields?: DynamicProductFields | null;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -53,7 +55,7 @@ const formatPrice = (price: number): string => {
   }).format(price);
 };
 
-const toDynamicFields = (product: ApiProduct): DynamicProductFields => {
+export const toDynamicFields = (product: ApiProduct): DynamicProductFields => {
   const stock = Number(product.stock || 0);
   const tags = product.tags || [];
   const personalization =
@@ -90,11 +92,18 @@ const calculateDiscount = (
 export default function ProductDynamicFields({
   productId,
   mode = "card",
+  initialFields = null,
 }: ProductDynamicFieldsProps) {
-  const [fields, setFields] = useState<DynamicProductFields | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [fields, setFields] = useState<DynamicProductFields | null>(initialFields);
+  const [loading, setLoading] = useState(!initialFields);
 
   useEffect(() => {
+    if (initialFields) {
+      setFields(initialFields);
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const fetchDynamicFields = async () => {
@@ -129,20 +138,20 @@ export default function ProductDynamicFields({
     return () => {
       isMounted = false;
     };
-  }, [productId]);
+  }, [productId, initialFields]);
 
   if (loading) {
     return (
       <div className="space-y-2">
-        <div className="h-5 w-24 rounded bg-[#eadfd4]/70 animate-pulse" />
-        <div className="h-6 w-full rounded bg-[#eadfd4]/60 animate-pulse" />
+        <div className="h-5 w-24 rounded bg-[color:var(--border)]/70 animate-pulse" />
+        <div className="h-6 w-full rounded bg-[color:var(--border)]/60 animate-pulse" />
       </div>
     );
   }
 
   if (!fields) {
     return (
-      <p className="rounded-full bg-[#fff4e4] px-2.5 py-1 text-[11px] font-semibold text-[#8b3f2f]">
+      <p className="rounded-full bg-[color:var(--tint-peach)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--wine)]">
         Details updating
       </p>
     );
@@ -173,15 +182,20 @@ export default function ProductDynamicFields({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="lux-pill px-3 py-1 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="lux-pill inline-flex items-center gap-1.5 px-3 py-1 text-xs">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${fields.availability === "in-stock" ? "bg-emerald-500" : "bg-red-500"}`}
+            />
             {fields.availability === "in-stock"
               ? "Available today"
               : "Currently unavailable"}
           </span>
-          <span className="lux-pill px-3 py-1 text-xs">
-            Stock: {fields.stock}
-          </span>
+          {fields.availability === "in-stock" && fields.stock > 0 && fields.stock <= 5 && (
+            <span className="lux-pill px-3 py-1 text-xs text-[color:var(--warning)]">
+              Only {fields.stock} left
+            </span>
+          )}
           {fields.personalization && (
             <span className="lux-pill px-3 py-1 text-xs">
               Personalization available
@@ -204,11 +218,21 @@ export default function ProductDynamicFields({
           </span>
         )}
       </div>
-      <p className="rounded-md bg-[#fff4e4] px-2 py-1 text-[11px] font-semibold text-[#8b3f2f]">
-        {fields.availability === "in-stock"
-          ? "Same day delivery"
-          : "Out of stock"}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--tint-peach)] px-2 py-1 text-[11px] font-semibold text-[color:var(--wine)]">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${fields.availability === "in-stock" ? "bg-emerald-500" : "bg-red-500"}`}
+          />
+          {fields.availability === "in-stock"
+            ? "Same-day available"
+            : "Out of stock"}
+        </span>
+        {fields.availability === "in-stock" && fields.stock > 0 && fields.stock <= 5 && (
+          <span className="rounded-md bg-[color:var(--tint-peach)] px-2 py-1 text-[11px] font-semibold text-[color:var(--warning)]">
+            Only {fields.stock} left
+          </span>
+        )}
+      </div>
     </div>
   );
 }

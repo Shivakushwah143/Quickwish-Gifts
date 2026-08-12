@@ -20,10 +20,23 @@ QuickWish is a premium gifting storefront focused on curated categories, same-da
 - Admin dashboard with protected access and "Add Product" modal
 - Product image upload support (multi-image)
 - Order creation API and admin order confirmation
-- WhatsApp order handoff link after order creation
+- Direct UPI payment (₹0 gateway cost) with order-specific QR and admin verification
 - AI gifting assistant drawer with chat history and rate limiting
 - Newsletter, services, and testimonials sections
 - Themed luxury styling (custom fonts/colors)
+
+## Direct UPI Payments (required backend config)
+
+Orders are paid via **direct UPI** to the store's account — no payment gateway, ₹0 gateway cost. The backend builds a canonical `upi://pay` URI (server-authoritative amount + order reference) and the frontend renders the QR locally.
+
+Required backend environment variables:
+
+| Variable | Example | Notes |
+| --- | --- | --- |
+| `QUICKWISH_UPI_ID` | `9009917146@ptyes` | The UPI ID customers pay to. The backend **refuses to start** without it. |
+| `QUICKWISH_UPI_NAME` | `QuickWish` | Payee name shown in the UPI app and QR. |
+
+If these are missing from a deployed backend, orders still create but the QR cannot be generated and the payment screen shows a fallback error — the frontend never builds the UPI URI itself.
 
 ## Tech Stack
 - Next.js (App Router)

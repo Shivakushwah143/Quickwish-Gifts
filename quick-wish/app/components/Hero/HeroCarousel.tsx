@@ -24,7 +24,7 @@
 //   }, [slides.length]);
 
 //   return (
-//     <section className="relative overflow-hidden bg-[#fff7f0]">
+//     <section className="relative overflow-hidden bg-[color:var(--tint-cream)]">
 //       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:py-10">
 //         <div className="grid items-center gap-7 lg:grid-cols-[0.9fr_1.1fr]">
 //           <motion.div
@@ -34,7 +34,7 @@
 //             transition={{ duration: 0.45, ease: "easeOut" }}
 //           >
 //             <motion.span
-//               className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#8b3f2f] shadow-sm"
+//               className="inline-flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[color:var(--wine)] shadow-sm"
 //               whileHover={shouldReduceMotion ? undefined : { y: -1 }}
 //             >
 //               <Truck className="h-3.5 w-3.5" />
@@ -42,13 +42,13 @@
 //             </motion.span>
 
 //             <motion.h1
-//               className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
+//               className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[color:var(--plum)] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
 //               {...(shouldReduceMotion ? {} : { transition: { delay: 0.05, duration: 0.45, ease: "easeOut" } })}
 //             >
 //               Send gifts today, beautifully chosen and handmade.
 //             </motion.h1>
 //             <motion.p
-//               className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg"
+//               className="mt-4 max-w-xl text-base leading-7 text-[color:var(--muted)] sm:text-lg"
 //               {...(shouldReduceMotion ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.12, duration: 0.4, ease: "easeOut" } })}
 //             >
 //               Premium hampers, flowers, cakes, and custom notes delivered with care before the moment passes.
@@ -64,7 +64,7 @@
 //                 Send Today
 //               </motion.button>
 //               <motion.button
-//                 className="rounded-full border border-[#eadfd4] bg-white px-6 py-3 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a]"
+//                 className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-3 text-sm font-semibold text-[color:var(--plum)] transition hover:border-[color:var(--gold)]"
 //                 onClick={() => router.push('/products?category=Personalized Gifts')}
 //                 whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
 //                 whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
@@ -74,17 +74,17 @@
 //             </div>
 
 //             <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-//               <div className="rounded-lg bg-white p-3 shadow-sm">
-//                 <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
-//                 <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
+//               <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+//                 <Truck className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+//                 <p className="text-xs font-semibold text-[color:var(--plum)]">Same Day Delivery</p>
 //               </div>
-//               <div className="rounded-lg bg-white p-3 shadow-sm">
-//                 <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-//                 <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
+//               <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+//                 <Heart className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+//                 <p className="text-xs font-semibold text-[color:var(--plum)]">100+ Happy Customers</p>
 //               </div>
-//               <div className="rounded-lg bg-white p-3 shadow-sm">
-//                 <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
-//                 <p className="text-xs font-semibold text-[#2b1d25]">Handmade Gifts</p>
+//               <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+//                 <Sparkles className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+//                 <p className="text-xs font-semibold text-[color:var(--plum)]">Handmade Gifts</p>
 //               </div>
 //             </div>
 //           </motion.div>
@@ -96,19 +96,19 @@
 //             transition={{ duration: 0.5, ease: "easeOut" }}
 //           >
 //             <div className="relative mx-auto max-w-[620px]">
-//               <div className="absolute left-3 top-3 z-10 rounded-lg bg-white px-3 py-2 shadow-lg">
-//                 <p className="text-[10px] font-semibold uppercase text-[#b54e36]">Delivered today</p>
-//                 <p className="text-sm font-bold text-[#2b1d25]">Custom note included</p>
+//               <div className="absolute left-3 top-3 z-10 rounded-lg bg-[color:var(--surface)] px-3 py-2 shadow-lg">
+//                 <p className="text-[10px] font-semibold uppercase text-[color:var(--wine)]">Delivered today</p>
+//                 <p className="text-sm font-bold text-[color:var(--plum)]">Custom note included</p>
 //               </div>
 //               <img
 //                 src={slides[currentSlide].image}
 //                 alt={slides[currentSlide].title}
-//                 className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+//                 className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-[color:var(--border)] object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
 //               />
-//               <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
-//                 <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
-//                 <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
-//                 <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
+//               <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-[color:var(--surface)]/95 p-3 shadow-lg">
+//                 <Gift className="mb-2 h-5 w-5 text-[color:var(--wine)]" />
+//                 <h2 className="text-base font-semibold text-[color:var(--plum)]">Curated for the person, not just the occasion.</h2>
+//                 <p className="mt-1 text-xs text-[color:var(--muted)]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
 //               </div>
 //             </div>
 //           </motion.div>
@@ -165,20 +165,20 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
   // If not mounted yet, render a static version (no motion props)
   if (!mounted) {
     return (
-      <section className="relative overflow-hidden bg-[#fff7f0]">
+      <section className="relative overflow-hidden bg-[color:var(--tint-cream)]">
         {/* Same structure but without motion animations */}
         <div className="relative mx-auto max-w-7xl px-4 py-6 sm:py-10">
           <div className="grid items-center gap-7 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="order-2 lg:order-1">
               {/* Static content (same as animated version but without motion) */}
-              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#8b3f2f] shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[color:var(--wine)] shadow-sm">
                 <Truck className="h-3.5 w-3.5" />
                 Same day gifting in Indore
               </span>
-              <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif">
-                🎁 Handmade gifts they'll actually remember.
+              <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[color:var(--plum)] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif">
+                🎁 Handmade gifts they’ll actually remember.
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg">
+              <p className="mt-4 max-w-xl text-base leading-7 text-[color:var(--muted)] sm:text-lg">
                 Same-day delivery in Indore. Handmade bouquets, custom hampers, crochet gifts, keychains, and surprise boxes starting at ₹149.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -189,56 +189,56 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                   Send Today
                 </button>
                 <button
-                  className="rounded-full border border-[#eadfd4] bg-white px-6 py-3 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a]"
+                  className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-3 text-sm font-semibold text-[color:var(--plum)] transition hover:border-[color:var(--gold)]"
                   onClick={() => router.push('/products?category=Personalized Gifts')}
                 >
                   Build Custom Hamper
                 </button>
               </div>
               <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 min-[420px]:grid-cols-3">
-                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                  <Gift className="h-4 w-4 text-[#b54e36]" />
-                  <p className="text-xs font-bold text-[#2b1d25]">Handmade Gifts</p>
+                <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                  <Gift className="h-4 w-4 text-[color:var(--wine)]" />
+                  <p className="text-xs font-bold text-[color:var(--plum)]">Handmade Gifts</p>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                  <Truck className="h-4 w-4 text-[#d46345]" />
-                  <p className="text-xs font-bold text-[#2b1d25]">Same-Day Delivery</p>
+                <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                  <Truck className="h-4 w-4 text-[color:var(--accent)]" />
+                  <p className="text-xs font-bold text-[color:var(--plum)]">Same-Day Delivery</p>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                  <Heart className="h-4 w-4 text-[#c5365b]" />
-                  <p className="text-xs font-bold text-[#2b1d25]">Free Personalized Note</p>
+                <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                  <Heart className="h-4 w-4 text-[color:var(--accent)]" />
+                  <p className="text-xs font-bold text-[color:var(--plum)]">Free Personalized Note</p>
                 </div>
               </div>
               <div className="mt-5 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-                <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
-                  <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
+                <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                  <Truck className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                  <p className="text-xs font-semibold text-[color:var(--plum)]">Same Day Delivery</p>
                 </div>
-                <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-                  <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
+                <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                  <Heart className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                  <p className="text-xs font-semibold text-[color:var(--plum)]">100+ Happy Customers</p>
                 </div>
-                <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
-                  <p className="text-xs font-semibold text-[#2b1d25]">Handmade Gifts</p>
+                <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                  <Sparkles className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                  <p className="text-xs font-semibold text-[color:var(--plum)]">Handmade Gifts</p>
                 </div>
               </div>
             </div>
             <div className="order-1 lg:order-2">
               <div className="relative mx-auto max-w-[620px]">
-                <div className="absolute left-3 top-3 z-10 rounded-lg bg-white px-3 py-2 shadow-lg">
-                  <p className="text-[10px] font-semibold uppercase text-[#b54e36]">Delivered today</p>
-                  <p className="text-sm font-bold text-[#2b1d25]">Custom note included</p>
+                <div className="absolute left-3 top-3 z-10 rounded-lg bg-[color:var(--surface)] px-3 py-2 shadow-lg">
+                  <p className="text-[10px] font-semibold uppercase text-[color:var(--wine)]">Delivered today</p>
+                  <p className="text-sm font-bold text-[color:var(--plum)]">Custom note included</p>
                 </div>
                 <img
                   src={slides[currentSlide].image}
                   alt={slides[currentSlide].title}
-                  className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+                  className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-[color:var(--border)] object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
                 />
-                <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
-                  <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
-                  <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
-                  <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
+                <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-[color:var(--surface)]/95 p-3 shadow-lg">
+                  <Gift className="mb-2 h-5 w-5 text-[color:var(--wine)]" />
+                  <h2 className="text-base font-semibold text-[color:var(--plum)]">Curated for the person, not just the occasion.</h2>
+                  <p className="mt-1 text-xs text-[color:var(--muted)]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
                 </div>
               </div>
             </div>
@@ -260,7 +260,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
 
   // After mount, render the animated version (original code, but with shouldReduceMotion applied correctly)
   return (
-    <section className="relative overflow-hidden bg-[#fff7f0]">
+    <section className="relative overflow-hidden bg-[color:var(--tint-cream)]">
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:py-10">
         <div className="grid items-center gap-7 lg:grid-cols-[0.9fr_1.1fr]">
           <motion.div
@@ -270,7 +270,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
             transition={{ duration: 0.45, ease: "easeOut" }}
           >
             <motion.span
-              className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#8b3f2f] shadow-sm"
+              className="inline-flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[color:var(--wine)] shadow-sm"
               whileHover={shouldReduceMotion ? undefined : { y: -1 }}
             >
               <Truck className="h-3.5 w-3.5" />
@@ -278,13 +278,13 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
             </motion.span>
 
             <motion.h1
-              className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[#2b1d25] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
+              className="mt-4 max-w-2xl text-3xl font-semibold leading-tight text-[color:var(--plum)] min-[420px]:text-4xl sm:text-5xl lg:text-6xl lux-serif"
               {...(shouldReduceMotion ? {} : { transition: { delay: 0.05, duration: 0.45, ease: "easeOut" } })}
             >
-              🎁 Handmade gifts they'll actually remember.
+              🎁 Handmade gifts they’ll actually remember.
             </motion.h1>
             <motion.p
-              className="mt-4 max-w-xl text-base leading-7 text-[#6f5d66] sm:text-lg"
+              className="mt-4 max-w-xl text-base leading-7 text-[color:var(--muted)] sm:text-lg"
               {...(shouldReduceMotion ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.12, duration: 0.4, ease: "easeOut" } })}
             >
               Same-day delivery in Indore. Handmade bouquets, custom hampers, crochet gifts, keychains, and surprise boxes starting at ₹149.
@@ -300,7 +300,7 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
                 Send Today
               </motion.button>
               <motion.button
-                className="rounded-full border border-[#eadfd4] bg-white px-6 py-3 text-sm font-semibold text-[#2b1d25] transition hover:border-[#c9a36a]"
+                className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-3 text-sm font-semibold text-[color:var(--plum)] transition hover:border-[color:var(--gold)]"
                 onClick={() => router.push('/products?category=Personalized Gifts')}
                 whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
@@ -310,32 +310,32 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
             </div>
 
             <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 min-[420px]:grid-cols-3">
-              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                <Gift className="h-4 w-4 text-[#b54e36]" />
-                <p className="text-xs font-bold text-[#2b1d25]">Handmade Gifts</p>
+              <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                <Gift className="h-4 w-4 text-[color:var(--wine)]" />
+                <p className="text-xs font-bold text-[color:var(--plum)]">Handmade Gifts</p>
               </div>
-              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                <Truck className="h-4 w-4 text-[#d46345]" />
-                <p className="text-xs font-bold text-[#2b1d25]">Same-Day Delivery</p>
+              <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                <Truck className="h-4 w-4 text-[color:var(--accent)]" />
+                <p className="text-xs font-bold text-[color:var(--plum)]">Same-Day Delivery</p>
               </div>
-              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                <Heart className="h-4 w-4 text-[#c5365b]" />
-                <p className="text-xs font-bold text-[#2b1d25]">Free Personalized Note</p>
+              <div className="flex items-center gap-2 rounded-full bg-[color:var(--surface)] px-3 py-2 shadow-sm">
+                <Heart className="h-4 w-4 text-[color:var(--accent)]" />
+                <p className="text-xs font-bold text-[color:var(--plum)]">Free Personalized Note</p>
               </div>
             </div>
 
             <div className="mt-5 grid max-w-xl grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-              <div className="rounded-lg bg-white p-3 shadow-sm">
-                <Truck className="mb-2 h-5 w-5 text-[#d46345]" />
-                <p className="text-xs font-semibold text-[#2b1d25]">Same Day Delivery</p>
+              <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                <Truck className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                <p className="text-xs font-semibold text-[color:var(--plum)]">Same Day Delivery</p>
               </div>
-              <div className="rounded-lg bg-white p-3 shadow-sm">
-                <Heart className="mb-2 h-5 w-5 text-[#c5365b]" />
-                <p className="text-xs font-semibold text-[#2b1d25]">100+ Happy Customers</p>
+              <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                <Heart className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                <p className="text-xs font-semibold text-[color:var(--plum)]">100+ Happy Customers</p>
               </div>
-              <div className="rounded-lg bg-white p-3 shadow-sm">
-                <Sparkles className="mb-2 h-5 w-5 text-[#b88736]" />
-                <p className="text-xs font-semibold text-[#2b1d25]">Handmade Gifts</p>
+              <div className="rounded-lg bg-[color:var(--surface)] p-3 shadow-sm">
+                <Sparkles className="mb-2 h-5 w-5 text-[color:var(--accent)]" />
+                <p className="text-xs font-semibold text-[color:var(--plum)]">Handmade Gifts</p>
               </div>
             </div>
           </motion.div>
@@ -347,19 +347,19 @@ const HeroCarousel = ({ slides }: HeroCarouselProps) => {
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <div className="relative mx-auto max-w-[620px]">
-              <div className="absolute left-3 top-3 z-10 rounded-lg bg-white px-3 py-2 shadow-lg">
-                <p className="text-[10px] font-semibold uppercase text-[#b54e36]">Delivered today</p>
-                <p className="text-sm font-bold text-[#2b1d25]">Custom note included</p>
+              <div className="absolute left-3 top-3 z-10 rounded-lg bg-[color:var(--surface)] px-3 py-2 shadow-lg">
+                <p className="text-[10px] font-semibold uppercase text-[color:var(--wine)]">Delivered today</p>
+                <p className="text-sm font-bold text-[color:var(--plum)]">Custom note included</p>
               </div>
               <img
                 src={slides[currentSlide].image}
                 alt={slides[currentSlide].title}
-                className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-white object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
+                className="h-[300px] w-full rounded-[20px] min-[420px]:h-[380px] border border-[color:var(--border)] object-cover shadow-2xl shadow-[#4a1f3b]/15 sm:h-[500px]"
               />
-              <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-white/95 p-3 shadow-lg">
-                <Gift className="mb-2 h-5 w-5 text-[#b54e36]" />
-                <h2 className="text-base font-semibold text-[#2b1d25]">Curated for the person, not just the occasion.</h2>
-                <p className="mt-1 text-xs text-[#6f5d66]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
+              <div className="absolute inset-x-3 bottom-4 min-[420px]:inset-x-auto min-[420px]:right-4 min-[420px]:max-w-[230px] rounded-lg bg-[color:var(--surface)]/95 p-3 shadow-lg">
+                <Gift className="mb-2 h-5 w-5 text-[color:var(--wine)]" />
+                <h2 className="text-base font-semibold text-[color:var(--plum)]">Curated for the person, not just the occasion.</h2>
+                <p className="mt-1 text-xs text-[color:var(--muted)]">Flowers, sweets, keepsakes, and handwritten wishes.</p>
               </div>
             </div>
           </motion.div>

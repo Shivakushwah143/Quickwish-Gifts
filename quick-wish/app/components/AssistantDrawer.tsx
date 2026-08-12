@@ -16,7 +16,19 @@ export default function AssistantDrawer() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Hide the floating assistant button while the checkout modal is open so
+  // payment stays focused and nothing overlaps the checkout controls.
+  useEffect(() => {
+    const handleCheckout = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+      setCheckoutOpen(Boolean(detail?.open));
+    };
+    window.addEventListener("quickwish:checkout", handleCheckout);
+    return () => window.removeEventListener("quickwish:checkout", handleCheckout);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
@@ -119,13 +131,17 @@ export default function AssistantDrawer() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-3 text-sm font-bold text-[color:var(--ivory)] shadow-lg transition-all hover:bg-[#3b182f] md:bottom-6 md:right-6"
-      >
-        <MessageCircle size={18} />
-        💬 Need Help Choosing a Gift?
-      </button>
+      {!checkoutOpen && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed right-4 bottom-[calc(var(--mobile-bottom-cta-height)+env(safe-area-inset-bottom)+12px)] z-[var(--z-assistant)] flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-[color:var(--wine)] px-3.5 py-2.5 text-xs font-bold text-[color:var(--ivory)] shadow-[var(--shadow-elevated)] transition-all hover:bg-[#3b182f] sm:px-4 sm:py-3 sm:text-sm md:bottom-6 md:right-6"
+          aria-label="Open gifting assistant"
+        >
+          <MessageCircle size={16} className="shrink-0 sm:size-[18px]" />
+          <span className="hidden min-[420px]:inline">💬 Need Help Choosing a Gift?</span>
+          <span className="min-[420px]:hidden">💬 Help</span>
+        </button>
+      )}
 
       <div
         className={`fixed inset-0 bg-black/30 z-40 transition-opacity ${

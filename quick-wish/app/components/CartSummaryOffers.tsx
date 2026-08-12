@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Gift, Lock, Sparkles, Tag, Truck, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Gift, Loader2, Lock, Sparkles, Tag, Ticket, Truck, X } from "lucide-react";
 
 export type AppliedCartOffer = {
   code: string;
   discountAmount: number;
   finalAmount: number;
   originalAmount: number;
+};
+
+export type CouponValidationResult = {
+  ok: boolean;
+  offer?: AppliedCartOffer | null;
+  message?: string;
 };
 
 type OfferKind = "discount" | "reward";
@@ -35,6 +41,15 @@ type CartSummaryOffersProps = {
   onCheckout: () => void;
   checkoutDisabled?: boolean;
   checkoutLabel?: string;
+  /** Backend validation for a coupon code. When provided, offers and manual
+   *  codes are only applied after the server confirms them. */
+  onValidateCoupon?: (code: string) => Promise<CouponValidationResult>;
+  /** Set when a creator referral coupon is already applied — prevents the
+   *  built-in best-offer auto-apply from overriding the referral. */
+  disableAutoApply?: boolean;
+  /** Fired only when the user manually applies a coupon code. Lets the parent
+   *  release creator-referral attribution in favour of an explicit choice. */
+  onManualCouponApplied?: (offer: AppliedCartOffer) => void;
 };
 
 const OFFERS: CartOffer[] = [
@@ -86,9 +101,18 @@ export default function CartSummaryOffers({
   onCheckout,
   checkoutDisabled = false,
   checkoutLabel = "Place Order",
+  onValidateCoupon,
+  disableAutoApply = false,
+  onManualCouponApplied,
 }: CartSummaryOffersProps) {
   const [expanded, setExpanded] = useState(false);
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
+  const effectiveAutoApply = autoApplyEnabled && !disableAutoApply;
+  const [manualCode, setManualCode] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponError, setCouponError] = useState("");
+  const validationCache = useRef<Map<string, CouponValidationResult>>(new Map());
+
   const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
   const safeProductDiscount =
     Number.isFinite(productDiscount) && productDiscount > 0
@@ -116,37 +140,51 @@ export default function CartSummaryOffers({
     [payableBeforeCoupon]
   );
 
+  // Auto-apply the best eligible offer, but only after the backend confirms
+  // the coupon actually exists and is valid.
   useEffect(() => {
-    if (!autoApplyEnabled) return;
+    if (!effectiveAutoApply || !onValidateCoupon) {
+      return;
+    }
 
     if (!bestEligibleOffer) {
       if (appliedOffer) onOfferChange(null);
       return;
     }
 
-    const nextOffer: AppliedCartOffer = {
-      code: bestEligibleOffer.code,
+    const code = bestEligibleOffer.code;
+    const cached = validationCache.current.get(code);
+
+    if (cached && !cached.ok) {
+      return; // Already known invalid — never apply it.
+    }
+
+    if (cached?.ok) {
+      onOfferChange(cached.offer ?? null);
+      return;
+    }
+
+    // Optimistic display while the server validates.
+    const optimistic: AppliedCartOffer = {
+      code,
       discountAmount: bestEligibleOffer.discountAmount,
       originalAmount: safeSubtotal,
-      finalAmount: Math.max(0, payableBeforeCoupon - bestEligibleOffer.discountAmount + deliveryFee),
+      finalAmount: Math.max(
+        0,
+        payableBeforeCoupon - bestEligibleOffer.discountAmount + deliveryFee
+      ),
     };
 
-    if (
-      appliedOffer?.code !== nextOffer.code ||
-      appliedOffer.discountAmount !== nextOffer.discountAmount ||
-      appliedOffer.finalAmount !== nextOffer.finalAmount
-    ) {
-      onOfferChange(nextOffer);
+    if (appliedOffer?.code !== code) {
+      onOfferChange(optimistic);
     }
-  }, [
-    appliedOffer,
-    autoApplyEnabled,
-    bestEligibleOffer,
-    deliveryFee,
-    onOfferChange,
-    payableBeforeCoupon,
-    safeSubtotal,
-  ]);
+
+    void onValidateCoupon(code).then((result) => {
+      validationCache.current.set(code, result);
+      onOfferChange(result.ok ? result.offer ?? optimistic : null);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bestEligibleOffer, payableBeforeCoupon, safeSubtotal, deliveryFee, effectiveAutoApply]);
 
   const couponDiscount = appliedOffer?.discountAmount ?? 0;
   const totalAmount = Math.max(0, payableBeforeCoupon - couponDiscount + deliveryFee);
@@ -162,9 +200,34 @@ export default function CartSummaryOffers({
     setExpanded(true);
   };
 
+  const handleApplyManualCode = async () => {
+    const code = manualCode.trim().toUpperCase();
+
+    if (!code || !onValidateCoupon) {
+      return;
+    }
+
+    setCouponBusy(true);
+    setCouponError("");
+
+    const result = await onValidateCoupon(code);
+    validationCache.current.set(code, result);
+
+    if (result.ok && result.offer) {
+      setAutoApplyEnabled(false);
+      onManualCouponApplied?.(result.offer);
+      onOfferChange(result.offer);
+      setManualCode("");
+    } else {
+      setCouponError(result.message || "Invalid coupon code");
+    }
+
+    setCouponBusy(false);
+  };
+
   return (
     <div className="space-y-3">
-      <section className="overflow-hidden rounded-2xl border border-[#ead7c5] bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
@@ -172,12 +235,12 @@ export default function CartSummaryOffers({
           aria-expanded={expanded}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff0e7] text-[#b54e36]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--gold)]/10 text-[color:var(--wine)]">
               <Gift className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-black text-[#2b1d25]">🎁 Available Offers ({OFFERS.length})</h3>
-              <p className="truncate text-xs text-[#7a6570]">
+              <h3 className="truncate text-sm font-black text-[color:var(--plum)]">🎁 Available Offers ({OFFERS.length})</h3>
+              <p className="truncate text-xs text-[color:var(--muted)]">
                 {unlockedRewards.length > 0
                   ? unlockedRewards.join(" + ")
                   : "Unlock free card, wrap, and instant savings"}
@@ -185,7 +248,7 @@ export default function CartSummaryOffers({
             </div>
           </div>
           <ChevronDown
-            className={`h-5 w-5 shrink-0 text-[#6f5d66] transition-transform ${expanded ? "rotate-180" : ""}`}
+            className={`h-5 w-5 shrink-0 text-[color:var(--muted)] transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         </button>
 
@@ -211,12 +274,12 @@ export default function CartSummaryOffers({
         )}
 
         {expanded && (
-          <div className="space-y-2 border-t border-[#f1e4d8] bg-[#fffaf4] p-3">
+          <div className="space-y-2 border-t border-[color:var(--border)] bg-[color:var(--gold)]/10 p-3">
             {!autoApplyEnabled && bestEligibleOffer && (
               <button
                 type="button"
                 onClick={handleApplyBestOffer}
-                className="w-full rounded-xl border border-[#ead7c5] bg-white px-3 py-2 text-sm font-black text-[#4a1f3b]"
+                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-black text-[color:var(--wine)]"
               >
                 Apply best eligible offer
               </button>
@@ -232,18 +295,18 @@ export default function CartSummaryOffers({
               return (
                 <div
                   key={offer.code}
-                  className={`rounded-xl border bg-white p-3 ${
+                  className={`rounded-xl border bg-[color:var(--surface)] p-3 ${
                     isApplied
                       ? "border-emerald-200"
                       : isUnlocked
-                        ? "border-[#ead7c5]"
-                        : "border-[#efe3d8]"
+                        ? "border-[color:var(--border)]"
+                        : "border-[color:var(--border)]"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                        isUnlocked ? "bg-[#fff0e7] text-[#b54e36]" : "bg-[#f4eee7] text-[#8a7880]"
+                        isUnlocked ? "bg-[color:var(--gold)]/10 text-[color:var(--wine)]" : "bg-[color:var(--ivory)] text-[color:var(--muted)]"
                       }`}
                     >
                       {isUnlocked ? <Icon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -252,16 +315,16 @@ export default function CartSummaryOffers({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[#2b1d25]">{offer.title}</p>
-                          <p className="mt-0.5 text-xs text-[#7a6570]">{offer.description}</p>
+                          <p className="truncate text-sm font-black text-[color:var(--plum)]">{offer.title}</p>
+                          <p className="mt-0.5 text-xs text-[color:var(--muted)]">{offer.description}</p>
                         </div>
                         <span
                           className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
                             isApplied
                               ? "bg-emerald-100 text-emerald-800"
                               : isUnlocked
-                                ? "bg-[#fff0e7] text-[#b54e36]"
-                                : "bg-[#f4eee7] text-[#7a6570]"
+                                ? "bg-[color:var(--gold)]/10 text-[color:var(--wine)]"
+                                : "bg-[#f4eee7] text-[color:var(--muted)]"
                           }`}
                         >
                           {isApplied ? "Applied" : isUnlocked ? "Unlocked" : `${progress}%`}
@@ -269,17 +332,17 @@ export default function CartSummaryOffers({
                       </div>
 
                       <div className="mt-3">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[#f0e4da]">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--border)]">
                           <div
                             className={`h-full rounded-full ${isUnlocked ? "bg-emerald-500" : "bg-[#c9a36a]"}`}
                             style={{ width: `${progress}%` }}
                           />
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-3 text-[11px] font-bold">
-                          <span className={isUnlocked ? "text-emerald-700" : "text-[#8b3f2f]"}>
+                          <span className={isUnlocked ? "text-emerald-700" : "text-[color:var(--wine)]"}>
                             {isUnlocked ? "Ready for this order" : `${formatCurrency(unlockAmount)} away`}
                           </span>
-                          <span className="text-[#8a7880]">Min {formatCurrency(offer.minimumAmount)}</span>
+                          <span className="text-[color:var(--muted)]">Min {formatCurrency(offer.minimumAmount)}</span>
                         </div>
                       </div>
                     </div>
@@ -287,50 +350,96 @@ export default function CartSummaryOffers({
                 </div>
               );
             })}
+
+            {onValidateCoupon && (
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+                <label
+                  htmlFor="coupon-input"
+                  className="mb-2 flex items-center text-xs font-black uppercase tracking-wide text-[color:var(--wine)]"
+                >
+                  <Ticket className="mr-1 h-3.5 w-3.5" />
+                  Have a coupon code?
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="coupon-input"
+                    type="text"
+                    value={manualCode}
+                    onChange={(event) => {
+                      setManualCode(event.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void handleApplyManualCode();
+                      }
+                    }}
+                    placeholder="e.g. SHIVA"
+                    className="min-w-0 flex-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--gold)]/10 px-3 py-2 text-sm font-bold uppercase text-[color:var(--plum)] outline-none transition focus:border-[#c9a36a] focus:ring-2 focus:ring-[#c9a36a]/25"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyManualCode()}
+                    disabled={couponBusy || !manualCode.trim()}
+                    className="shrink-0 rounded-xl bg-[color:var(--wine)] px-4 py-2 text-sm font-black text-[color:var(--ivory)] transition hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {couponBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+                {couponError && (
+                  <p className="mt-2 text-xs font-semibold text-red-600">{couponError}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </section>
 
-      <section className="rounded-2xl border border-[#ead7c5] bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff4e4] text-[#b54e36]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--gold)]/10 text-[color:var(--wine)]">
               <Truck className="h-4 w-4" />
             </span>
-            <h3 className="text-sm font-black text-[#2b1d25]">Price Details</h3>
+            <h3 className="text-sm font-black text-[color:var(--plum)]">Price Details</h3>
           </div>
-          <span className="text-xs font-bold text-[#7a6570]">
+          <span className="text-xs font-bold text-[color:var(--muted)]">
             {itemCount} {itemCount === 1 ? "item" : "items"}
           </span>
         </div>
 
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between gap-4 text-[#6f5d66]">
+          <div className="flex justify-between gap-4 text-[color:var(--muted)]">
             <span>Subtotal</span>
             <span>{formatCurrency(safeSubtotal)}</span>
           </div>
-          <div className="flex justify-between gap-4 text-[#6f5d66]">
-            <span>Discount</span>
-            <span>-{formatCurrency(safeProductDiscount)}</span>
-          </div>
-          <div className="flex justify-between gap-4 text-[#6f5d66]">
-            <span>Coupon Discount</span>
-            <span>-{formatCurrency(couponDiscount)}</span>
-          </div>
+          {safeProductDiscount > 0 && (
+            <div className="flex justify-between gap-4 text-[color:var(--muted)]">
+              <span>Discount</span>
+              <span>-{formatCurrency(safeProductDiscount)}</span>
+            </div>
+          )}
+          {couponDiscount > 0 && (
+            <div className="flex justify-between gap-4 text-[color:var(--muted)]">
+              <span>Coupon Discount</span>
+              <span>-{formatCurrency(couponDiscount)}</span>
+            </div>
+          )}
           {giftUpgradeLines.map((line) => (
-            <div key={line.label} className="flex justify-between gap-4 text-[#6f5d66]">
+            <div key={line.label} className="flex justify-between gap-4 text-[color:var(--muted)]">
               <span>{line.label}</span>
               <span>{formatCurrency(line.amount)}</span>
             </div>
           ))}
-          <div className="flex justify-between gap-4 text-[#6f5d66]">
+          <div className="flex justify-between gap-4 text-[color:var(--muted)]">
             <span>Delivery Fee</span>
             <span className={deliveryFee === 0 ? "font-semibold text-emerald-700" : ""}>
               {deliveryFee === 0 ? "FREE 🚚" : formatCurrency(deliveryFee)}
             </span>
           </div>
-          <div className="border-t border-[#ead7c5] pt-2">
-            <div className="flex justify-between gap-4 text-base font-black text-[#2b1d25]">
+          <div className="border-t border-[color:var(--border)] pt-2">
+            <div className="flex justify-between gap-4 text-base font-black text-[color:var(--plum)]">
               <span>Total Amount</span>
               <span>{formatCurrency(totalAmount)}</span>
             </div>
@@ -339,19 +448,19 @@ export default function CartSummaryOffers({
 
         {totalSavings > 0 && (
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
-            🎉 You're saving {formatCurrency(totalSavings)} on this order
+            🎉 You&apos;re saving {formatCurrency(totalSavings)} on this order
           </div>
         )}
       </section>
 
-      <div className="sticky bottom-0 z-20 -mx-4 border-t border-[#ead7c5] bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(43,29,37,0.12)] backdrop-blur sm:static sm:mx-0 sm:rounded-2xl sm:border sm:shadow-sm">
+      <div className="sticky bottom-0 z-20 -mx-4 border-t border-[color:var(--border)] bg-[color:var(--surface)]/95 px-4 py-3 shadow-[0_-12px_30px_rgba(43,29,37,0.12)] backdrop-blur sm:static sm:mx-0 sm:rounded-2xl sm:border sm:shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-[#7a6570]">
+            <p className="truncate text-xs font-bold text-[color:var(--muted)]">
               {itemCount} {itemCount === 1 ? "Item" : "Items"} selected
             </p>
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <p className="text-lg font-black text-[#2b1d25]">{formatCurrency(totalAmount)}</p>
+              <p className="text-lg font-black text-[color:var(--plum)]">{formatCurrency(totalAmount)}</p>
               {totalSavings > 0 && (
                 <p className="text-xs font-black text-emerald-700">Saved {formatCurrency(totalSavings)}</p>
               )}
@@ -361,7 +470,7 @@ export default function CartSummaryOffers({
             type="button"
             onClick={onCheckout}
             disabled={checkoutDisabled}
-            className="shrink-0 rounded-full bg-[#4a1f3b] px-6 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(74,31,59,0.22)] transition hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
+            className="shrink-0 rounded-full bg-[color:var(--wine)] px-6 py-3 text-sm font-black text-[color:var(--ivory)] shadow-[0_12px_24px_rgba(74,31,59,0.22)] transition hover:bg-[#3b182f] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {checkoutLabel}
           </button>

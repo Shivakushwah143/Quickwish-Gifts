@@ -285,7 +285,7 @@ export const sendPaymentReceivedEmail = async ({
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px; background: #ffffff; border: 1px solid #eadfd4; border-radius: 18px; overflow: hidden;">
                 <tr>
                   <td style="background: #4a1f3b; padding: 28px 32px; color: #ffffff;">
-                    <h1 style="margin: 0; font-size: 26px; line-height: 1.25;">Payment Received!</h1>
+                    <h1 style="margin: 0; font-size: 26px; line-height: 1.25;">Your order is reserved</h1>
                     <p style="margin: 10px 0 0; color: #f3e7dc; font-size: 15px;">QuickWish</p>
                   </td>
                 </tr>
@@ -306,12 +306,12 @@ export const sendPaymentReceivedEmail = async ({
                       <p style="margin: 8px 0 0; color: #4a1f3b; font-size: 20px; font-weight: 700;">${formatCurrency(amount)}</p>
                     </div>
 
-                    <div style="background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
-                      <p style="margin: 0; color: #2e7d32; font-size: 14px; font-weight: 600;">
-                        ⏳ Order Pending Confirmation
+                    <div style="background: #fff8ed; border: 1px solid #eadfd4; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="margin: 0; color: #8a6d3b; font-size: 14px; font-weight: 600;">
+                        ⏳ Complete your UPI payment
                       </p>
-                      <p style="margin: 8px 0 0; color: #558b2f; font-size: 13px; line-height: 1.5;">
-                        We've received your payment! Our team will confirm your order shortly. You'll receive a confirmation email once your order is ready for delivery.
+                      <p style="margin: 8px 0 0; color: #7b6a73; font-size: 13px; line-height: 1.5;">
+                        Scan the QR in the checkout screen (or tap “Pay with UPI App”), pay the exact amount to QuickWish, then tap “I've completed the payment”. Our team will verify it and confirm your order. You'll receive a confirmation email once verified.
                       </p>
                     </div>
 
@@ -332,5 +332,5 @@ export const sendPaymentReceivedEmail = async ({
     </html>
   `;
 
-  await sendEmail(customerEmail, `Payment received for order ${orderId} - Pending confirmation`, html);
+  await sendEmail(customerEmail, `Order reserved for ${orderId} - Complete your payment`, html);
 };

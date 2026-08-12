@@ -3,6 +3,12 @@ import mongoose from "mongoose";
 const adminSchema = new mongoose.Schema({
   username: { type: String },
   password: { type: String, default: null },
+  role: {
+    type: String,
+    enum: ["ADMIN"],
+    default: "ADMIN",
+    index: true,
+  },
 });
 
 export const admin = mongoose.model("admin", adminSchema);
@@ -138,6 +144,15 @@ const productSchema = new mongoose.Schema({
       type: Number,
       default: 3,
     },
+  },
+  isArchived: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  deletedAt: {
+    type: Date,
+    default: null,
   },
   createdAt: {
     type: Date,
@@ -295,7 +310,7 @@ const orderSchema = new mongoose.Schema({
   },
   product: {
     type: mongoose.Types.ObjectId,
-    ref: "GiftProduct",
+    ref: "product",
     required: true,
   },
   status: {
@@ -309,12 +324,70 @@ const orderSchema = new mongoose.Schema({
       "Cancelled",
     ],
     default: "Processing",
+    index: true,
+  },
+  paymentStatus: {
+    type: String,
+    enum: [
+      "PENDING",
+      "PROOF_SUBMITTED", // legacy value from the old screenshot/WhatsApp flow
+      "AWAITING_VERIFICATION",
+      "VERIFIED",
+      "REJECTED",
+    ],
+    default: "PENDING",
+    index: true,
+  },
+  // Human-readable unique order reference, e.g. QW-2026-001582. Used as the
+  // UPI transaction reference (tr) so admin can find the payment in the UPI app.
+  orderNumber: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
+  quantity: {
+    type: Number,
+    default: 1,
+    min: 1,
+  },
+  idempotencyKey: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
+  productSnapshot: {
+    productId: {
+      type: mongoose.Types.ObjectId,
+      ref: "product",
+    },
+    name: String,
+    image: String,
+    unitPrice: Number,
+    quantity: Number,
+    category: String,
   },
   paymentMethod: {
     type: String,
-    default: "WhatsApp/UPI",
+    default: "UPI_DIRECT",
+    // Legacy orders may still hold "WhatsApp/UPI" — those values stay readable.
   },
-  whatsappProof: String, // Screenshot URL
+  whatsappProof: String, // Deprecated: legacy screenshot URL from the old proof flow. Never written by new orders.
+  // Payment lifecycle audit trail (zero-gateway UPI verification).
+  paymentReportedAt: Date,
+  paymentExpiresAt: Date,
+  paymentVerifiedAt: Date,
+  paymentVerifiedBy: {
+    type: mongoose.Types.ObjectId,
+    ref: "admin",
+  },
+  paymentRejectedAt: Date,
+  paymentRejectedBy: {
+    type: mongoose.Types.ObjectId,
+    ref: "admin",
+  },
+  paymentRejectionReason: String,
   amount: {
     type: Number,
     required: true,
@@ -418,6 +491,25 @@ const orderSchema = new mongoose.Schema({
 });
 
 export const Order = mongoose.model("Order", orderSchema);
+
+/**
+ * Atomic per-year sequence used to mint human-readable order numbers
+ * (QW-2026-001582). findOneAndUpdate with upsert keeps concurrent order
+ * creation race-free.
+ */
+const orderCounterSchema = new mongoose.Schema({
+  year: {
+    type: Number,
+    required: true,
+    unique: true,
+  },
+  seq: {
+    type: Number,
+    default: 0,
+  },
+});
+
+export const OrderCounter = mongoose.model("OrderCounter", orderCounterSchema);
 
 const chatMessageSchema = new mongoose.Schema({
   userId: {

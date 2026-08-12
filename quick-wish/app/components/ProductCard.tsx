@@ -94,9 +94,9 @@ export default function ProductCard({
 
           {/* Price */}
           <div className="flex items-center mb-4 flex-wrap gap-2">
-            <span className="text-xl font-semibold text-[color:var(--wine)]">?{price}</span>
+            <span className="text-xl font-semibold text-[color:var(--wine)]">₹{price}</span>
             {originalPrice && originalPrice > price && (
-              <span className="text-sm text-[color:var(--muted)] line-through ml-1">?{originalPrice}</span>
+              <span className="text-sm text-[color:var(--muted)] line-through ml-1">₹{originalPrice}</span>
             )}
             <span className="lux-pill px-2 py-0.5 text-[10px]">Same Day Delivery - ₹49 extra (Indore only)</span>
           </div>

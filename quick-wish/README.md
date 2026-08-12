@@ -12,7 +12,7 @@ QuickWish is a premium gifting storefront focused on curated categories, same-da
 - Admin dashboard with protected access and "Add Product" modal
 - Product image upload support (multi-image)
 - Order creation API and admin order confirmation
-- WhatsApp order handoff link after order creation
+- Direct UPI payment (₹0 gateway cost) with order-specific QR and admin verification
 - AI gifting assistant drawer with chat history and rate limiting
 - Newsletter, services, and testimonials sections
 - Themed luxury styling (custom fonts/colors)
@@ -50,10 +50,15 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
 PORT=5000
 MONGO_URI=your_mongodb_connection
 SECRET=your_jwt_secret
-GROQ_API_KEY=optional
-GROK_API_KEY=optional
-DEEPSEEK_API_KEY=optional
+QUICKWISH_UPI_ID=9009917146@ptyes
+QUICKWISH_UPI_NAME=QuickWish
+BREVO_API_KEY=optional
+BREVO_SENDER_EMAIL=optional
+BREVO_SENDER_NAME=optional
 ```
+
+The backend refuses to start without `QUICKWISH_UPI_ID` — it is the account that
+receives every direct UPI payment and must never be mistyped.
 
 ## Scripts
 ### Frontend

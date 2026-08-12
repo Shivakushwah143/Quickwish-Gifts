@@ -35,19 +35,19 @@ export default function GiftsInIndorePage() {
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-12 text-[#2b1d25]">
+    <main className="mx-auto max-w-6xl px-4 py-12 text-[color:var(--plum)]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
-      <section className="rounded-3xl border border-[#ead7c5] bg-white p-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b54e36]">
+      <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-[color:var(--wine)]">
           Indore gifting
         </p>
         <h1 className="mt-3 text-3xl font-semibold lux-serif sm:text-5xl">
           Gifts in Indore for birthdays, anniversaries, and same-day surprises
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[#6f5d66] sm:text-base">
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
           QuickWish Gifts helps customers in Indore send thoughtful gifts fast.
           Explore curated categories for birthday gifts, flower bouquets,
           personalized hampers, chocolate bouquets, and premium surprises.
@@ -57,7 +57,7 @@ export default function GiftsInIndorePage() {
             <Link
               key={link.label}
               href={link.href}
-              className="rounded-full border border-[#ead7c5] bg-[#fffaf4] px-4 py-2 text-sm font-bold text-[#2b1d25] transition hover:bg-[#fff1e4]"
+              className="rounded-full border border-[color:var(--border)] bg-[color:var(--tint-cream)] px-4 py-2 text-sm font-bold text-[color:var(--plum)] transition hover:bg-[color:var(--tint-peach)]"
             >
               {link.label}
             </Link>
@@ -80,9 +80,9 @@ export default function GiftsInIndorePage() {
             text: "Matches the search intent behind high-value gifting queries.",
           },
         ].map((item) => (
-          <div key={item.title} className="rounded-2xl border border-[#ead7c5] bg-[#fffaf4] p-5">
+          <div key={item.title} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--tint-cream)] p-5">
             <h2 className="text-lg font-bold">{item.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-[#6f5d66]">{item.text}</p>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{item.text}</p>
           </div>
         ))}
       </section>

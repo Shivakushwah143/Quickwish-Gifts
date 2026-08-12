@@ -98,10 +98,11 @@ import AuthModal from '../components/AuthModel';
 
 
 // components/Header.tsx
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Gift, Menu, X, Shield } from 'lucide-react';
+import { User, Gift, Menu, X, Shield, Package } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import SearchBar from './Header/SearchBar';
 // import AuthModal from '../components/AuthModal';
 import AdminAuthModal from '../components/AdminAuthModal';
 import { clearAdminAuthState, clearCustomerAuthState } from '../utils/auth';
@@ -212,8 +213,13 @@ export default function Header() {
                 </div>
               ) : isLoggedIn ? (
                 <div className="flex items-center space-x-4">
-                  <button className="p-2 text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors">
-                    <User size={24} />
+                  <button
+                    onClick={() => router.push('/account')}
+                    className="hidden md:flex items-center text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
+                    aria-label="My account"
+                  >
+                    <User size={20} className="mr-1" />
+                    Account
                   </button>
                   <button 
                     onClick={handleLogout}
@@ -259,9 +265,9 @@ export default function Header() {
                 </div>
               )}
 
-              {/* Mobile menu button */}
-              <button
-                id="menu-button"
+          {/* Mobile menu button */}
+          <button
+            id="menu-button"
                 className="md:hidden p-2 rounded-md text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] hover:bg-[color:var(--border)]/40 focus:outline-none"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
@@ -271,6 +277,19 @@ export default function Header() {
                 <ThemeToggle />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Search bar row */}
+        <div className="hidden md:block border-t border-[color:var(--border)]/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <Suspense
+              fallback={
+                <div className="relative mb-4 h-12 animate-pulse rounded-xl bg-[color:var(--ivory)]/60" />
+              }
+            >
+              <SearchBar />
+            </Suspense>
           </div>
         </div>
 
@@ -301,6 +320,13 @@ export default function Header() {
               </div>
             ) : isLoggedIn ? (
               <div className="pt-4 border-t space-y-3">
+                <button
+                  onClick={() => router.push('/account')}
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
+                >
+                  <Package size={16} className="mr-2" />
+                  My Orders
+                </button>
                 <button 
                   onClick={handleLogout}
                   className="w-full text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
