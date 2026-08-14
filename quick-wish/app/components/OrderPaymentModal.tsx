@@ -100,6 +100,20 @@ const defaultGiftUpgrades: GiftUpgradeSelection = {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const POLL_INTERVAL_MS = 4000;
+const QUICKWISH_UPI_ID = "9009917146@ptyes";
+const QUICKWISH_UPI_NAME = "QuickWish";
+
+const buildLocalUpiUri = (amount: number, orderId: string): string => {
+  if (!Number.isFinite(amount) || amount <= 0 || !orderId) {
+    return "";
+  }
+
+  return `upi://pay?pa=${QUICKWISH_UPI_ID}&pn=${encodeURIComponent(
+    QUICKWISH_UPI_NAME
+  )}&am=${amount.toFixed(2)}&cu=INR&tr=${encodeURIComponent(
+    orderId
+  )}&tn=${encodeURIComponent(orderId)}`;
+};
 
 /** Consistent ₹ formatting — always two decimals (₹371.50, never ₹371.5). */
 const formatINR = (amount: number): string => {
@@ -703,8 +717,8 @@ export default function OrderPaymentModal({
   // amount always comes from the backend (payment instructions or the stored
   // order total), never from a client-side estimate.
   const paymentInstructions = serverOrder?.paymentInstructions;
-  const payableAmount = paymentInstructions?.amount ?? serverOrder?.finalAmount ?? 0;
-  const upiUri = paymentInstructions?.upiUri ?? "";
+  const payableAmount = serverOrder?.finalAmount ?? paymentInstructions?.amount ?? 0;
+  const upiUri = buildLocalUpiUri(payableAmount, orderId);
   const orderReference =
     paymentInstructions?.orderReference ||
     serverOrder?.orderNumber ||
@@ -987,7 +1001,7 @@ export default function OrderPaymentModal({
               <PayPanel
                 amount={payableAmount}
                 upiUri={upiUri}
-                upiId={paymentInstructions?.upiId || ""}
+                upiId={QUICKWISH_UPI_ID}
                 orderReference={orderReference}
                 copiedUpiId={copiedUpiId}
                 copiedOrderRef={copiedOrderRef}

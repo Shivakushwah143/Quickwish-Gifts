@@ -246,6 +246,8 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                 </button>
 
                 <ProductShareButton
+                  variant="full"
+                  label="↗ Share"
                   slug={product.slug}
                   title={product.title}
                   price={currentPrice > 0 ? currentPrice : undefined}

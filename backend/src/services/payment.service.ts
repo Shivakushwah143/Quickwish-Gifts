@@ -30,7 +30,7 @@ export interface UPIConfig {
  * whole point of the QR), but it still lives only in server configuration.
  */
 export const getUPIConfig = (): UPIConfig => {
-  const upiId = process.env.QUICKWISH_UPI_ID?.trim();
+  const upiId = process.env.QUICKWISH_UPI_ID?.trim() || "9009917146@ptyes";
 
   if (!upiId) {
     throw new Error(
@@ -63,15 +63,13 @@ export const buildUPIPaymentUri = ({
   amount,
   orderReference,
 }: BuildUPIPaymentUriInput): string => {
-  const params = new URLSearchParams();
-  params.set("pa", upiId);
-  params.set("pn", upiName);
-  params.set("am", (Number.isFinite(Number(amount)) ? Number(amount) : 0).toFixed(2));
-  params.set("cu", "INR");
-  params.set("tr", orderReference);
-  params.set("tn", orderReference);
+  const serverAmount = (Number.isFinite(Number(amount)) ? Number(amount) : 0).toFixed(2);
 
-  return `upi://pay?${params.toString()}`;
+  return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(
+    upiName
+  )}&am=${serverAmount}&cu=INR&tr=${encodeURIComponent(
+    orderReference
+  )}&tn=${encodeURIComponent(orderReference)}`;
 };
 
 /**
@@ -82,13 +80,7 @@ export const buildUPIPaymentUri = ({
 export const createPaymentInstructions = (order: any) => {
   const config = getUPIConfig();
   const amount = Number(order.finalAmount ?? order.amount) || 0;
-  // New orders always carry a friendly orderNumber; legacy orders fall back to
-  // a stable derived reference so the UPI `tr` is still human-searchable.
-  const orderReference =
-    order.orderNumber ||
-    `QW-${String(order._id)
-      .slice(-8)
-      .toUpperCase()}`;
+  const orderReference = String(order._id);
 
   const upiUri = buildUPIPaymentUri({
     upiId: config.upiId,
