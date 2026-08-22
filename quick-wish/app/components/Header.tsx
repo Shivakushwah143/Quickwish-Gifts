@@ -100,6 +100,7 @@ import AuthModal from '../components/AuthModel';
 // components/Header.tsx
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useClerk } from '@clerk/nextjs';
 import { User, Gift, Menu, X, Shield, Package } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import SearchBar from './Header/SearchBar';
@@ -109,6 +110,7 @@ import { clearAdminAuthState, clearCustomerAuthState } from '../utils/auth';
 
 export default function Header() {
   const router = useRouter();
+  const { signOut } = useClerk();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -118,12 +120,19 @@ export default function Header() {
 
   useEffect(() => {
     // Check if user is logged in
-    const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
-    setIsLoggedIn(!!token);
+    const refreshCustomerState = () => {
+      const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
+      setIsLoggedIn(!!token);
+    };
+
+    refreshCustomerState();
     
     // Check if admin is logged in
     const adminToken = localStorage.getItem('adminToken');
     setIsAdmin(!!adminToken);
+
+    window.addEventListener('quickwish:auth-synced', refreshCustomerState);
+    return () => window.removeEventListener('quickwish:auth-synced', refreshCustomerState);
   }, []);
 
   const handleAuthClick = (mode: 'signin' | 'signup') => {
@@ -137,8 +146,9 @@ export default function Header() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearCustomerAuthState();
+    await signOut({ redirectUrl: '/' });
     setIsLoggedIn(false);
     router.replace('/');
   };

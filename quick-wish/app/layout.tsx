@@ -1,5 +1,7 @@
 import "./globals.css";
 import AssistantDrawer from "./components/AssistantDrawer";
+import ClerkCustomerSync from "./components/ClerkCustomerSync";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
 const siteUrl = "https://www.onewish.fun";
@@ -85,6 +87,7 @@ const websiteJsonLd = {
 
 export default function RootLayout({children,}: Readonly<{children: React.ReactNode;}>) {
   return (
+    <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
           {/* Apply the saved theme before first paint to avoid a flash of the
@@ -105,9 +108,11 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
           />
+          <ClerkCustomerSync />
           {children}
           <AssistantDrawer />
         </body>
       </html>
+    </ClerkProvider>
   );
 }

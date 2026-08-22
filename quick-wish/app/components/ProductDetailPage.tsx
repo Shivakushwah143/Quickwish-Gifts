@@ -59,6 +59,16 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
   }, []);
 
   useEffect(() => {
+    const handleAuthExpired = () => {
+      setIsOrderModalOpen(false);
+      setIsAuthModalOpen(true);
+    };
+
+    window.addEventListener("quickwish:auth-expired", handleAuthExpired);
+    return () => window.removeEventListener("quickwish:auth-expired", handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const fetchDynamicProduct = async () => {
@@ -104,13 +114,6 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
 
   const handleBuyNow = () => {
     if (!dynamicProduct?.price) {
-      return;
-    }
-
-    const token = localStorage.getItem("customerToken") || localStorage.getItem("token");
-
-    if (!token) {
-      setIsAuthModalOpen(true);
       return;
     }
 
@@ -200,7 +203,22 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
               </h1>
 
               <div className="mb-6">
-                <ProductDynamicFields productId={product.id} mode="detail" />
+                <ProductDynamicFields
+                  productId={product.id}
+                  mode="detail"
+                  priceAction={
+                    <ProductShareButton
+                      variant="icon"
+                      slug={product.slug}
+                      title={product.title}
+                      price={currentPrice > 0 ? currentPrice : undefined}
+                      image={selectedProductImage !== "/placeholder.jpg" ? selectedProductImage : undefined}
+                      description={product.description}
+                      fallback="copy"
+                      className="ml-1 h-10 w-10 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)] shadow-sm hover:border-[color:var(--gold)] hover:text-[color:var(--wine)] hover:shadow-md"
+                    />
+                  }
+                />
               </div>
 
               <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
@@ -245,15 +263,6 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                   <Heart size={20} />
                 </button>
 
-                <ProductShareButton
-                  variant="full"
-                  label="↗ Share"
-                  slug={product.slug}
-                  title={product.title}
-                  price={currentPrice > 0 ? currentPrice : undefined}
-                  image={selectedProductImage !== "/placeholder.jpg" ? selectedProductImage : undefined}
-                  description={product.description}
-                />
               </div>
 
               <div className="mb-6">

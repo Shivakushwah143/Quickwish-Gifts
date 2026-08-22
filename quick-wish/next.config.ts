@@ -2,6 +2,7 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: process.cwd(),
   images: {
     domains: [
       "images.unsplash.com",

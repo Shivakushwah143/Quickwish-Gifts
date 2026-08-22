@@ -29,6 +29,7 @@ import {
   clearStoredReferralCode,
   getStoredReferralCode,
 } from "../lib/productShare";
+import { apiFetch } from "../lib/apiClient";
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -122,11 +123,6 @@ const formatINR = (amount: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-};
-
-const getAuthToken = (): string | null => {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("customerToken") || localStorage.getItem("token");
 };
 
 /** Shape of the backend public order view (subset read by the modal). */
@@ -432,21 +428,12 @@ export default function OrderPaymentModal({
         return;
       }
 
-      const token = getAuthToken();
-
-      if (!token) {
-        setError("Please login to place order");
-        setLoading(false);
-        return;
-      }
-
       // Financial values are NOT sent. The backend reloads the product and
       // computes the authoritative totals itself.
-      const response = await fetch(`${API_BASE_URL}/orders`, {
+      const response = await apiFetch(`${API_BASE_URL}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           productId,
@@ -487,6 +474,9 @@ export default function OrderPaymentModal({
         setCurrentStep(2);
       } else {
         const message =
+          response.status === 401
+            ? "Please sign in again to place your order."
+            :
           data?.message ||
           (data?.code === "INSUFFICIENT_STOCK"
             ? `Only ${data?.availableStock ?? 0} item(s) remaining`
@@ -511,22 +501,19 @@ export default function OrderPaymentModal({
     setReporting(true);
     setReportError("");
 
-    const token = getAuthToken();
-
-    if (!token || !API_BASE_URL) {
+    if (!API_BASE_URL) {
       setReportError("Please sign in to report your payment.");
       setReporting(false);
       return;
     }
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/orders/${orderId}/payment-reported`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -547,7 +534,11 @@ export default function OrderPaymentModal({
         );
         setShowPayAfterReject(false);
       } else {
-        setReportError(data?.message || "We couldn't record your payment. Please try again.");
+        setReportError(
+          response.status === 401
+            ? "Please sign in again to report your payment."
+            : data?.message || "We couldn't record your payment. Please try again."
+        );
       }
     } catch {
       setReportError("Network error. Please try again.");
@@ -567,17 +558,14 @@ export default function OrderPaymentModal({
     order: OrderApiView;
     paymentInstructions?: PaymentInstructions;
   } | null> => {
-    const token = getAuthToken();
-
-    if (!token || !API_BASE_URL) {
+    if (!API_BASE_URL) {
       return null;
     }
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/orders/${orderIdToFetch}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         }
       );

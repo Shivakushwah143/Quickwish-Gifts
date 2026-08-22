@@ -352,10 +352,14 @@ const ProductSection = ({ title }: { title: string }) => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [mounted, setMounted] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const enableMotion = mounted && !shouldReduceMotion;
   const router = useRouter();
 
   useEffect(() => {
+    setMounted(true);
+
     const fetchProducts = async () => {
       try {
         setLoading(true);
@@ -488,13 +492,13 @@ const ProductSection = ({ title }: { title: string }) => {
                     handleProductClick(productId);
                   }
                 }}
-                whileHover={shouldReduceMotion ? undefined : { y: -4 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                whileHover={enableMotion ? { y: -4 } : undefined}
+                whileTap={enableMotion ? { scale: 0.99 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
                 <div className="relative overflow-hidden bg-[#fbf4ec]">
                   <motion.div
-                    whileHover={shouldReduceMotion ? undefined : { scale: 1.035 }}
+                    whileHover={enableMotion ? { scale: 1.035 } : undefined}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                   >
                     <Image
@@ -538,7 +542,7 @@ const ProductSection = ({ title }: { title: string }) => {
                     <motion.button
                       className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[color:var(--wine)] px-4 py-2.5 text-sm font-bold text-[color:var(--ivory)] transition-all hover:bg-[#3b182f]"
                       onClick={(e) => handleAddToCart(product, e)}
-                      whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
+                      whileTap={enableMotion ? { scale: 0.97 } : undefined}
                     >
                       <ShoppingBag className="h-3.5 w-3.5" />
                       Add

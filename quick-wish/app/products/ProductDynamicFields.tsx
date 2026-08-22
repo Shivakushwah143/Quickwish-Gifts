@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 export type DynamicProductFields = {
   price: number;
@@ -37,6 +38,7 @@ type ProductDynamicFieldsProps = {
   mode?: "card" | "detail";
   /** When provided (e.g. batch-fetched by a listing page), no request is made. */
   initialFields?: DynamicProductFields | null;
+  priceAction?: ReactNode;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -93,6 +95,7 @@ export default function ProductDynamicFields({
   productId,
   mode = "card",
   initialFields = null,
+  priceAction,
 }: ProductDynamicFieldsProps) {
   const [fields, setFields] = useState<DynamicProductFields | null>(initialFields);
   const [loading, setLoading] = useState(!initialFields);
@@ -181,6 +184,7 @@ export default function ProductDynamicFields({
               {discount}% OFF
             </span>
           )}
+          {priceAction}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="lux-pill inline-flex items-center gap-1.5 px-3 py-1 text-xs">

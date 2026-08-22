@@ -116,6 +116,149 @@ const RATE_LIMIT_MAX = 20;
 const rateLimitMap = new Map<string, { count: number; start: number }>();
 const CREATOR_COMMISSION_PER_ORDER = 100;
 const CREATOR_THREE_ORDER_BONUS = 200;
+const CUSTOMER_SESSION_DAYS = Number(process.env.CUSTOMER_SESSION_DAYS || 30);
+const CUSTOMER_SESSION_MAX_AGE_MS = CUSTOMER_SESSION_DAYS * 24 * 60 * 60 * 1000;
+const CUSTOMER_SESSION_EXPIRES_IN_SECONDS = CUSTOMER_SESSION_DAYS * 24 * 60 * 60;
+const CUSTOMER_SESSION_COOKIE = "qw_customer_session";
+const CLERK_API_BASE_URL = "https://api.clerk.com/v1";
+
+const setCustomerSessionCookie = (res: Response, token: string): void => {
+  res.cookie(CUSTOMER_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: CUSTOMER_SESSION_MAX_AGE_MS,
+    path: "/",
+  });
+};
+
+const base64UrlDecode = (value: string): Buffer => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="), "base64");
+};
+
+const extractBearerToken = (req: Request): string | null => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) return null;
+
+  const [scheme, token] = authHeader.split(" ");
+  return scheme === "Bearer" && token ? token : null;
+};
+
+type ClerkJwtPayload = {
+  sub?: string;
+  iss?: string;
+  exp?: number;
+  nbf?: number;
+};
+
+const verifyClerkSessionToken = async (token: string): Promise<ClerkJwtPayload | null> => {
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+
+  if (!secretKey) {
+    throw new Error("CLERK_SECRET_KEY is required for Clerk sync");
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = token.split(".");
+
+  if (!encodedHeader || !encodedPayload || !encodedSignature) {
+    return null;
+  }
+
+  const header = JSON.parse(base64UrlDecode(encodedHeader).toString("utf8")) as {
+    alg?: string;
+    kid?: string;
+  };
+  const payload = JSON.parse(base64UrlDecode(encodedPayload).toString("utf8")) as ClerkJwtPayload;
+  const now = Math.floor(Date.now() / 1000);
+
+  if (
+    header.alg !== "RS256" ||
+    !header.kid ||
+    !payload.sub ||
+    !payload.iss ||
+    !payload.exp ||
+    payload.exp <= now ||
+    (payload.nbf && payload.nbf > now + 5)
+  ) {
+    return null;
+  }
+
+  const jwksUrl = `${payload.iss.replace(/\/$/, "")}/.well-known/jwks.json`;
+  const jwksResponse = await fetch(jwksUrl);
+
+  if (!jwksResponse.ok) {
+    return null;
+  }
+
+  const jwks = (await jwksResponse.json()) as {
+    keys?: Array<Record<string, unknown> & { kid?: string; alg?: string }>;
+  };
+  const key = jwks.keys?.find((candidate) => candidate.kid === header.kid);
+
+  if (!key) {
+    return null;
+  }
+
+  const verifier = crypto.createVerify("RSA-SHA256");
+  verifier.update(`${encodedHeader}.${encodedPayload}`);
+  verifier.end();
+
+  const valid = verifier.verify(
+    crypto.createPublicKey({ key: key as crypto.JsonWebKey, format: "jwk" }),
+    base64UrlDecode(encodedSignature)
+  );
+
+  return valid ? payload : null;
+};
+
+type ClerkUserResponse = {
+  id?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+  primary_email_address_id?: string | null;
+  email_addresses?: Array<{
+    id?: string;
+    email_address?: string;
+  }>;
+};
+
+const fetchVerifiedClerkUser = async (clerkUserId: string): Promise<ClerkUserResponse | null> => {
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+
+  if (!secretKey) {
+    throw new Error("CLERK_SECRET_KEY is required for Clerk sync");
+  }
+
+  const response = await fetch(`${CLERK_API_BASE_URL}/users/${encodeURIComponent(clerkUserId)}`, {
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ClerkUserResponse;
+};
+
+const getPrimaryClerkEmail = (clerkUser: ClerkUserResponse): string | null => {
+  const primary = clerkUser.email_addresses?.find(
+    (email) => email.id === clerkUser.primary_email_address_id
+  );
+  const email = primary?.email_address || clerkUser.email_addresses?.[0]?.email_address;
+  return typeof email === "string" && email.includes("@") ? email.toLowerCase().trim() : null;
+};
+
+const buildCustomerJwt = (user: { _id: unknown; email?: string; username?: string }) =>
+  Jwt.sign(
+    { userId: user._id, email: user.email, role: "CUSTOMER" },
+    SECRET,
+    { expiresIn: CUSTOMER_SESSION_EXPIRES_IN_SECONDS }
+  );
 
 export const getClientIp = (req: Request): string => {
   const forwardedHeader = req.headers["x-forwarded-for"];
@@ -232,8 +375,10 @@ app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
     const token = Jwt.sign(
       { userId: user._id, email: user.email, role: "CUSTOMER" },
       SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: CUSTOMER_SESSION_EXPIRES_IN_SECONDS }
     );
+
+    setCustomerSessionCookie(res, token);
 
     res.status(200).json({
       message: "User registered successfully",
@@ -269,8 +414,10 @@ app.post("/api/v1/user/signin", async (req: Request, res: Response) => {
     const token = Jwt.sign(
       { userId: user._id, email: user.email, role: "CUSTOMER" },
       SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: CUSTOMER_SESSION_EXPIRES_IN_SECONDS }
     );
+
+    setCustomerSessionCookie(res, token);
 
     res.status(200).json({
       success: true,
@@ -280,6 +427,85 @@ app.post("/api/v1/user/signin", async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+app.post("/api/v1/user/sync-clerk", async (req: Request, res: Response) => {
+  const clerkToken = extractBearerToken(req);
+
+  if (!clerkToken) {
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHENTICATED",
+      message: "Clerk session required",
+    });
+  }
+
+  try {
+    const verifiedToken = await verifyClerkSessionToken(clerkToken);
+
+    if (!verifiedToken?.sub) {
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Invalid Clerk session",
+      });
+    }
+
+    const clerkUser = await fetchVerifiedClerkUser(verifiedToken.sub);
+
+    if (!clerkUser?.id || clerkUser.id !== verifiedToken.sub) {
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Invalid Clerk user",
+      });
+    }
+
+    const email = getPrimaryClerkEmail(clerkUser);
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        code: "EMAIL_REQUIRED",
+        message: "Verified Google email required",
+      });
+    }
+
+    const displayName =
+      clerkUser.username ||
+      [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ").trim() ||
+      email.split("@")[0];
+
+    const user = await User.findOneAndUpdate(
+      { $or: [{ clerkUserId: clerkUser.id }, { email }] },
+      {
+        $set: {
+          clerkUserId: clerkUser.id,
+          email,
+          username: displayName,
+        },
+        $setOnInsert: {
+          shippingAddresses: [],
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const token = buildCustomerJwt(user);
+    setCustomerSessionCookie(res, token);
+
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { id: user._id, email: user.email, username: user.username },
+    });
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHENTICATED",
+      message: "Clerk authentication failed",
+    });
   }
 });
 

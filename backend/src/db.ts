@@ -271,6 +271,9 @@ interface IUser {
 const userSchema = new mongoose.Schema<IUser>({
   clerkUserId: {
     type: String,
+    unique: true,
+    sparse: true,
+    index: true,
   } as any,
   password: {
     type: String,

@@ -27,6 +27,30 @@ export interface AuthPrincipal {
   creatorId?: string;
 }
 
+const CUSTOMER_SESSION_DAYS = Number(process.env.CUSTOMER_SESSION_DAYS || 30);
+const CUSTOMER_SESSION_COOKIE = "qw_customer_session";
+const CUSTOMER_SESSION_MAX_AGE_MS = CUSTOMER_SESSION_DAYS * 24 * 60 * 60 * 1000;
+const CUSTOMER_SESSION_EXPIRES_IN_SECONDS = CUSTOMER_SESSION_DAYS * 24 * 60 * 60;
+
+const rollCustomerSession = (
+  res: Response,
+  payload: { userId: string; email?: string; username?: string }
+): void => {
+  const token = Jwt.sign(
+    { userId: payload.userId, email: payload.email, username: payload.username, role: "CUSTOMER" },
+    getJwtSecret(),
+    { expiresIn: CUSTOMER_SESSION_EXPIRES_IN_SECONDS }
+  );
+
+  res.cookie(CUSTOMER_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: CUSTOMER_SESSION_MAX_AGE_MS,
+    path: "/",
+  });
+};
+
 const extractBearerToken = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
 
@@ -41,6 +65,27 @@ const extractBearerToken = (req: Request): string | null => {
 
   return parts[1];
 };
+
+const extractCookieToken = (req: Request): string | null => {
+  const cookieHeader = req.headers.cookie;
+
+  if (!cookieHeader) {
+    return null;
+  }
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+
+    if (rawName === "qw_customer_session" && rawValue.length > 0) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+
+  return null;
+};
+
+const extractAuthToken = (req: Request): string | null =>
+  extractBearerToken(req) || extractCookieToken(req);
 
 const unauthorized = (res: Response, message = "Authentication required"): void => {
   res.status(401).json({
@@ -67,7 +112,7 @@ export const authenticateUser = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const token = extractBearerToken(req);
+  const token = extractAuthToken(req);
 
   if (!token) {
     unauthorized(res);
@@ -108,6 +153,7 @@ export const authenticateUser = async (
       ...(user.username ? { username: user.username } : {}),
     };
 
+    rollCustomerSession(res, req.user);
     next();
   } catch {
     res.status(500).json({
@@ -129,7 +175,7 @@ export const requireAdmin = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const token = extractBearerToken(req);
+  const token = extractAuthToken(req);
 
   if (!token) {
     unauthorized(res);
@@ -189,7 +235,7 @@ export const requireCreator = (
   res: Response,
   next: NextFunction
 ): void => {
-  const token = extractBearerToken(req);
+  const token = extractAuthToken(req);
 
   if (!token) {
     unauthorized(res);
@@ -226,7 +272,7 @@ export const authenticateUserOrAdmin = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const token = extractBearerToken(req);
+  const token = extractAuthToken(req);
 
   if (!token) {
     unauthorized(res);
@@ -301,6 +347,7 @@ export const authenticateUserOrAdmin = async (
       ...(user.username ? { username: user.username } : {}),
     };
 
+    rollCustomerSession(res, req.user);
     next();
   } catch {
     res.status(500).json({
@@ -320,7 +367,7 @@ export const optionalUser = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const token = extractBearerToken(req);
+  const token = extractAuthToken(req);
 
   if (!token) {
     next();

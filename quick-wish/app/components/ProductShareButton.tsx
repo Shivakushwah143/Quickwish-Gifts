@@ -28,6 +28,7 @@ type ProductShareButtonProps = ProductShareData & {
   className?: string;
   /** When set, disables the automatic native share sheet on capable devices. */
   forceModal?: boolean;
+  fallback?: "modal" | "copy";
 };
 
 const BrandIcon = {
@@ -84,6 +85,7 @@ export default function ProductShareButton({
   label = "Share",
   className = "",
   forceModal = false,
+  fallback = "modal",
 }: ProductShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -143,7 +145,21 @@ export default function ProductShareButton({
         return;
       }
 
-      // Cancelled or unsupported — show the modal so the user can still share.
+      // Cancelled or unsupported - use the configured fallback.
+    }
+
+    if (fallback === "copy") {
+      const result = await copyProductLink(shareUrl);
+
+      if (result.ok) {
+        setCopied(true);
+        setCopyError(false);
+        window.setTimeout(() => setCopied(false), 1800);
+      } else {
+        setCopyError(true);
+        setIsOpen(true);
+      }
+      return;
     }
 
     setIsOpen(true);
@@ -243,7 +259,7 @@ export default function ProductShareButton({
           ? "gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-black text-[color:var(--plum)] hover:border-[color:var(--gold)] hover:bg-[color:var(--tint-cream)]"
           : "h-10 w-10 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)] shadow-sm hover:border-[color:var(--gold)] hover:text-[color:var(--wine)] hover:shadow-md")}`}
       >
-        <Share2 className="h-4 w-4" aria-hidden="true" />
+        {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Share2 className="h-4 w-4" aria-hidden="true" />}
         {variant === "full" && <span>{label}</span>}
       </button>
 

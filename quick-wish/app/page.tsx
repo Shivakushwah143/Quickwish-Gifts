@@ -26,11 +26,15 @@ export default function Home() {
   const [giftOccasion, setGiftOccasion] = useState('Birthday');
   const [giftBudget, setGiftBudget] = useState('Under Rs 499');
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const enableMotion = mounted && !shouldReduceMotion;
   const router = useRouter();
 
   // Hide the mobile marketing CTA while the checkout modal is open.
   useEffect(() => {
+    setMounted(true);
+
     const handleCheckout = (event: Event) => {
       const detail = (event as CustomEvent<{ open?: boolean }>).detail;
       setCheckoutOpen(Boolean(detail?.open));
@@ -255,8 +259,8 @@ export default function Home() {
                 key={item.label}
                 className={`group overflow-hidden rounded-lg border border-[color:var(--border)] ${item.tint} text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
                 onClick={() => router.push(`/products?category=${encodeURIComponent(item.category)}`)}
-                whileHover={shouldReduceMotion ? undefined : { y: -4, scale: 1.015 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                whileHover={enableMotion ? { y: -4, scale: 1.015 } : undefined}
+                whileTap={enableMotion ? { scale: 0.98 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
                 <div className="relative overflow-hidden">
@@ -299,8 +303,8 @@ export default function Home() {
                   key={category.name}
                   className={`group cursor-pointer overflow-hidden rounded-lg border border-[color:var(--border)] ${category.tint} shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.99]`}
                   onClick={() => router.push(`/products?category=${encodeURIComponent(category.filterCategory)}`)}
-                  whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-                  whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                  whileHover={enableMotion ? { y: -3 } : undefined}
+                  whileTap={enableMotion ? { scale: 0.99 } : undefined}
                   transition={{ duration: 0.18, ease: "easeOut" }}
                   role="button"
                   tabIndex={0}
@@ -364,11 +368,11 @@ export default function Home() {
                 key={card.title}
                 className={`group overflow-hidden rounded-lg border border-[color:var(--border)] ${card.tone} text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
                 onClick={() => router.push(`/products?category=${encodeURIComponent(card.category)}`)}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
-                whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                initial={enableMotion ? { opacity: 0, y: 14 } : false}
+                whileInView={enableMotion ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, margin: '-80px' }}
-                whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                whileHover={enableMotion ? { y: -3 } : undefined}
+                whileTap={enableMotion ? { scale: 0.99 } : undefined}
                 transition={{ duration: 0.28, ease: "easeOut" }}
               >
                 <div className={index === 0 ? 'grid gap-3 sm:grid-cols-[0.9fr_1.1fr]' : ''}>
@@ -406,8 +410,8 @@ export default function Home() {
                 key={card.title}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                 onClick={() => router.push(`/products?category=${encodeURIComponent(card.category)}`)}
-                whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                whileHover={enableMotion ? { y: -3 } : undefined}
+                whileTap={enableMotion ? { scale: 0.99 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--tint-peach)] text-[color:var(--wine)]">
@@ -447,8 +451,8 @@ export default function Home() {
               <motion.button
                 className="rounded-full bg-[#c9a36a] px-6 py-3 text-sm font-bold text-[color:var(--plum)]"
                 onClick={() => router.push('/products?category=Personalized Gifts')}
-                whileHover={shouldReduceMotion ? undefined : { scale: 1.015 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                whileHover={enableMotion ? { scale: 1.015 } : undefined}
+                whileTap={enableMotion ? { scale: 0.98 } : undefined}
               >
                 Build Your Custom Hamper
               </motion.button>
@@ -546,7 +550,7 @@ export default function Home() {
           <motion.button
             className="w-full rounded-full bg-[color:var(--wine)] px-5 py-3 text-sm font-bold text-[color:var(--ivory)]"
             onClick={() => router.push('/products?category=Fresh Flowers')}
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            whileTap={enableMotion ? { scale: 0.98 } : undefined}
           >
             Send Today in Indore
           </motion.button>
