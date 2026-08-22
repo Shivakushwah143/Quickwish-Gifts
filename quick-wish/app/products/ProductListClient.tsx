@@ -15,23 +15,79 @@ type ProductListClientProps = {
   products: StaticProduct[];
 };
 
-const categoryAliases: Record<string, string[]> = {
-  "birthday hampers": ["birthday", "cakes", "chocolate bouquets"],
-  "couple gifts": ["anniversary", "valentine's day"],
-  "friendship gifts": ["besti"],
-  "custom hampers": ["personalized gifts", "customized mugs", "photo frames"],
-  coustomize: ["personalized gifts", "customized mugs", "photo frames"],
-  personalized: ["personalized gifts"],
-  flowers: ["fresh flowers", "flower bouquets"],
-  chocolates: ["chocolate bouquets"],
+type ApiProduct = {
+  _id?: string;
+  id?: string;
+  slug?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  images?: string[];
+  category?: string;
+  storefrontGroups?: string[];
+  displayOrder?: number;
 };
 
-const normalizeFilterValue = (value: string): string =>
-  value.trim().toLowerCase();
+type ProductsResponse = {
+  products?: ApiProduct[];
+};
 
-const getFilterValues = (category: string): string[] => {
-  const normalized = normalizeFilterValue(category);
-  return [normalized, ...(categoryAliases[normalized] || [])];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
+  const id = product._id || product.id;
+  const title = product.title || product.name;
+
+  if (!id || !title) return null;
+
+  return {
+    id,
+    slug: product.slug || id,
+    title,
+    description: product.description || "",
+    images: product.images || [],
+    category: product.category || "Gifts",
+    storefrontGroups: product.storefrontGroups || [],
+    displayOrder: Number(product.displayOrder) || 0,
+  };
+};
+
+const formatContextLabel = (value: string): string =>
+  value
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getListingHeading = ({
+  searchParam,
+  viewParam,
+  recipientParam,
+  categoryParam,
+}: {
+  searchParam: string;
+  viewParam: string;
+  recipientParam: string;
+  categoryParam: string;
+}) => {
+  if (searchParam) return `Search: ${searchParam}`;
+
+  if (viewParam) {
+    const label = formatContextLabel(viewParam);
+    return label.toLowerCase().startsWith("for ")
+      ? `Gifts ${label}`
+      : `Gifts in ${label}`;
+  }
+
+  if (recipientParam) {
+    return `Gifts for ${formatContextLabel(recipientParam.replace(/^for-/, ""))}`;
+  }
+
+  if (categoryParam) {
+    return `Gifts in ${formatContextLabel(categoryParam)}`;
+  }
+
+  return "All Gifts";
 };
 
 const SORT_OPTIONS = [
@@ -45,27 +101,56 @@ export default function ProductListClient({ products }: ProductListClientProps) 
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category") || "";
+  const recipientParam = searchParams.get("recipient") || "";
+  const viewParam = searchParams.get("view") || "";
   const searchParam = searchParams.get("search") || "";
   const sortParam = searchParams.get("sort") || "";
   const minPriceParam = searchParams.get("minPrice") || "";
   const maxPriceParam = searchParams.get("maxPrice") || "";
 
   const [dynamicMap, setDynamicMap] = useState<Record<string, DynamicProductFields>>({});
+  const [catalogProducts, setCatalogProducts] = useState<StaticProduct[]>(products);
+  const [catalogLoading, setCatalogLoading] = useState(products.length === 0);
 
   // Persist any ?ref=CODE creator referral from a shared listing link.
   useEffect(() => {
     captureReferralFromCurrentUrl();
   }, []);
 
-  // Batch-fetch live price/stock once for the whole listing (kills N+1).
+  // Batch-fetch live catalog and price/stock once for the whole listing.
   useEffect(() => {
     let isMounted = true;
 
     const load = async () => {
-      const map = await fetchDynamicProducts();
+      if (!API_BASE_URL) {
+        setCatalogLoading(false);
+        return;
+      }
 
-      if (isMounted) {
-        setDynamicMap(map);
+      try {
+        const response = await fetch(`${API_BASE_URL}/product`, {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as ProductsResponse;
+        const liveProducts = (data.products || [])
+          .map(toStaticProduct)
+          .filter((product): product is StaticProduct => product !== null);
+
+        if (isMounted && liveProducts.length > 0) {
+          setCatalogProducts(liveProducts);
+        }
+
+        const map = await fetchDynamicProducts();
+
+        if (isMounted) {
+          setDynamicMap(map);
+        }
+      } catch (error) {
+        console.error("Failed to load product catalog", error);
+      } finally {
+        if (isMounted) {
+          setCatalogLoading(false);
+        }
       }
     };
 
@@ -77,14 +162,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
   }, []);
 
   const rows = useMemo(() => {
-    let result = products;
-
-    if (categoryParam) {
-      const selectedValues = getFilterValues(categoryParam);
-      result = result.filter((product) =>
-        selectedValues.includes(normalizeFilterValue(product.category))
-      );
-    }
+    let result = catalogProducts;
 
     if (searchParam) {
       const needle = searchParam.trim().toLowerCase();
@@ -95,6 +173,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
             product.title,
             product.category,
             product.description,
+            ...(product.storefrontGroups || []),
           ]
             .join(" ")
             .toLowerCase();
@@ -104,22 +183,24 @@ export default function ProductListClient({ products }: ProductListClientProps) 
       }
     }
 
-    const minPrice = Number(minPriceParam);
-    const maxPrice = Number(maxPriceParam);
+    const hasMinPrice = minPriceParam.trim() !== "";
+    const hasMaxPrice = maxPriceParam.trim() !== "";
+    const minPrice = hasMinPrice ? Number(minPriceParam) : Number.NaN;
+    const maxPrice = hasMaxPrice ? Number(maxPriceParam) : Number.NaN;
 
-    if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+    if ((hasMinPrice && Number.isFinite(minPrice)) || (hasMaxPrice && Number.isFinite(maxPrice))) {
       result = result.filter((product) => {
         const price = Number(dynamicMap[product.id]?.price) || 0;
 
-        if (price <= 0) {
+        if (price <= 0 && (hasMinPrice || hasMaxPrice)) {
           return false;
         }
 
-        if (Number.isFinite(minPrice) && price < minPrice) {
+        if (hasMinPrice && Number.isFinite(minPrice) && price < minPrice) {
           return false;
         }
 
-        if (Number.isFinite(maxPrice) && price > maxPrice) {
+        if (hasMaxPrice && Number.isFinite(maxPrice) && price > maxPrice) {
           return false;
         }
 
@@ -150,7 +231,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
     }
 
     return result;
-  }, [products, categoryParam, searchParam, sortParam, minPriceParam, maxPriceParam, dynamicMap]);
+  }, [catalogProducts, searchParam, sortParam, minPriceParam, maxPriceParam, dynamicMap]);
 
   const updateParams = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -165,7 +246,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
   };
 
   const hasActiveFilters = Boolean(
-    categoryParam || searchParam || sortParam || minPriceParam || maxPriceParam
+    searchParam || sortParam || minPriceParam || maxPriceParam
   );
 
   const clearAllFilters = () => {
@@ -187,11 +268,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl font-semibold lux-serif text-[color:var(--plum)]">
-                {searchParam
-                  ? `Search: ${searchParam}`
-                  : categoryParam
-                    ? `Gifts in ${categoryParam}`
-                    : "All Gifts"}
+                {getListingHeading({ searchParam, viewParam, recipientParam, categoryParam })}
               </h1>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
                 {rows.length} gift{rows.length === 1 ? "" : "s"} found
@@ -224,12 +301,25 @@ export default function ProductListClient({ products }: ProductListClientProps) 
             </div>
           </div>
 
-          {rows.length === 0 ? (
+          {catalogLoading ? (
+            <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {[...Array(6)].map((_, index) => (
+                <div key={index} className="lux-card overflow-hidden">
+                  <div className="h-44 bg-[color:var(--border)]/70 animate-pulse" />
+                  <div className="space-y-3 p-3">
+                    <div className="h-4 w-3/4 rounded bg-[color:var(--border)]/70 animate-pulse" />
+                    <div className="h-5 w-1/2 rounded bg-[color:var(--border)]/70 animate-pulse" />
+                    <div className="h-8 rounded bg-[color:var(--border)]/70 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-[color:var(--muted)] mb-4">
                 No gifts found
                 {searchParam ? ` matching "${searchParam}"` : ""}
-                {categoryParam ? ` in ${categoryParam}` : ""}.
+                .
                 Try another mood or collection.
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">

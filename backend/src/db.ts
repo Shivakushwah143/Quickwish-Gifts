@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const adminSchema = new mongoose.Schema({
-  username: { type: String },
+  username: { type: String, lowercase: true, trim: true },
   password: { type: String, default: null },
   role: {
     type: String,
@@ -104,6 +104,7 @@ const productSchema = new mongoose.Schema({
     enum: [
       "Fresh Flowers",
       "Flower Bouquets",
+      "Crochet Bouquets",
       "dresses",
       "Plants",
       "Chocolate Bouquets",
@@ -131,6 +132,19 @@ const productSchema = new mongoose.Schema({
       index: true,
     },
   ],
+  storefrontGroups: [
+    {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
+  ],
+  displayOrder: {
+    type: Number,
+    default: 0,
+    index: true,
+  },
   stock: {
     type: Number,
     default: 1,

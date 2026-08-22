@@ -34,9 +34,12 @@ export default function ClerkCustomerSync() {
         credentials: "include",
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!active || !response.ok || !data?.token) {
+        if (response.status === 401) {
+          console.error("Clerk customer sync failed: unauthorized Clerk session");
+        }
         return;
       }
 

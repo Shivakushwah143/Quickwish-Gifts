@@ -548,9 +548,10 @@ app.post("/api/v1/admin/signup", async (req: Request, res: Response) => {
   }
 
   try {
+    const normalizedUsername = username.trim().toLowerCase();
     const hashPassword = await bcrypt.hash(password, 8);
     const user = await admin.create({
-      username,
+      username: normalizedUsername,
       password: hashPassword,
       role: "ADMIN",
     });
@@ -576,7 +577,9 @@ app.post("/api/v1/admin/signin", async (req: Request, res: Response) => {
 
   try {
     const normalizedUsername = String(username).toLowerCase().trim();
-    const user = await admin.findOne({ username: normalizedUsername });
+    const user = await admin.findOne({
+      username: { $regex: `^${escapeRegExp(normalizedUsername)}$`, $options: "i" },
+    });
 
     if (!user) {
       res.status(401).json({ message: "admin not found" });
@@ -1029,6 +1032,7 @@ const PRODUCT_UPDATABLE_FIELDS = [
   "badge",
   "deliveryOptions",
   "tags",
+  "storefrontGroups",
   "images",
 ] as const;
 
@@ -1047,6 +1051,41 @@ const parseTags = (tags: unknown): string[] => {
   }
 
   return [];
+};
+
+const normalizeStorefrontGroup = (value: unknown): string => {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
+const parseStorefrontGroups = (groups: unknown): string[] => {
+  let values: unknown[] = [];
+
+  if (typeof groups === "string") {
+    const trimmed = groups.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      values = Array.isArray(parsed) ? parsed : trimmed.split(",");
+    } catch {
+      values = trimmed.split(",");
+    }
+  } else if (Array.isArray(groups)) {
+    values = groups;
+  }
+
+  return Array.from(
+    new Set(
+      values
+        .map(normalizeStorefrontGroup)
+        .filter((group) => group.length > 0)
+    )
+  );
 };
 
 const toNumberOrUndefined = (value: unknown): number | undefined => {
@@ -1070,6 +1109,78 @@ const SORT_WHITELIST: Record<string, Record<string, 1 | -1>> = {
   "name-asc": { name: 1 },
 };
 
+const PRODUCT_DEFAULT_SORT = { displayOrder: 1, createdAt: 1, _id: 1 } as const;
+
+const backfillProductDisplayOrder = async () => {
+  const missing = await product
+    .find({
+      $or: [
+        { displayOrder: { $exists: false } },
+        { displayOrder: null },
+        { displayOrder: 0 },
+      ],
+    })
+    .sort({ createdAt: 1, _id: 1 })
+    .select("_id")
+    .lean();
+
+  if (missing.length === 0) return;
+
+  const ordered = await product
+    .find({})
+    .sort({ displayOrder: 1, createdAt: 1, _id: 1 })
+    .select("_id displayOrder")
+    .lean();
+  let nextOrder =
+    ordered.reduce((max, item: any) => Math.max(max, Number(item.displayOrder) || 0), 0) + 1;
+
+  await Promise.all(
+    missing.map((item: any) =>
+      product.updateOne(
+        {
+          _id: item._id,
+          $or: [
+            { displayOrder: { $exists: false } },
+            { displayOrder: null },
+            { displayOrder: 0 },
+          ],
+        },
+        { displayOrder: nextOrder++ }
+      )
+    )
+  );
+};
+
+const reorderProductsByIds = async (orderedIds: string[]) => {
+  await backfillProductDisplayOrder();
+
+  const existingProducts = await product.find({}).sort(PRODUCT_DEFAULT_SORT).select("_id").lean();
+  const existingIds = existingProducts.map((item: any) => String(item._id));
+  const existingIdSet = new Set(existingIds);
+
+  if (orderedIds.some((id: string) => !existingIdSet.has(id))) {
+    return { kind: "invalid" as const };
+  }
+
+  const orderedIdSet = new Set(orderedIds);
+  const mergedIds = [
+    ...orderedIds,
+    ...existingIds.filter((id: string) => !orderedIdSet.has(id)),
+  ];
+
+  await product.bulkWrite(
+    mergedIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { $set: { displayOrder: index + 1 } },
+      },
+    }))
+  );
+
+  const products = await product.find({}).sort(PRODUCT_DEFAULT_SORT);
+  return { kind: "ok" as const, products };
+};
+
 app.post(
   "/api/v1/product",
   requireAdmin,
@@ -1087,6 +1198,7 @@ app.post(
       offPrice,
       deliveryOptions,
       tags,
+      storefrontGroups,
     } = req.body;
 
     if (
@@ -1121,6 +1233,13 @@ app.post(
         parsedDeliveryOptions = deliveryOptions;
       }
 
+      await backfillProductDisplayOrder();
+      const lastProduct = await product
+        .findOne({})
+        .sort({ displayOrder: -1, createdAt: -1, _id: -1 })
+        .select("displayOrder")
+        .lean();
+
       const newProduct = new product({
         name,
         price: Number(price),
@@ -1134,6 +1253,8 @@ app.post(
         deliveryOptions: parsedDeliveryOptions,
         stock: Math.max(0, toNumberOrUndefined(stock) || 1),
         tags: parseTags(tags),
+        storefrontGroups: parseStorefrontGroups(storefrontGroups),
+        displayOrder: (Number((lastProduct as any)?.displayOrder) || 0) + 1,
         isArchived: false,
       });
 
@@ -1154,7 +1275,8 @@ app.post(
 
 app.get("/api/v1/product", async (req: Request, res: Response) => {
   try {
-    const { search, category, sort, minPrice, maxPrice, includeArchived } = req.query;
+    await backfillProductDisplayOrder();
+    const { search, category, recipient, group, sort, minPrice, maxPrice, includeArchived } = req.query;
 
     // Archived products are hidden from the storefront unless an authenticated
     // admin explicitly requests them.
@@ -1186,6 +1308,12 @@ app.get("/api/v1/product", async (req: Request, res: Response) => {
       filter.category = String(category);
     }
 
+    const storefrontGroup = normalizeStorefrontGroup(recipient || group);
+
+    if (storefrontGroup) {
+      filter.storefrontGroups = storefrontGroup;
+    }
+
     const searchTerm = typeof search === "string" ? search.trim() : "";
 
     if (searchTerm) {
@@ -1195,6 +1323,7 @@ app.get("/api/v1/product", async (req: Request, res: Response) => {
         { description: { $regex: escaped, $options: "i" } },
         { category: { $regex: escaped, $options: "i" } },
         { tags: { $regex: escaped, $options: "i" } },
+        { storefrontGroups: { $regex: escaped, $options: "i" } },
       ];
     }
 
@@ -1216,9 +1345,7 @@ app.get("/api/v1/product", async (req: Request, res: Response) => {
 
     const sortOption = typeof sort === "string" ? SORT_WHITELIST[sort] : undefined;
 
-    const products = sortOption
-      ? await product.find(filter).sort(sortOption)
-      : await product.find(filter);
+    const products = await product.find(filter).sort(sortOption || PRODUCT_DEFAULT_SORT);
 
     res.status(200).json({ message: "productList", products, success: true });
   } catch (error) {
@@ -1249,7 +1376,7 @@ app.put(
   "/api/v1/product/:productId",
   requireAdmin,
   async (req: Request, res: Response) => {
-    const productId = req.params.productId;
+    const productId = String(req.params.productId || "");
     const body = req.body || {};
 
     // Whitelist fields — never trust arbitrary client keys on the document.
@@ -1259,6 +1386,8 @@ app.put(
       if (field in body && body[field] !== undefined) {
         if (field === "tags") {
           update.tags = parseTags(body[field]);
+        } else if (field === "storefrontGroups") {
+          update.storefrontGroups = parseStorefrontGroups(body[field]);
         } else if (field === "deliveryOptions") {
           if (typeof body[field] === "string") {
             try {
@@ -1295,6 +1424,88 @@ app.put(
       res.status(200).json({ success: true, updateProduct });
     } catch (error) {
       res.status(500).json({ success: false, message: "internal server error" });
+    }
+  }
+);
+
+app.patch(
+  "/api/v1/product/reorder",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const orderedIds = Array.isArray(req.body?.orderedIds)
+      ? req.body.orderedIds.map((id: unknown) => String(id)).filter(Boolean)
+      : [];
+
+    if (orderedIds.length === 0) {
+      return res.status(400).json({ success: false, message: "orderedIds is required" });
+    }
+
+    try {
+      const result = await reorderProductsByIds(orderedIds);
+      if (result.kind === "invalid") {
+        return res.status(400).json({ success: false, message: "orderedIds contains an unknown product" });
+      }
+      res.status(200).json({ success: true, products: result.products });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to reorder product" });
+    }
+  }
+);
+
+app.patch(
+  "/api/v1/product/:productId/reorder",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const productId = String(req.params.productId || "");
+    const direction = req.body?.direction;
+    const orderedIds = Array.isArray(req.body?.orderedIds)
+      ? req.body.orderedIds.map((id: unknown) => String(id)).filter(Boolean)
+      : [];
+
+    if (orderedIds.length > 0) {
+      try {
+        const result = await reorderProductsByIds(orderedIds);
+        if (result.kind === "invalid") {
+          return res.status(400).json({ success: false, message: "orderedIds contains an unknown product" });
+        }
+        return res.status(200).json({ success: true, products: result.products });
+      } catch {
+        return res.status(500).json({ success: false, message: "Failed to reorder product" });
+      }
+    }
+
+    if (direction !== "up" && direction !== "down") {
+      return res.status(400).json({ success: false, message: "direction must be up or down" });
+    }
+
+    try {
+      const products = await product.find({}).sort(PRODUCT_DEFAULT_SORT).select("_id").lean();
+      const ids = products.map((item: any) => String(item._id));
+      const currentIndex = ids.indexOf(productId);
+
+      if (currentIndex < 0) {
+        return res.status(404).json({ success: false, message: "product not found" });
+      }
+
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= ids.length) {
+        const currentProducts = await product.find({}).sort(PRODUCT_DEFAULT_SORT);
+        return res.status(200).json({ success: true, products: currentProducts });
+      }
+
+      const [moved] = ids.splice(currentIndex, 1);
+      if (!moved) {
+        return res.status(404).json({ success: false, message: "product not found" });
+      }
+      ids.splice(targetIndex, 0, moved);
+
+      const result = await reorderProductsByIds(ids);
+      if (result.kind === "invalid") {
+        return res.status(400).json({ success: false, message: "orderedIds contains an unknown product" });
+      }
+      return res.status(200).json({ success: true, products: result.products });
+    } catch {
+      return res.status(500).json({ success: false, message: "Failed to reorder product" });
     }
   }
 );

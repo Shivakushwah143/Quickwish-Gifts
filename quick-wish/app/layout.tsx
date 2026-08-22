@@ -87,19 +87,19 @@ const websiteJsonLd = {
 
 export default function RootLayout({children,}: Readonly<{children: React.ReactNode;}>) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          {/* Apply the saved theme before first paint to avoid a flash of the
-              wrong theme. Choice: light | dark | system (system falls back to
-              the OS preference). */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `(function(){try{var s=localStorage.getItem('quickwish_theme');var dark=s==='dark'||((s==='system'||!s)&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';}catch(e){}})();`,
-            }}
-          />
-        </head>
-        <body className="antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply the saved theme before first paint to avoid a flash of the
+            wrong theme. Choice: light | dark | system (system falls back to
+            the OS preference). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('quickwish_theme');var dark=s==='dark'||((s==='system'||!s)&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="antialiased">
+        <ClerkProvider>
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
@@ -111,8 +111,8 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
           <ClerkCustomerSync />
           {children}
           <AssistantDrawer />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

@@ -114,6 +114,7 @@ export default function Header() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [adminAuthMode, setAdminAuthMode] = useState<'signin' | 'signup'>('signin');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -141,7 +142,8 @@ export default function Header() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleAdminAuthClick = () => {
+  const handleAdminAuthClick = (mode: 'signin' | 'signup' = 'signin') => {
+    setAdminAuthMode(mode);
     setIsAdminAuthModalOpen(true);
     setIsMobileMenuOpen(false);
   };
@@ -238,11 +240,17 @@ export default function Header() {
                     Logout
                   </button>
                   <button
-                    onClick={handleAdminAuthClick}
+                    onClick={() => handleAdminAuthClick('signin')}
                     className="hidden md:flex items-center text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
                   >
                     <Shield size={16} className="mr-1" />
-                    Admin
+                    Admin Login
+                  </button>
+                  <button
+                    onClick={() => handleAdminAuthClick('signup')}
+                    className="hidden md:flex items-center text-sm text-[color:var(--plum)]/70 hover:text-[color:var(--wine)] transition-colors"
+                  >
+                    Admin Signup
                   </button>
                   <button
                     onClick={() => router.push('/creator/login')}
@@ -266,11 +274,17 @@ export default function Header() {
                     Sign Up
                   </button>
                   <button
-                    onClick={handleAdminAuthClick}
+                    onClick={() => handleAdminAuthClick('signin')}
                     className="flex items-center text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors font-medium"
                   >
                     <Shield size={16} className="mr-1" />
-                    Admin
+                    Admin Login
+                  </button>
+                  <button
+                    onClick={() => handleAdminAuthClick('signup')}
+                    className="text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors font-medium"
+                  >
+                    Admin Signup
                   </button>
                 </div>
               )}
@@ -344,11 +358,18 @@ export default function Header() {
                   Logout
                 </button>
                 <button
-                  onClick={handleAdminAuthClick}
+                  onClick={() => handleAdminAuthClick('signin')}
                   className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   <Shield size={16} className="mr-2" />
                   Admin Login
+                </button>
+                <button
+                  onClick={() => handleAdminAuthClick('signup')}
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
+                >
+                  <Shield size={16} className="mr-2" />
+                  Admin Signup
                 </button>
                 <button
                   onClick={() => router.push('/creator/login')}
@@ -372,11 +393,18 @@ export default function Header() {
                   Sign Up
                 </button>
                 <button
-                  onClick={handleAdminAuthClick}
+                  onClick={() => handleAdminAuthClick('signin')}
                   className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
                 >
                   <Shield size={16} className="mr-2" />
                   Admin Login
+                </button>
+                <button
+                  onClick={() => handleAdminAuthClick('signup')}
+                  className="w-full flex items-center text-left py-2 text-[color:var(--plum)]/80 hover:text-[color:var(--wine)] transition-colors"
+                >
+                  <Shield size={16} className="mr-2" />
+                  Admin Signup
                 </button>
               </div>
             )}
@@ -394,6 +422,7 @@ export default function Header() {
         isOpen={isAdminAuthModalOpen} 
         onClose={() => setIsAdminAuthModalOpen(false)}
         onSuccess={handleAdminAuthSuccess}
+        initialMode={adminAuthMode}
       />
     </>
   );

@@ -31,6 +31,8 @@ export interface Product {
   originalPrice?: number;
   offPrice?: number;
   tags?: string[];
+  storefrontGroups?: string[];
+  displayOrder?: number;
   deliveryOptions?: DeliveryOption[];
   stock: number;
   rating?: number;

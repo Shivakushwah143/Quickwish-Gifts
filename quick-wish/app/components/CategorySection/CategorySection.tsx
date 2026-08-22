@@ -137,9 +137,8 @@ const CategorySection = ({
     }
   };
 
-  const handleCategoryClick = (categoryName: string) => {
-    // Navigate to products page with category filter
-    router.push(`/products?category=${encodeURIComponent(categoryName)}`);
+  const handleCategoryClick = (_categoryName: string) => {
+    router.push('/products');
   };
 
   const tagForCategory = (category: Category, index: number) => {

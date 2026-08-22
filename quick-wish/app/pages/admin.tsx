@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield, ShieldAlert, CheckCircle, XCircle, Eye, Calendar, MapPin, Phone, CreditCard, User, Edit, Trash2 } from 'lucide-react';
+import { Plus, Package, Users, ShoppingCart, TrendingUp, LogOut, Shield, ShieldAlert, CheckCircle, XCircle, Eye, Calendar, MapPin, Phone, CreditCard, User, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import AdminAuthModal from '../components/AdminAuthModal';
 import ProductShareButton from '../components/ProductShareButton';
 import AddProductModal from '../components/AddProductModal';
@@ -55,10 +55,24 @@ interface Product {
   badge?: string;
   discountPercent?: number;
   originalPrice?: number;
+  storefrontGroups?: string[];
+  displayOrder?: number;
   createdAt?: string;
 }
 
 const AWAITING_STATUSES = ['AWAITING_VERIFICATION', 'PROOF_SUBMITTED'];
+const STOREFRONT_GROUP_OPTIONS = [
+  { value: 'for-her', label: 'For Her' },
+  { value: 'for-him', label: 'For Him' },
+  { value: 'for-mom', label: 'For Mom' },
+  { value: 'for-friends', label: 'For Friends' },
+  { value: 'for-couples', label: 'For Couples' },
+  { value: 'for-kids', label: 'For Kids' },
+  { value: 'custom-gifts', label: 'Custom Gifts' },
+];
+
+const storefrontGroupLabel = (value: string) =>
+  STOREFRONT_GROUP_OPTIONS.find((option) => option.value === value)?.label || value;
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -79,6 +93,8 @@ export default function AdminDashboard() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [paymentFilter, setPaymentFilter] = useState('ALL');
   const [awaitingCount, setAwaitingCount] = useState(0);
+  const [reorderingProductId, setReorderingProductId] = useState<string | null>(null);
+  const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -252,6 +268,75 @@ export default function AdminDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete product');
     }
+  };
+
+  const persistProductOrder = async (orderedProducts: Product[], activeProductId: string) => {
+    const previousProducts = allProducts;
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        setError('Please login as admin');
+        return;
+      }
+
+      setReorderingProductId(activeProductId);
+      setError('');
+      setAllProducts(orderedProducts);
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${API_BASE_URL}/product/reorder`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderedIds: orderedProducts.map((item) => item._id) }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Failed to reorder product');
+      }
+
+      setAllProducts(Array.isArray(data.products) ? data.products : []);
+      setSuccessMessage('Product order updated');
+      setTimeout(() => setSuccessMessage(''), 2000);
+    } catch (err) {
+      setAllProducts(previousProducts);
+      setError(err instanceof Error ? err.message : 'Failed to reorder product');
+    } finally {
+      setReorderingProductId(null);
+    }
+  };
+
+  const moveProduct = (productId: string, targetIndex: number) => {
+    const currentIndex = allProducts.findIndex((item) => item._id === productId);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= allProducts.length || currentIndex === targetIndex) {
+      return;
+    }
+
+    const nextProducts = [...allProducts];
+    const [movedProduct] = nextProducts.splice(currentIndex, 1);
+    nextProducts.splice(targetIndex, 0, movedProduct);
+    void persistProductOrder(nextProducts, productId);
+  };
+
+  const handleReorderProduct = (productId: string, direction: 'up' | 'down') => {
+    const currentIndex = allProducts.findIndex((item) => item._id === productId);
+    moveProduct(productId, direction === 'up' ? currentIndex - 1 : currentIndex + 1);
+  };
+
+  const handleDropProduct = (targetProductId: string) => {
+    if (!draggedProductId || draggedProductId === targetProductId) {
+      setDraggedProductId(null);
+      return;
+    }
+
+    const targetIndex = allProducts.findIndex((item) => item._id === targetProductId);
+    moveProduct(draggedProductId, targetIndex);
+    setDraggedProductId(null);
   };
 
   const fetchOrders = async (filterStatus?: string) => {
@@ -967,8 +1052,16 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {allProducts.map((product) => (
-                        <tr key={product._id}>
+                      {allProducts.map((product, index) => (
+                        <tr
+                          key={product._id}
+                          draggable={reorderingProductId === null}
+                          onDragStart={() => setDraggedProductId(product._id)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => handleDropProduct(product._id)}
+                          onDragEnd={() => setDraggedProductId(null)}
+                          className={`${draggedProductId === product._id ? 'opacity-50' : ''} ${draggedProductId && draggedProductId !== product._id ? 'border-t-2 border-indigo-300' : ''}`}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               {product.images && product.images.length > 0 && (
@@ -979,11 +1072,23 @@ export default function AdminDashboard() {
                                 />
                               )}
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  <span className="mr-2 cursor-grab text-gray-400" title="Drag to reorder">::</span>
+                                  {product.name}
+                                </div>
                                 {product.badge && (
                                   <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
                                     {product.badge}
                                   </span>
+                                )}
+                                {product.storefrontGroups && product.storefrontGroups.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {product.storefrontGroups.map((group) => (
+                                      <span key={group} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                                        {storefrontGroupLabel(group)}
+                                      </span>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1000,6 +1105,24 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.stock || 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleReorderProduct(product._id, 'up')}
+                                disabled={index === 0 || reorderingProductId !== null}
+                                className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label={`Move ${product.name} up`}
+                              >
+                                <ArrowUp size={14} className="mr-1" />
+                                Up
+                              </button>
+                              <button
+                                onClick={() => handleReorderProduct(product._id, 'down')}
+                                disabled={index === allProducts.length - 1 || reorderingProductId !== null}
+                                className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label={`Move ${product.name} down`}
+                              >
+                                <ArrowDown size={14} className="mr-1" />
+                                Down
+                              </button>
                               <ProductShareButton
                                 slug={product._id}
                                 title={product.name}
@@ -1205,11 +1328,21 @@ function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductMo
 
   if (!isOpen) return null;
 
-  const updateField = (field: keyof Product, value: string | number) => {
+  const updateField = (field: keyof Product, value: string | number | string[]) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const toggleStorefrontGroup = (value: string) => {
+    const current = form.storefrontGroups || [];
+    updateField(
+      'storefrontGroups',
+      current.includes(value)
+        ? current.filter((group) => group !== value)
+        : [...current, value]
+    );
   };
 
   return (
@@ -1281,6 +1414,22 @@ function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductMo
               onChange={(event) => updateField('description', event.target.value)}
               className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Storefront Groups</label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {STOREFRONT_GROUP_OPTIONS.map((option) => (
+                <label key={option.value} className="flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={(form.storefrontGroups || []).includes(option.value)}
+                    onChange={() => toggleStorefrontGroup(option.value)}
+                    className="mr-2"
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 

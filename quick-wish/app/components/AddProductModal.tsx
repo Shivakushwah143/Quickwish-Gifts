@@ -21,6 +21,15 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([
     { type: 'Standard', time: '5-7 days', price: 0 }
   ]);
+  const storefrontGroupOptions = [
+    { value: 'for-her', label: 'For Her' },
+    { value: 'for-him', label: 'For Him' },
+    { value: 'for-mom', label: 'For Mom' },
+    { value: 'for-friends', label: 'For Friends' },
+    { value: 'for-couples', label: 'For Couples' },
+    { value: 'for-kids', label: 'For Kids' },
+    { value: 'custom-gifts', label: 'Custom Gifts' },
+  ];
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,7 +41,8 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
     stock: '',
     badge: '',
     offPrice: '',
-    tags: ''
+    tags: '',
+    storefrontGroups: [] as string[],
   });
 
   if (!isOpen) return null;
@@ -40,6 +50,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   const categories = [
     "Fresh Flowers",
     "Flower Bouquets",
+    "Crochet Bouquets",
     "Chocolate Bouquets",
 
     "Personalized Gifts",
@@ -59,6 +70,15 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleStorefrontGroupToggle = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      storefrontGroups: prev.storefrontGroups.includes(value)
+        ? prev.storefrontGroups.filter(group => group !== value)
+        : [...prev.storefrontGroups, value],
     }));
   };
 
@@ -107,7 +127,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
       // Add form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          formDataToSend.append(key, value.toString());
+          formDataToSend.append(key, Array.isArray(value) ? JSON.stringify(value) : value.toString());
         }
       });
 
@@ -153,7 +173,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
         // Reset form
         setFormData({
           name: '', price: '', category: '', description: '', discountPercent: '',
-          originalPrice: '', stock: '', badge: '', offPrice: '', tags: ''
+          originalPrice: '', stock: '', badge: '', offPrice: '', tags: '', storefrontGroups: []
         });
         setImages([]);
         setDeliveryOptions([{ type: 'Standard', time: '5-7 days', price: 0 }]);
@@ -279,6 +299,23 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">Comma-separated tags for discovery</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Storefront Groups</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {storefrontGroupOptions.map(option => (
+                    <label key={option.value} className="flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formData.storefrontGroups.includes(option.value)}
+                        onChange={() => handleStorefrontGroupToggle(option.value)}
+                        className="mr-2"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>

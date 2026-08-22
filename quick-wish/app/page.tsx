@@ -157,36 +157,42 @@ export default function Home() {
     {
       label: '❤️ For Her',
       category: 'Jewelry',
+      recipient: 'for-her',
       image: 'https://plus.unsplash.com/premium_photo-1665218521187-bf1f98f1fd2e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1yZWxhdGVkfDZ8fHxlbnwwfHx8fHw%3D',
       tint: 'bg-[color:var(--tint-rose)]',
     },
     {
       label: '🎁 For Him',
       category: 'Watches',
+      recipient: 'for-him',
       image: 'https://images.unsplash.com/photo-1625552187571-7ee60ac43d2b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGdpZnQlMjBib3h8ZW58MHx8MHx8fDA%3D',
       tint: 'bg-[color:var(--tint-lavender)]',
     },
     {
       label: '🌸 For Mom',
       category: 'Flower Bouquets',
+      recipient: 'for-mom',
       image: 'https://plus.unsplash.com/premium_photo-1697910940818-adb36cdfa4e7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Z2lmdCUyMGZvciUyMGZyaWVuZHN8ZW58MHx8MHx8fDA%3D',
       tint: 'bg-[color:var(--tint-peach)]',
     },
     {
       label: '🤝 For Friends',
       category: 'besti',
+      recipient: 'for-friends',
       image: 'https://plus.unsplash.com/premium_photo-1692845743671-dbfc435c6739?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1yZWxhdGVkfDIzfHx8ZW58MHx8fHx8',
       tint: 'bg-[color:var(--tint-cream)]',
     },
     {
       label: '💕 For Couples',
       category: 'Anniversary',
+      recipient: 'for-couples',
       image: 'https://plus.unsplash.com/premium_photo-1691688119414-df74cb70b962?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1pbi1zYW1lLXNlcmllc3wxfHx8ZW58MHx8fHx8',
       tint: 'bg-[color:var(--tint-blush)]',
     },
     {
       label: '🎈 For Kids',
       category: 'Teddy Bears',
+      recipient: 'for-kids',
       image: 'https://media.istockphoto.com/id/1066672498/photo/kids-wrapping-christmas-gifts.webp?a=1&b=1&s=612x612&w=0&k=20&c=Cwlc_RZW1vtLVBdMGwGQ-S0rsvdvklKQQuWJxn3MTpU=',
       tint: 'bg-[color:var(--tint-mint)]',
     },
@@ -258,7 +264,7 @@ export default function Home() {
               <motion.button
                 key={item.label}
                 className={`group overflow-hidden rounded-lg border border-[color:var(--border)] ${item.tint} text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
-                onClick={() => router.push(`/products?category=${encodeURIComponent(item.category)}`)}
+                onClick={() => router.push('/products')}
                 whileHover={enableMotion ? { y: -4, scale: 1.015 } : undefined}
                 whileTap={enableMotion ? { scale: 0.98 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
@@ -302,7 +308,7 @@ export default function Home() {
                 <motion.div
                   key={category.name}
                   className={`group cursor-pointer overflow-hidden rounded-lg border border-[color:var(--border)] ${category.tint} shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.99]`}
-                  onClick={() => router.push(`/products?category=${encodeURIComponent(category.filterCategory)}`)}
+                  onClick={() => router.push('/products')}
                   whileHover={enableMotion ? { y: -3 } : undefined}
                   whileTap={enableMotion ? { scale: 0.99 } : undefined}
                   transition={{ duration: 0.18, ease: "easeOut" }}
@@ -311,7 +317,7 @@ export default function Home() {
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      router.push(`/products?category=${encodeURIComponent(category.filterCategory)}`);
+                      router.push('/products');
                     }
                   }}
                 >
@@ -367,7 +373,7 @@ export default function Home() {
               <motion.button
                 key={card.title}
                 className={`group overflow-hidden rounded-lg border border-[color:var(--border)] ${card.tone} text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
-                onClick={() => router.push(`/products?category=${encodeURIComponent(card.category)}`)}
+                onClick={() => router.push('/products')}
                 initial={enableMotion ? { opacity: 0, y: 14 } : false}
                 whileInView={enableMotion ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, margin: '-80px' }}
@@ -409,7 +415,7 @@ export default function Home() {
               <motion.button
                 key={card.title}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                onClick={() => router.push(`/products?category=${encodeURIComponent(card.category)}`)}
+                onClick={() => router.push('/products')}
                 whileHover={enableMotion ? { y: -3 } : undefined}
                 whileTap={enableMotion ? { scale: 0.99 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
@@ -450,7 +456,7 @@ export default function Home() {
             <div className="mt-6 flex flex-wrap gap-3">
               <motion.button
                 className="rounded-full bg-[#c9a36a] px-6 py-3 text-sm font-bold text-[color:var(--plum)]"
-                onClick={() => router.push('/products?category=Personalized Gifts')}
+                onClick={() => router.push('/products')}
                 whileHover={enableMotion ? { scale: 1.015 } : undefined}
                 whileTap={enableMotion ? { scale: 0.98 } : undefined}
               >
@@ -549,7 +555,7 @@ export default function Home() {
         <div className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-[color:var(--border)] bg-[color:var(--surface)]/95 px-4 pb-[env(safe-area-inset-bottom)] pt-3 shadow-[0_-12px_30px_rgba(43,29,37,0.12)] backdrop-blur md:hidden">
           <motion.button
             className="w-full rounded-full bg-[color:var(--wine)] px-5 py-3 text-sm font-bold text-[color:var(--ivory)]"
-            onClick={() => router.push('/products?category=Fresh Flowers')}
+            onClick={() => router.push('/products')}
             whileTap={enableMotion ? { scale: 0.98 } : undefined}
           >
             Send Today in Indore

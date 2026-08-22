@@ -31,7 +31,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
 
     try {
       const strategy = 'oauth_google';
-      const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+      const currentPath = `${window.location.pathname}${window.location.search}`;
+      const redirectUrl = `${window.location.origin}/sso-callback`;
+      const redirectUrlComplete = `${window.location.origin}${currentPath || '/'}`;
       const authClient = mode === 'signup' ? signUp : signIn;
 
       if (!authClient) {
@@ -42,7 +44,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
       await authClient.authenticateWithRedirect({
         strategy,
         redirectUrl,
-        redirectUrlComplete: redirectUrl,
+        redirectUrlComplete,
       });
     } catch {
       setError('Google login failed. Please try again.');

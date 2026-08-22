@@ -11,6 +11,8 @@ type ApiProduct = {
   description?: string;
   images?: string[];
   category?: string;
+  storefrontGroups?: string[];
+  displayOrder?: number;
 };
 
 type ProductsResponse = {
@@ -29,6 +31,8 @@ export type StaticProduct = {
   description: string;
   images: string[];
   category: string;
+  storefrontGroups: string[];
+  displayOrder: number;
 };
 
 const getApiBaseUrl = (): string => {
@@ -56,6 +60,8 @@ const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
     description: product.description || "",
     images: product.images || [],
     category: product.category || "Gifts",
+    storefrontGroups: product.storefrontGroups || [],
+    displayOrder: Number(product.displayOrder) || 0,
   };
 };
 
