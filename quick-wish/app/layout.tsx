@@ -1,5 +1,5 @@
 import "./globals.css";
-import AssistantDrawer from "./components/AssistantDrawer";
+import WhatsAppChatButton from "./components/WhatsAppChatButton";
 import ClerkCustomerSync from "./components/ClerkCustomerSync";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
@@ -110,7 +110,7 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
           />
           <ClerkCustomerSync />
           {children}
-          <AssistantDrawer />
+          <WhatsAppChatButton />
         </ClerkProvider>
       </body>
     </html>

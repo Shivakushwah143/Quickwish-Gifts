@@ -1164,7 +1164,7 @@ app.put(
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      const payload = await buildStorefrontSettingsResponse(settings);
+      const payload = await buildStorefrontSettingsResponse(settings, true);
       return res.status(200).json({ success: true, settings: payload });
     } catch {
       return res.status(500).json({ success: false, message: "Failed to save storefront settings" });

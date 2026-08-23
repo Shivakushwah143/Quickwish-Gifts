@@ -7,6 +7,7 @@ import ProductShareButton from '../components/ProductShareButton';
 import AddProductModal from '../components/AddProductModal';
 import CreatorManagement from '../components/CreatorManagement';
 import { clearAdminAuthState, hasJwtExpired } from '../utils/auth';
+import { heroSlides } from '../utils/constants';
 
 
 interface Order {
@@ -115,6 +116,26 @@ const DEFAULT_GIFT_UPGRADE_IMAGES = {
   wrapping: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?w=900&auto=format&fit=crop&q=80',
   messageCard: 'https://images.unsplash.com/photo-1512909006721-3d6018887383?w=900&auto=format&fit=crop&q=80',
   ferrero: 'https://images.unsplash.com/photo-1548907040-4baa42d10919?w=900&auto=format&fit=crop&q=80',
+};
+
+const defaultHeroImages: StorefrontHeroImage[] = heroSlides.map((slide, index) => ({
+  url: slide.image,
+  title: slide.title,
+  subtitle: slide.subtitle,
+  enabled: true,
+  displayOrder: index + 1,
+}));
+
+const mergeDefaultHeroImages = (images: StorefrontHeroImage[]) => {
+  const imageUrls = new Set(images.map((image) => image.url));
+  return [
+    ...defaultHeroImages.filter((image) => !imageUrls.has(image.url)),
+    ...images,
+  ].map((image, index) => ({
+    ...image,
+    enabled: image.enabled !== false,
+    displayOrder: index + 1,
+  }));
 };
 
 const AWAITING_STATUSES = ['AWAITING_VERIFICATION', 'PROOF_SUBMITTED'];
@@ -412,16 +433,19 @@ export default function AdminDashboard() {
       });
       const data = await response.json();
       if (data?.success) {
+        const settings = data.settings || {};
+        const heroImages = mergeDefaultHeroImages(settings.heroImages || []);
         setStorefrontSettings({
           ...emptyStorefrontSettings,
-          ...data.settings,
+          ...settings,
+          heroImages,
           checkoutOccasionBanner: {
             ...emptyStorefrontSettings.checkoutOccasionBanner,
-            ...(data.settings?.checkoutOccasionBanner || {}),
+            ...(settings.checkoutOccasionBanner || {}),
           },
           giftUpgradeImages: {
             ...emptyStorefrontSettings.giftUpgradeImages,
-            ...(data.settings?.giftUpgradeImages || {}),
+            ...(settings.giftUpgradeImages || {}),
           },
         });
       }
@@ -460,6 +484,7 @@ export default function AdminDashboard() {
       setStorefrontSettings({
         ...emptyStorefrontSettings,
         ...data.settings,
+        heroImages: data.settings?.heroImages || [],
         checkoutOccasionBanner: {
           ...emptyStorefrontSettings.checkoutOccasionBanner,
           ...(data.settings?.checkoutOccasionBanner || {}),
@@ -823,20 +848,20 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-950">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Shield className="w-8 h-8 text-indigo-600 mr-3" />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-sm text-gray-500">Welcome back, {adminUsername}</p>
+        <header className="border-b bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+            <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3 sm:flex-nowrap sm:py-0">
+              <div className="flex min-w-0 items-center">
+                <Shield className="mr-2 h-7 w-7 shrink-0 text-indigo-600 sm:mr-3 sm:h-8 sm:w-8" />
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-xl">Admin Dashboard</h1>
+                  <p className="truncate text-xs text-gray-500 dark:text-gray-400 sm:text-sm">Welcome back, {adminUsername}</p>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 {awaitingCount > 0 && (
                   <button
                     onClick={() => {
@@ -844,16 +869,16 @@ export default function AdminDashboard() {
                       setPaymentFilter('AWAITING_VERIFICATION');
                       fetchOrders('AWAITING_VERIFICATION');
                     }}
-                    className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-all duration-200 flex items-center text-sm font-semibold"
+                    className="inline-flex min-h-11 max-w-full items-center rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition-all duration-200 hover:bg-amber-600 sm:px-4 sm:text-sm"
                   >
-                    <ShieldAlert size={18} className="mr-2" />
-                    Payments: {awaitingCount} awaiting
+                    <ShieldAlert size={18} className="mr-1.5 shrink-0 sm:mr-2" />
+                    <span className="truncate">Payments: {awaitingCount} awaiting</span>
                   </button>
                 )}
 
                 <button
                   onClick={() => setShowAddProductModal(true)}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 flex items-center"
+                  className="hidden min-h-11 items-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-white transition-all duration-200 hover:from-indigo-700 hover:to-purple-700 sm:flex"
                 >
                   <Plus size={20} className="mr-2" />
                   Add Product
@@ -861,9 +886,9 @@ export default function AdminDashboard() {
 
                 <button
                   onClick={handleLogout}
-                  className="text-gray-500 hover:text-gray-700 flex items-center"
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  <LogOut size={20} className="mr-1" />
+                  <LogOut size={20} className="mr-1 shrink-0" />
                   Logout
                 </button>
               </div>
@@ -872,11 +897,12 @@ export default function AdminDashboard() {
         </header>
 
         {/* Navigation Tabs */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-          <div className="flex border-b border-gray-200">
+        <div className="mx-auto mt-4 max-w-7xl px-3 sm:mt-6 sm:px-6 lg:px-8">
+          <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          <div className="flex min-w-max border-b border-gray-200 dark:border-gray-800">
             <button
               onClick={() => setView('stats')}
-              className={`py-4 px-6 font-medium text-sm ${view === 'stats' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`min-h-11 px-4 py-3 text-sm font-medium sm:px-6 sm:py-4 ${view === 'stats' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
               Dashboard
             </button>
@@ -886,7 +912,7 @@ export default function AdminDashboard() {
                 fetchOrders(paymentFilter);
                 fetchAwaitingCount();
               }}
-              className={`py-4 px-6 font-medium text-sm ${view === 'orders' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`min-h-11 px-4 py-3 text-sm font-medium sm:px-6 sm:py-4 ${view === 'orders' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
               Orders
               {awaitingCount > 0 && (
@@ -900,13 +926,13 @@ export default function AdminDashboard() {
                 setView('products');
                 fetchAllProducts();
               }}
-              className={`py-4 px-6 font-medium text-sm ${view === 'products' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`min-h-11 px-4 py-3 text-sm font-medium sm:px-6 sm:py-4 ${view === 'products' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
               Products
             </button>
             <button
               onClick={() => setView('creators')}
-              className={`py-4 px-6 font-medium text-sm ${view === 'creators' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`min-h-11 px-4 py-3 text-sm font-medium sm:px-6 sm:py-4 ${view === 'creators' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
               Creators
             </button>
@@ -916,15 +942,16 @@ export default function AdminDashboard() {
                 fetchStorefrontSettings();
                 fetchAllProducts();
               }}
-              className={`py-4 px-6 font-medium text-sm ${view === 'storefront' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`min-h-11 px-4 py-3 text-sm font-medium sm:px-6 sm:py-4 ${view === 'storefront' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
               Storefront
             </button>
           </div>
+          </div>
         </div>
 
         {/* Dashboard Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
           {view === 'stats' ? (
             <>
               {/* Payments awaiting verification — attention banner */}
@@ -935,25 +962,25 @@ export default function AdminDashboard() {
                     setPaymentFilter('AWAITING_VERIFICATION');
                     fetchOrders('AWAITING_VERIFICATION');
                   }}
-                  className="w-full mb-6 flex items-center justify-between gap-4 bg-amber-50 border border-amber-300 rounded-xl p-5 hover:bg-amber-100 transition-colors text-left"
+                  className="mb-6 flex w-full flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-left transition-colors hover:bg-amber-100 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between sm:p-5"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-amber-100 rounded-lg">
-                      <ShieldAlert className="w-6 h-6 text-amber-600" />
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                    <div className="shrink-0 rounded-lg bg-amber-100 p-3">
+                      <ShieldAlert className="h-6 w-6 text-amber-600" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-amber-900">Payments Awaiting Verification</p>
                       <p className="text-sm text-amber-700">Customers have paid and are waiting for you to confirm in the UPI app.</p>
                     </div>
                   </div>
-                  <span className="text-3xl font-bold text-amber-700">{awaitingCount}</span>
+                  <span className="self-start text-2xl font-bold text-amber-700 min-[380px]:self-center sm:text-3xl">{awaitingCount}</span>
                 </button>
               ) : (
-                <div className="w-full mb-6 flex items-center gap-4 bg-green-50 border border-green-200 rounded-xl p-5">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <ShieldAlert className="w-6 h-6 text-green-600" />
+                <div className="mb-6 flex w-full items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 sm:gap-4 sm:p-5">
+                  <div className="shrink-0 rounded-lg bg-green-100 p-3">
+                    <ShieldAlert className="h-6 w-6 text-green-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-green-900">Payments Awaiting Verification</p>
                     <p className="text-sm text-green-700">All reported payments have been reviewed. You&apos;re all caught up.</p>
                   </div>
@@ -961,8 +988,8 @@ export default function AdminDashboard() {
               )}
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <div className="mb-8 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <div className="flex items-center">
                     <div className="p-3 bg-blue-100 rounded-lg">
                       <Package className="w-6 h-6 text-blue-600" />
@@ -974,7 +1001,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <div className="flex items-center">
                     <div className="p-3 bg-green-100 rounded-lg">
                       <ShoppingCart className="w-6 h-6 text-green-600" />
@@ -986,7 +1013,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <div className="flex items-center">
                     <div className="p-3 bg-purple-100 rounded-lg">
                       <Users className="w-6 h-6 text-purple-600" />
@@ -998,7 +1025,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <div className="flex items-center">
                     <div className="p-3 bg-yellow-100 rounded-lg">
                       <TrendingUp className="w-6 h-6 text-yellow-600" />
@@ -1012,12 +1039,12 @@ export default function AdminDashboard() {
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
                   <button
                     onClick={() => setShowAddProductModal(true)}
-                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 text-center"
+                    className="min-h-11 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center transition-all duration-200 hover:border-indigo-500 hover:bg-indigo-50"
                   >
                     <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">Add New Product</p>
@@ -1029,7 +1056,7 @@ export default function AdminDashboard() {
                       setPaymentFilter('AWAITING_VERIFICATION');
                       fetchOrders('AWAITING_VERIFICATION');
                     }}
-                    className="p-4 border-2 border-dashed border-amber-300 rounded-lg hover:border-amber-500 hover:bg-amber-50 transition-all duration-200 text-center"
+                    className="min-h-11 rounded-lg border-2 border-dashed border-amber-300 p-4 text-center transition-all duration-200 hover:border-amber-500 hover:bg-amber-50"
                   >
                     <ShieldAlert className="w-8 h-8 text-amber-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">
@@ -1042,7 +1069,7 @@ export default function AdminDashboard() {
                       setView('orders');
                       fetchOrders('ALL');
                     }}
-                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 text-center"
+                    className="min-h-11 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center transition-all duration-200 hover:border-green-500 hover:bg-green-50"
                   >
                     <ShoppingCart className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">View Orders</p>
@@ -1053,7 +1080,7 @@ export default function AdminDashboard() {
                       setView('products');
                       fetchAllProducts();
                     }}
-                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 text-center"
+                    className="min-h-11 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center transition-all duration-200 hover:border-purple-500 hover:bg-purple-50"
                   >
                     <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">Manage Products</p>
@@ -1061,7 +1088,7 @@ export default function AdminDashboard() {
 
                   <button
                     onClick={() => setView('creators')}
-                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all duration-200 text-center"
+                    className="min-h-11 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center transition-all duration-200 hover:border-pink-500 hover:bg-pink-50"
                   >
                     <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-600">Manage Creators</p>
@@ -1070,13 +1097,13 @@ export default function AdminDashboard() {
               </div>
 
               {/* Recent Activity */}
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mt-6">
+              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Orders</h2>
                 <div className="space-y-3">
                   {orders.slice(0, 5).map((order) => (
                     <div
                       key={order._id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between dark:bg-gray-800"
                     >
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
@@ -1235,9 +1262,9 @@ export default function AdminDashboard() {
           ) : view === 'creators' ? (
             <CreatorManagement />
           ) : view === 'storefront' ? (
-            <div className="space-y-6">
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="space-y-5 sm:space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">Storefront Content</h2>
                     <p className="text-sm text-gray-500">Control hero, featured products, checkout banner, and gift upgrade images.</p>
@@ -1245,13 +1272,13 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => void saveStorefrontSettings()}
                     disabled={storefrontSaving || storefrontLoading}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                    className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
                   >
                     {storefrontSaving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 p-4">
+                <div className="rounded-lg border border-gray-200 p-3 sm:p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Featured Gifts / Our Best Picks</h3>
                     <span className="text-xs font-semibold text-gray-500">
@@ -1264,7 +1291,7 @@ export default function AdminDashboard() {
                       type="button"
                       onClick={() => setShowFeaturedPicker((value) => !value)}
                       disabled={storefrontSettings.featuredProductIds.length >= 3}
-                      className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span>
                         {storefrontSettings.featuredProductIds.length >= 3
@@ -1364,9 +1391,12 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                 <h3 className="mb-3 font-semibold text-gray-900">Hero Images</h3>
-                <label className="mb-4 inline-flex cursor-pointer rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <p className="mb-3 text-sm text-gray-500">
+                  Active images are used by the storefront carousel. Disabled images stay saved but hidden.
+                </p>
+                <label className="mb-4 inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   {storefrontUploading === 'hero-new' ? 'Uploading...' : 'Upload Hero Image'}
                   <input
                     type="file"
@@ -1383,8 +1413,20 @@ export default function AdminDashboard() {
                 </label>
                 <div className="space-y-3">
                   {storefrontSettings.heroImages.map((image, index) => (
-                    <div key={`${image.url}-${index}`} className="grid gap-3 rounded-lg border border-gray-200 p-3 md:grid-cols-[120px_1fr_auto]">
-                      <img src={image.url} alt={image.title || 'Hero image'} className="h-24 w-full rounded-lg object-cover" />
+                    <div
+                      key={`${image.url}-${index}`}
+                      className={`grid gap-3 rounded-lg border p-3 md:grid-cols-[120px_1fr_auto] ${
+                        image.enabled === false ? 'border-gray-200 bg-gray-50 opacity-75' : 'border-green-200 bg-green-50/40'
+                      }`}
+                    >
+                      <div>
+                        <img src={image.url} alt={image.title || 'Hero image'} className="h-24 w-full rounded-lg object-cover" />
+                        <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          image.enabled === false ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                          {image.enabled === false ? 'Disabled' : 'Active'}
+                        </span>
+                      </div>
                       <div className="grid gap-2">
                         <input
                           value={image.title || ''}
@@ -1463,7 +1505,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <h3 className="mb-3 font-semibold text-gray-900">Checkout Occasion Banner</h3>
                   <div className="mb-3 overflow-hidden rounded-lg border border-gray-200">
                     <img
@@ -1495,7 +1537,7 @@ export default function AdminDashboard() {
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     />
                     <div className="flex flex-wrap gap-2">
-                      <label className="cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700">
+                      <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700">
                         Replace Image
                         <input
                           type="file"
@@ -1512,7 +1554,7 @@ export default function AdminDashboard() {
                           ...settings,
                           checkoutOccasionBanner: { ...settings.checkoutOccasionBanner, image: '' },
                         }))}
-                        className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
+                        className="min-h-11 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
                       >
                         Delete Image
                       </button>
@@ -1520,7 +1562,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
                   <h3 className="mb-3 font-semibold text-gray-900">Gift Upgrade Images</h3>
                   <div className="space-y-3">
                     {([
@@ -1528,7 +1570,7 @@ export default function AdminDashboard() {
                       ['messageCard', 'Personalised Message Card'],
                       ['ferrero', 'Ferrero Rocher Gift Pack'],
                     ] as const).map(([key, label]) => (
-                      <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+                      <div key={key} className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
                         <div className="flex min-w-0 items-center gap-3">
                           <img
                             src={storefrontSettings.giftUpgradeImages[key] || DEFAULT_GIFT_UPGRADE_IMAGES[key]}
@@ -1543,7 +1585,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <label className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs">
+                          <label className="inline-flex min-h-11 cursor-pointer items-center rounded border border-gray-300 px-3 py-2 text-xs">
                             Replace
                             <input
                               type="file"
@@ -1566,7 +1608,7 @@ export default function AdminDashboard() {
                                 [key]: '',
                               },
                             }))}
-                            className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                            className="min-h-11 rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
                           >
                             Reset
                           </button>
@@ -1579,12 +1621,12 @@ export default function AdminDashboard() {
             </div>
           ) : (
             /* Products View */
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <div className="flex justify-between items-center mb-6">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Product Management</h2>
                 <button
                   onClick={() => setShowAddProductModal(true)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-white transition-colors hover:bg-indigo-700"
                 >
                   <Plus size={20} className="mr-2" />
                   Add Product
@@ -1601,8 +1643,8 @@ export default function AdminDashboard() {
                   <p>No products found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                <div className="-mx-4 overflow-x-auto sm:mx-0">
+                  <table className="min-w-[920px] divide-y divide-gray-200 sm:min-w-full">
                     <thead className="bg-gray-50">
                       <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
