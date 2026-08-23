@@ -41,7 +41,7 @@ function ProductsLoading() {
 }
 
 export default async function ProductsPage() {
-  const products = await fetchStaticProducts();
+  const products = await fetchStaticProducts().catch(() => []);
 
   return (
     <Suspense fallback={<ProductsLoading />}>

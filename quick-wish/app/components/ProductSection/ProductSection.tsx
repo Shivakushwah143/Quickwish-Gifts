@@ -431,7 +431,7 @@ const ProductSection = ({ title }: { title: string }) => {
           <div className="flex snap-x gap-6 overflow-x-auto pb-4 pr-4 hide-scrollbar">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="w-[86vw] max-w-[18rem] flex-shrink-0 snap-start overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm sm:w-72">
-              <div className="h-72 bg-[color:var(--border)]/60 animate-pulse"></div>
+              <div className="aspect-[4/5] w-full bg-[color:var(--border)]/60 animate-pulse"></div>
               <div className="p-3">
                 <div className="h-4 bg-[color:var(--border)]/70 rounded w-3/4 mb-2 animate-pulse"></div>
                 <div className="h-3 bg-[color:var(--border)]/70 rounded w-1/2 mb-3 animate-pulse"></div>
@@ -485,7 +485,7 @@ const ProductSection = ({ title }: { title: string }) => {
             return (
               <motion.div
                 key={product._id || product.name}
-                className="w-[86vw] max-w-[18rem] flex-shrink-0 snap-start cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)] sm:w-72"
+                className="group w-[86vw] max-w-[18rem] flex-shrink-0 snap-start cursor-pointer overflow-hidden rounded-lg border border-[#eadfd4] bg-white shadow-[0_14px_30px_rgba(43,29,37,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(43,29,37,0.12)] sm:w-72"
                 onClick={() => {
                   const productId = product._id;
                   if (productId) {
@@ -496,18 +496,15 @@ const ProductSection = ({ title }: { title: string }) => {
                 whileTap={enableMotion ? { scale: 0.99 } : undefined}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                <div className="relative overflow-hidden bg-[#fbf4ec]">
-                  <motion.div
-                    whileHover={enableMotion ? { scale: 1.035 } : undefined}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                  >
+                <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#fbf4ec]">
+                  <motion.div className="h-full w-full">
                     <Image
                       src={product.images[0] || '/placeholder-image.jpg'}
                       alt={product.name}
                       width={720}
                       height={720}
                       sizes="(max-width: 640px) 86vw, 288px"
-                      className="h-72 w-full object-cover transition duration-500"
+                      className="h-full w-full object-cover object-center transition-transform duration-500 md:group-hover:scale-[1.03]"
                     />
                   </motion.div>
                   <div className="absolute left-3 top-3">

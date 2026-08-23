@@ -18,6 +18,7 @@ export type GiftUpgradeSelection = {
 type CompleteYourGiftProps = {
   value: GiftUpgradeSelection;
   onChange: (value: GiftUpgradeSelection) => void;
+  imageOverrides?: Partial<Record<"wrapping" | "messageCard" | "ferrero", string>>;
 };
 
 const MESSAGE_LIMIT = 250;
@@ -74,7 +75,7 @@ export const getGiftUpgradeLines = (value: GiftUpgradeSelection) => {
   return lines;
 };
 
-export default function CompleteYourGift({ value, onChange }: CompleteYourGiftProps) {
+export default function CompleteYourGift({ value, onChange, imageOverrides }: CompleteYourGiftProps) {
   const toggleUpgrade = (id: (typeof upgradeCards)[number]["id"]) => {
     if (id === "giftWrap") {
       onChange({ ...value, giftWrap: !value.giftWrap });
@@ -170,6 +171,13 @@ export default function CompleteYourGift({ value, onChange }: CompleteYourGiftPr
         {upgradeCards.map((upgrade) => {
           const selected = isSelected(upgrade.id);
           const Icon = upgrade.icon;
+          const imageKey =
+            upgrade.id === "giftWrap"
+              ? "wrapping"
+              : upgrade.id === "personalisedCard"
+                ? "messageCard"
+                : "ferrero";
+          const image = imageOverrides?.[imageKey] || upgrade.image;
 
           return (
             <div
@@ -188,7 +196,7 @@ export default function CompleteYourGift({ value, onChange }: CompleteYourGiftPr
               >
                 <div className="relative w-24 shrink-0 overflow-hidden rounded-xl bg-[color:var(--ivory)] sm:w-36">
                   <img
-                    src={upgrade.image}
+                    src={image}
                     alt={upgrade.title}
                     className="absolute inset-0 h-full w-full object-cover"
                     loading="lazy"

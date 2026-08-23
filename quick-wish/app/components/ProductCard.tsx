@@ -52,11 +52,11 @@ export default function ProductCard({
     <>
       <div className="lux-card overflow-hidden group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
         {/* Image Section */}
-        <div className="relative overflow-hidden">
+        <div className="relative aspect-[4/5] w-full overflow-hidden">
           <img 
             src={image} 
             alt={name}
-            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover object-center transition-transform duration-500 md:group-hover:scale-[1.03]"
           />
           {originalPrice && originalPrice > price && (
             <div className="absolute top-3 left-3 bg-[color:var(--wine)] text-[color:var(--ivory)] px-2 py-1 rounded-full text-xs font-semibold shadow-sm">

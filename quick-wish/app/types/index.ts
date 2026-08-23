@@ -33,6 +33,11 @@ export interface Product {
   tags?: string[];
   storefrontGroups?: string[];
   displayOrder?: number;
+  comparisons?: Array<{
+    siteName: string;
+    price: number;
+    url: string;
+  }>;
   deliveryOptions?: DeliveryOption[];
   stock: number;
   rating?: number;

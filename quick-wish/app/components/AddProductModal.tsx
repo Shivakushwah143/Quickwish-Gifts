@@ -14,6 +14,12 @@ interface DeliveryOption {
   price: number;
 }
 
+type PriceComparison = {
+  siteName: string;
+  price: string;
+  url: string;
+};
+
 export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,6 +27,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
   const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([
     { type: 'Standard', time: '5-7 days', price: 0 }
   ]);
+  const [comparisons, setComparisons] = useState<PriceComparison[]>([]);
   const storefrontGroupOptions = [
     { value: 'for-her', label: 'For Her' },
     { value: 'for-him', label: 'For Him' },
@@ -109,6 +116,20 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
     ));
   };
 
+  const addComparison = () => {
+    setComparisons(prev => [...prev, { siteName: '', price: '', url: '' }]);
+  };
+
+  const removeComparison = (index: number) => {
+    setComparisons(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateComparison = (index: number, field: keyof PriceComparison, value: string) => {
+    setComparisons(prev => prev.map((comparison, i) =>
+      i === index ? { ...comparison, [field]: value } : comparison
+    ));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -133,6 +154,18 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
 
       // Add delivery options
       formDataToSend.append('deliveryOptions', JSON.stringify(deliveryOptions));
+      formDataToSend.append(
+        'comparisons',
+        JSON.stringify(
+          comparisons
+            .map(comparison => ({
+              siteName: comparison.siteName.trim(),
+              price: Number(comparison.price),
+              url: comparison.url.trim(),
+            }))
+            .filter(comparison => comparison.siteName || comparison.price || comparison.url)
+        )
+      );
 
       // Add images
       images.forEach(image => {
@@ -177,6 +210,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
         });
         setImages([]);
         setDeliveryOptions([{ type: 'Standard', time: '5-7 days', price: 0 }]);
+        setComparisons([]);
       } else {
         setError(data.message || 'Failed to create product');
       }
@@ -440,6 +474,58 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }: AddProdu
               >
                 <Plus size={16} className="mr-1" />
                 Add Delivery Option
+              </button>
+
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <DollarSign className="w-5 h-5 mr-2" />
+                Price Comparisons
+              </h3>
+
+              {comparisons.map((comparison, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">Comparison {index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeComparison(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Minus size={16} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <input
+                      type="text"
+                      placeholder="Site name"
+                      value={comparison.siteName}
+                      onChange={(e) => updateComparison(index, 'siteName', e.target.value)}
+                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price"
+                      value={comparison.price}
+                      onChange={(e) => updateComparison(index, 'price', e.target.value)}
+                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="url"
+                      placeholder="https://example.com/product"
+                      value={comparison.url}
+                      onChange={(e) => updateComparison(index, 'url', e.target.value)}
+                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addComparison}
+                className="flex items-center text-indigo-600 hover:text-indigo-700 text-sm"
+              >
+                <Plus size={16} className="mr-1" />
+                Add Price Comparison
               </button>
             </div>
           </div>

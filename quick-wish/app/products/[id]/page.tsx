@@ -20,7 +20,7 @@ type ProductPageProps = {
 };
 
 export async function generateStaticParams() {
-  const products = await fetchStaticProducts();
+  const products = await fetchStaticProducts().catch(() => []);
 
   return products.map((product) => ({
     id: product.slug,

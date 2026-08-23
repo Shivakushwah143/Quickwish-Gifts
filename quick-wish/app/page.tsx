@@ -13,6 +13,7 @@ import ServicesSection from './components/ServicesSection/ServicesSection';
 import NewsletterSection from './components/NewsletterSection/NewsletterSection';
 import Footer from './Footer/Footer';
 import ProductSection from './components/ProductSection/ProductSection';
+import FeaturedGifts from './components/ProductSection/FeaturedGifts';
 import Header from './components/Header';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,11 @@ import Testimonials from './components/Testimonials';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, BadgePercent, Cake, CalendarHeart, Flower2, Gift, Heart, MessageSquareText, Palette, ShieldCheck, Sparkles, Truck, Users } from 'lucide-react';
 import BannerSection from './components/promotional/BannerSection';
+import {
+  emptyStorefrontSettings,
+  fetchStorefrontSettings,
+  type StorefrontSettings,
+} from './lib/storefrontSettings';
 
 export default function Home() {
   const [giftRecipient, setGiftRecipient] = useState('Her');
@@ -27,6 +33,7 @@ export default function Home() {
   const [giftBudget, setGiftBudget] = useState('Under Rs 499');
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [storefrontSettings, setStorefrontSettings] = useState<StorefrontSettings>(emptyStorefrontSettings);
   const shouldReduceMotion = useReducedMotion();
   const enableMotion = mounted && !shouldReduceMotion;
   const router = useRouter();
@@ -41,6 +48,22 @@ export default function Home() {
     };
     window.addEventListener('quickwish:checkout', handleCheckout);
     return () => window.removeEventListener('quickwish:checkout', handleCheckout);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchStorefrontSettings()
+      .then((settings) => {
+        if (active) setStorefrontSettings(settings);
+      })
+      .catch(() => {
+        if (active) setStorefrontSettings(emptyStorefrontSettings);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const shoppingCategories = [
@@ -235,7 +258,20 @@ export default function Home() {
       <TopBar />
       <Header />
 
-      <HeroCarousel slides={heroSlides} />
+      <HeroCarousel
+        slides={
+          storefrontSettings.heroImages.length > 0
+            ? storefrontSettings.heroImages.map((image) => ({
+                title: image.title || 'QuickWish gifts',
+                subtitle: image.subtitle || '',
+                image: image.url,
+                cta: 'Explore Gifts',
+              }))
+            : heroSlides
+        }
+      />
+
+      <FeaturedGifts products={storefrontSettings.featuredProducts} />
 
       <section className="bg-[color:var(--tint-cream)] px-4 py-4">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-sm min-[420px]:grid-cols-2 md:grid-cols-4">

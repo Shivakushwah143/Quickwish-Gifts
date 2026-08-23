@@ -13,6 +13,13 @@ type ApiProduct = {
   category?: string;
   storefrontGroups?: string[];
   displayOrder?: number;
+  comparisons?: PriceComparison[];
+};
+
+export type PriceComparison = {
+  siteName: string;
+  price: number;
+  url: string;
 };
 
 type ProductsResponse = {
@@ -33,6 +40,7 @@ export type StaticProduct = {
   category: string;
   storefrontGroups: string[];
   displayOrder: number;
+  comparisons: PriceComparison[];
 };
 
 const getApiBaseUrl = (): string => {
@@ -62,6 +70,7 @@ const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
     category: product.category || "Gifts",
     storefrontGroups: product.storefrontGroups || [],
     displayOrder: Number(product.displayOrder) || 0,
+    comparisons: Array.isArray(product.comparisons) ? product.comparisons : [],
   };
 };
 

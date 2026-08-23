@@ -30,6 +30,11 @@ import {
   getStoredReferralCode,
 } from "../lib/productShare";
 import { apiFetch } from "../lib/apiClient";
+import {
+  emptyStorefrontSettings,
+  fetchStorefrontSettings,
+  type StorefrontSettings,
+} from "../lib/storefrontSettings";
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -201,6 +206,7 @@ export default function OrderPaymentModal({
   const [copiedUpiId, setCopiedUpiId] = useState(false);
   const [copiedOrderRef, setCopiedOrderRef] = useState(false);
   const [showPayAfterReject, setShowPayAfterReject] = useState(false);
+  const [storefrontSettings, setStorefrontSettings] = useState<StorefrontSettings>(emptyStorefrontSettings);
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     name: "",
     phone: "",
@@ -241,6 +247,19 @@ export default function OrderPaymentModal({
       pinCode: "",
       state: "",
     });
+
+    let active = true;
+    fetchStorefrontSettings()
+      .then((settings) => {
+        if (active) setStorefrontSettings(settings);
+      })
+      .catch(() => {
+        if (active) setStorefrontSettings(emptyStorefrontSettings);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [isOpen]);
 
   // Let global floating UI (gift assistant, homepage CTA) know a checkout is
@@ -805,7 +824,33 @@ export default function OrderPaymentModal({
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {currentStep === 1 ? (
             <div className="space-y-6">
-              <BannerSection variant="checkout" bannerIds={["checkout-birthday-surprise"]} />
+              {storefrontSettings.checkoutOccasionBanner.image ? (
+                <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
+                  <img
+                    src={storefrontSettings.checkoutOccasionBanner.image}
+                    alt={storefrontSettings.checkoutOccasionBanner.title || "QuickWish occasion banner"}
+                    className="h-36 w-full object-cover sm:h-44"
+                    loading="lazy"
+                  />
+                  {(storefrontSettings.checkoutOccasionBanner.title ||
+                    storefrontSettings.checkoutOccasionBanner.subtitle) && (
+                    <div className="p-4">
+                      {storefrontSettings.checkoutOccasionBanner.title && (
+                        <h3 className="lux-serif text-lg font-semibold text-[color:var(--plum)]">
+                          {storefrontSettings.checkoutOccasionBanner.title}
+                        </h3>
+                      )}
+                      {storefrontSettings.checkoutOccasionBanner.subtitle && (
+                        <p className="mt-1 text-sm text-[color:var(--muted)]">
+                          {storefrontSettings.checkoutOccasionBanner.subtitle}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <BannerSection variant="checkout" bannerIds={["checkout-birthday-surprise"]} />
+              )}
 
               {/* Product Summary */}
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--ivory)] p-4">
@@ -847,7 +892,11 @@ export default function OrderPaymentModal({
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--wine)] text-[10px] font-bold text-[color:var(--ivory)]">1</span>
                   1 · Complete Your Gift
                 </h3>
-                <CompleteYourGift value={giftUpgrades} onChange={setGiftUpgrades} />
+                <CompleteYourGift
+                  value={giftUpgrades}
+                  onChange={setGiftUpgrades}
+                  imageOverrides={storefrontSettings.giftUpgradeImages}
+                />
               </section>
 
               <section>

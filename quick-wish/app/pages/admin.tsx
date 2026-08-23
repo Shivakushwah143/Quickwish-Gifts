@@ -56,9 +56,66 @@ interface Product {
   discountPercent?: number;
   originalPrice?: number;
   storefrontGroups?: string[];
+  comparisons?: PriceComparison[];
   displayOrder?: number;
   createdAt?: string;
 }
+
+type PriceComparison = {
+  siteName: string;
+  price: number;
+  url: string;
+};
+
+type StorefrontHeroImage = {
+  url: string;
+  title?: string;
+  subtitle?: string;
+  enabled?: boolean;
+  displayOrder?: number;
+};
+
+type StorefrontSettings = {
+  heroImages: StorefrontHeroImage[];
+  featuredProductIds: string[];
+  checkoutOccasionBanner: {
+    image: string;
+    title: string;
+    subtitle: string;
+  };
+  giftUpgradeImages: {
+    wrapping: string;
+    messageCard: string;
+    ferrero: string;
+  };
+};
+
+const emptyStorefrontSettings: StorefrontSettings = {
+  heroImages: [],
+  featuredProductIds: [],
+  checkoutOccasionBanner: {
+    image: '',
+    title: '',
+    subtitle: '',
+  },
+  giftUpgradeImages: {
+    wrapping: '',
+    messageCard: '',
+    ferrero: '',
+  },
+};
+
+const DEFAULT_CHECKOUT_BANNER = {
+  image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1400&q=85',
+  title: 'Add Birthday Magic',
+  subtitle: 'Pair this gift with cakes, flowers, or a note',
+};
+
+const DEFAULT_GIFT_UPGRADE_IMAGES = {
+  wrapping: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?w=900&auto=format&fit=crop&q=80',
+  messageCard: 'https://images.unsplash.com/photo-1512909006721-3d6018887383?w=900&auto=format&fit=crop&q=80',
+  ferrero: 'https://images.unsplash.com/photo-1548907040-4baa42d10919?w=900&auto=format&fit=crop&q=80',
+};
 
 const AWAITING_STATUSES = ['AWAITING_VERIFICATION', 'PROOF_SUBMITTED'];
 const STOREFRONT_GROUP_OPTIONS = [
@@ -95,6 +152,11 @@ export default function AdminDashboard() {
   const [awaitingCount, setAwaitingCount] = useState(0);
   const [reorderingProductId, setReorderingProductId] = useState<string | null>(null);
   const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
+  const [storefrontSettings, setStorefrontSettings] = useState<StorefrontSettings>(emptyStorefrontSettings);
+  const [storefrontLoading, setStorefrontLoading] = useState(false);
+  const [storefrontSaving, setStorefrontSaving] = useState(false);
+  const [storefrontUploading, setStorefrontUploading] = useState('');
+  const [showFeaturedPicker, setShowFeaturedPicker] = useState(false);
 
   const router = useRouter();
 
@@ -109,6 +171,7 @@ export default function AdminDashboard() {
       fetchUsers();
       fetchAllProducts();
       fetchAwaitingCount();
+      fetchStorefrontSettings();
     } else {
       clearAdminAuthState();
       setShowAuthModal(true);
@@ -339,6 +402,143 @@ export default function AdminDashboard() {
     setDraggedProductId(null);
   };
 
+  const fetchStorefrontSettings = async () => {
+    try {
+      setStorefrontLoading(true);
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/storefront-settings`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      });
+      const data = await response.json();
+      if (data?.success) {
+        setStorefrontSettings({
+          ...emptyStorefrontSettings,
+          ...data.settings,
+          checkoutOccasionBanner: {
+            ...emptyStorefrontSettings.checkoutOccasionBanner,
+            ...(data.settings?.checkoutOccasionBanner || {}),
+          },
+          giftUpgradeImages: {
+            ...emptyStorefrontSettings.giftUpgradeImages,
+            ...(data.settings?.giftUpgradeImages || {}),
+          },
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch storefront settings');
+    } finally {
+      setStorefrontLoading(false);
+    }
+  };
+
+  const saveStorefrontSettings = async (nextSettings = storefrontSettings) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        setError('Please login as admin');
+        return;
+      }
+
+      setStorefrontSaving(true);
+      setError('');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${API_BASE_URL}/admin/storefront-settings`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(nextSettings),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Failed to save storefront settings');
+      }
+
+      setStorefrontSettings({
+        ...emptyStorefrontSettings,
+        ...data.settings,
+        checkoutOccasionBanner: {
+          ...emptyStorefrontSettings.checkoutOccasionBanner,
+          ...(data.settings?.checkoutOccasionBanner || {}),
+        },
+        giftUpgradeImages: {
+          ...emptyStorefrontSettings.giftUpgradeImages,
+          ...(data.settings?.giftUpgradeImages || {}),
+        },
+      });
+      setSuccessMessage('Storefront settings saved');
+      setTimeout(() => setSuccessMessage(''), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save storefront settings');
+    } finally {
+      setStorefrontSaving(false);
+    }
+  };
+
+  const uploadStorefrontImage = async (file: File, target: string): Promise<string> => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) throw new Error('Please login as admin');
+
+    setStorefrontUploading(target);
+    const formData = new FormData();
+    formData.append('image', file);
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const response = await fetch(`${API_BASE_URL}/admin/storefront-settings/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    const data = await response.json().catch(() => null);
+    setStorefrontUploading('');
+
+    if (!response.ok || !data?.success || !data?.url) {
+      throw new Error(data?.message || 'Image upload failed');
+    }
+
+    return data.url;
+  };
+
+  const setAndSaveStorefrontSettings = (updater: (settings: StorefrontSettings) => StorefrontSettings) => {
+    const nextSettings = updater(storefrontSettings);
+    setStorefrontSettings(nextSettings);
+    void saveStorefrontSettings(nextSettings);
+  };
+
+  const moveStorefrontItem = <T,>(items: T[], index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return items;
+    const nextItems = [...items];
+    const [moved] = nextItems.splice(index, 1);
+    if (moved === undefined) return items;
+    nextItems.splice(targetIndex, 0, moved);
+    return nextItems;
+  };
+
+  const handleStorefrontImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    target: string,
+    applyUrl: (url: string) => StorefrontSettings
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const url = await uploadStorefrontImage(file, target);
+      const nextSettings = applyUrl(url);
+      setStorefrontSettings(nextSettings);
+      await saveStorefrontSettings(nextSettings);
+    } catch (err) {
+      setStorefrontUploading('');
+      setError(err instanceof Error ? err.message : 'Image upload failed');
+    }
+  };
+
   const fetchOrders = async (filterStatus?: string) => {
     try {
       setLoading(true);
@@ -534,6 +734,7 @@ export default function AdminDashboard() {
     fetchUsers();
     fetchAllProducts();
     fetchAwaitingCount();
+    fetchStorefrontSettings();
   };
 
   const handleLogout = () => {
@@ -548,6 +749,13 @@ export default function AdminDashboard() {
     setTimeout(() => setSuccessMessage(''), 3000);
     fetchAllProducts(); // Refresh the products list
   };
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(Number(price) || 0);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -701,6 +909,16 @@ export default function AdminDashboard() {
               className={`py-4 px-6 font-medium text-sm ${view === 'creators' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Creators
+            </button>
+            <button
+              onClick={() => {
+                setView('storefront');
+                fetchStorefrontSettings();
+                fetchAllProducts();
+              }}
+              className={`py-4 px-6 font-medium text-sm ${view === 'storefront' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Storefront
             </button>
           </div>
         </div>
@@ -1016,6 +1234,349 @@ export default function AdminDashboard() {
             </div>
           ) : view === 'creators' ? (
             <CreatorManagement />
+          ) : view === 'storefront' ? (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Storefront Content</h2>
+                    <p className="text-sm text-gray-500">Control hero, featured products, checkout banner, and gift upgrade images.</p>
+                  </div>
+                  <button
+                    onClick={() => void saveStorefrontSettings()}
+                    disabled={storefrontSaving || storefrontLoading}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {storefrontSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-900">Featured Gifts / Our Best Picks</h3>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {storefrontSettings.featuredProductIds.length}/3 selected
+                    </span>
+                  </div>
+
+                  <div className="relative mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowFeaturedPicker((value) => !value)}
+                      disabled={storefrontSettings.featuredProductIds.length >= 3}
+                      className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span>
+                        {storefrontSettings.featuredProductIds.length >= 3
+                          ? 'Maximum 3 featured products selected'
+                          : 'Add featured product'}
+                      </span>
+                      <span className="text-xs text-gray-500">{allProducts.length} products</span>
+                    </button>
+
+                    {showFeaturedPicker && storefrontSettings.featuredProductIds.length < 3 && (
+                      <div className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
+                        {allProducts
+                          .filter((product) => !storefrontSettings.featuredProductIds.includes(product._id))
+                          .map((product) => (
+                            <button
+                              key={product._id}
+                              type="button"
+                              onClick={() => {
+                                setAndSaveStorefrontSettings((settings) => ({
+                                  ...settings,
+                                  featuredProductIds: Array.from(new Set([...settings.featuredProductIds, product._id])).slice(0, 3),
+                                }));
+                                setShowFeaturedPicker(false);
+                              }}
+                              className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-gray-50"
+                            >
+                              <img
+                                src={product.images?.[0] || '/placeholder-image.jpg'}
+                                alt={product.name}
+                                className="h-12 w-12 rounded-lg object-cover"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold text-gray-900">{product.name}</span>
+                                <span className="text-xs font-bold text-indigo-600">{formatPrice(product.price)}</span>
+                              </span>
+                            </button>
+                          ))}
+                        {allProducts.filter((product) => !storefrontSettings.featuredProductIds.includes(product._id)).length === 0 && (
+                          <p className="p-3 text-sm text-gray-500">No more products available.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {storefrontSettings.featuredProductIds.map((productId, index) => {
+                      const product = allProducts.find((item) => item._id === productId);
+                      return (
+                        <div key={productId} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                          <img
+                            src={product?.images?.[0] || '/placeholder-image.jpg'}
+                            alt={product?.name || productId}
+                            className="h-36 w-full object-cover"
+                          />
+                          <div className="space-y-3 p-3">
+                            <div>
+                              <p className="line-clamp-2 text-sm font-semibold text-gray-900">{product?.name || productId}</p>
+                              <p className="text-sm font-bold text-indigo-600">{product ? formatPrice(product.price) : 'Saved product'}</p>
+                              <p className="text-xs text-gray-500">Position {index + 1}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                                  ...settings,
+                                  featuredProductIds: moveStorefrontItem(settings.featuredProductIds, index, 'up'),
+                                }))}
+                                disabled={index === 0}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                              >
+                                Up
+                              </button>
+                              <button
+                                onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                                  ...settings,
+                                  featuredProductIds: moveStorefrontItem(settings.featuredProductIds, index, 'down'),
+                                }))}
+                                disabled={index === storefrontSettings.featuredProductIds.length - 1}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                              >
+                                Down
+                              </button>
+                              <button
+                                onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                                  ...settings,
+                                  featuredProductIds: settings.featuredProductIds.filter((id) => id !== productId),
+                                }))}
+                                className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 font-semibold text-gray-900">Hero Images</h3>
+                <label className="mb-4 inline-flex cursor-pointer rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  {storefrontUploading === 'hero-new' ? 'Uploading...' : 'Upload Hero Image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => void handleStorefrontImageUpload(event, 'hero-new', (url) => ({
+                      ...storefrontSettings,
+                      heroImages: [
+                        ...storefrontSettings.heroImages,
+                        { url, title: '', subtitle: '', enabled: true, displayOrder: storefrontSettings.heroImages.length + 1 },
+                      ],
+                    }))}
+                  />
+                </label>
+                <div className="space-y-3">
+                  {storefrontSettings.heroImages.map((image, index) => (
+                    <div key={`${image.url}-${index}`} className="grid gap-3 rounded-lg border border-gray-200 p-3 md:grid-cols-[120px_1fr_auto]">
+                      <img src={image.url} alt={image.title || 'Hero image'} className="h-24 w-full rounded-lg object-cover" />
+                      <div className="grid gap-2">
+                        <input
+                          value={image.title || ''}
+                          onChange={(event) => setStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: settings.heroImages.map((item, i) => i === index ? { ...item, title: event.target.value } : item),
+                          }))}
+                          placeholder="Hero title"
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                        <input
+                          value={image.subtitle || ''}
+                          onChange={(event) => setStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: settings.heroImages.map((item, i) => i === index ? { ...item, subtitle: event.target.value } : item),
+                          }))}
+                          placeholder="Hero subtitle"
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-start gap-2">
+                        <button
+                          onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: settings.heroImages.map((item, i) => i === index ? { ...item, enabled: !item.enabled } : item),
+                          }))}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs"
+                        >
+                          {image.enabled === false ? 'Enable' : 'Disable'}
+                        </button>
+                        <button
+                          onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: moveStorefrontItem(settings.heroImages, index, 'up'),
+                          }))}
+                          disabled={index === 0}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                        >
+                          Up
+                        </button>
+                        <button
+                          onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: moveStorefrontItem(settings.heroImages, index, 'down'),
+                          }))}
+                          disabled={index === storefrontSettings.heroImages.length - 1}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                        >
+                          Down
+                        </button>
+                        <label className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs">
+                          Replace
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => void handleStorefrontImageUpload(event, `hero-${index}`, (url) => ({
+                              ...storefrontSettings,
+                              heroImages: storefrontSettings.heroImages.map((item, i) => i === index ? { ...item, url } : item),
+                            }))}
+                          />
+                        </label>
+                        <button
+                          onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                            ...settings,
+                            heroImages: settings.heroImages.filter((_, i) => i !== index),
+                          }))}
+                          className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 className="mb-3 font-semibold text-gray-900">Checkout Occasion Banner</h3>
+                  <div className="mb-3 overflow-hidden rounded-lg border border-gray-200">
+                    <img
+                      src={storefrontSettings.checkoutOccasionBanner.image || DEFAULT_CHECKOUT_BANNER.image}
+                      alt="Checkout occasion banner"
+                      className="h-36 w-full object-cover"
+                    />
+                    {!storefrontSettings.checkoutOccasionBanner.image && (
+                      <p className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">Using default image</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      value={storefrontSettings.checkoutOccasionBanner.title}
+                      onChange={(event) => setStorefrontSettings((settings) => ({
+                        ...settings,
+                        checkoutOccasionBanner: { ...settings.checkoutOccasionBanner, title: event.target.value },
+                      }))}
+                      placeholder={DEFAULT_CHECKOUT_BANNER.title}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={storefrontSettings.checkoutOccasionBanner.subtitle}
+                      onChange={(event) => setStorefrontSettings((settings) => ({
+                        ...settings,
+                        checkoutOccasionBanner: { ...settings.checkoutOccasionBanner, subtitle: event.target.value },
+                      }))}
+                      placeholder={DEFAULT_CHECKOUT_BANNER.subtitle}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <label className="cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700">
+                        Replace Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) => void handleStorefrontImageUpload(event, 'checkout-banner', (url) => ({
+                            ...storefrontSettings,
+                            checkoutOccasionBanner: { ...storefrontSettings.checkoutOccasionBanner, image: url },
+                          }))}
+                        />
+                      </label>
+                      <button
+                        onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                          ...settings,
+                          checkoutOccasionBanner: { ...settings.checkoutOccasionBanner, image: '' },
+                        }))}
+                        className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
+                      >
+                        Delete Image
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 className="mb-3 font-semibold text-gray-900">Gift Upgrade Images</h3>
+                  <div className="space-y-3">
+                    {([
+                      ['wrapping', 'Premium Gift Wrapping'],
+                      ['messageCard', 'Personalised Message Card'],
+                      ['ferrero', 'Ferrero Rocher Gift Pack'],
+                    ] as const).map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <img
+                            src={storefrontSettings.giftUpgradeImages[key] || DEFAULT_GIFT_UPGRADE_IMAGES[key]}
+                            alt={label}
+                            className="h-14 w-14 rounded-lg object-cover"
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{label}</p>
+                            {!storefrontSettings.giftUpgradeImages[key] && (
+                              <p className="text-xs text-gray-500">Using default image</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) => void handleStorefrontImageUpload(event, `upgrade-${key}`, (url) => ({
+                                ...storefrontSettings,
+                                giftUpgradeImages: {
+                                  ...storefrontSettings.giftUpgradeImages,
+                                  [key]: url,
+                                },
+                              }))}
+                            />
+                          </label>
+                          <button
+                            onClick={() => setAndSaveStorefrontSettings((settings) => ({
+                              ...settings,
+                              giftUpgradeImages: {
+                                ...settings.giftUpgradeImages,
+                                [key]: '',
+                              },
+                            }))}
+                            className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Products View */
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
@@ -1328,7 +1889,7 @@ function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductMo
 
   if (!isOpen) return null;
 
-  const updateField = (field: keyof Product, value: string | number | string[]) => {
+  const updateField = (field: keyof Product, value: string | number | string[] | PriceComparison[]) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -1342,6 +1903,23 @@ function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductMo
       current.includes(value)
         ? current.filter((group) => group !== value)
         : [...current, value]
+    );
+  };
+
+  const addComparison = () => {
+    updateField('comparisons', [...(form.comparisons || []), { siteName: '', price: 0, url: '' }]);
+  };
+
+  const removeComparison = (index: number) => {
+    updateField('comparisons', (form.comparisons || []).filter((_, i) => i !== index));
+  };
+
+  const updateComparison = (index: number, field: keyof PriceComparison, value: string | number) => {
+    updateField(
+      'comparisons',
+      (form.comparisons || []).map((comparison, i) =>
+        i === index ? { ...comparison, [field]: value } : comparison
+      )
     );
   };
 
@@ -1428,6 +2006,51 @@ function EditProductModal({ isOpen, onClose, product, onSuccess }: EditProductMo
                   />
                   {option.label}
                 </label>
+              ))}
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">Price Comparisons</label>
+              <button
+                type="button"
+                onClick={addComparison}
+                className="rounded-md border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Add
+              </button>
+            </div>
+            <div className="space-y-3">
+              {(form.comparisons || []).map((comparison, index) => (
+                <div key={index} className="grid gap-2 rounded-lg border border-gray-200 p-3 sm:grid-cols-[1fr_120px_1fr_auto]">
+                  <input
+                    value={comparison.siteName}
+                    onChange={(event) => updateComparison(index, 'siteName', event.target.value)}
+                    placeholder="Site name"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    value={comparison.price || ''}
+                    onChange={(event) => updateComparison(index, 'price', Number(event.target.value))}
+                    placeholder="Price"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="url"
+                    value={comparison.url}
+                    onChange={(event) => updateComparison(index, 'url', event.target.value)}
+                    placeholder="https://example.com/product"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeComparison(index)}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
             </div>
           </div>

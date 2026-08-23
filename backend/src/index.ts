@@ -2,7 +2,7 @@ import Express from "express";
 import type { NextFunction, Request, Response } from "express";
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { admin, ChatMemory, Coupon, Creator, Order, product, User } from "./db.js";
+import { admin, ChatMemory, Coupon, Creator, Order, product, StorefrontSettings, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
 import multer from "multer";
@@ -1020,6 +1020,177 @@ const upload = multer({
   },
 });
 
+const STOREFRONT_SETTINGS_KEY = "default";
+const GIFT_UPGRADE_KEYS = ["wrapping", "messageCard", "ferrero"] as const;
+
+const sanitizeSettingsText = (value: unknown, maxLength = 80): string => {
+  return String(value || "")
+    .replace(/[<>]/g, "")
+    .trim()
+    .slice(0, maxLength);
+};
+
+const sanitizeUrl = (value: unknown): string => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
+const normalizeHeroImages = (value: unknown) => {
+  const list = Array.isArray(value) ? value : [];
+
+  return list
+    .map((item: any, index: number) => ({
+      url: sanitizeUrl(item?.url),
+      title: sanitizeSettingsText(item?.title, 90),
+      subtitle: sanitizeSettingsText(item?.subtitle, 160),
+      enabled: item?.enabled !== false,
+      displayOrder: Number.isFinite(Number(item?.displayOrder))
+        ? Number(item.displayOrder)
+        : index + 1,
+    }))
+    .filter((item) => item.url)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((item, index) => ({ ...item, displayOrder: index + 1 }));
+};
+
+const normalizeFeaturedProductIds = async (value: unknown): Promise<string[]> => {
+  const ids = Array.isArray(value) ? value.map((id) => String(id)).filter(Boolean).slice(0, 3) : [];
+  if (ids.length === 0) return [];
+
+  const existing = await product
+    .find({ _id: { $in: ids }, isArchived: { $ne: true } })
+    .select("_id")
+    .lean();
+  const existingSet = new Set(existing.map((item: any) => String(item._id)));
+  return ids.filter((id) => existingSet.has(id));
+};
+
+const getStorefrontSettingsDocument = () =>
+  StorefrontSettings.findOneAndUpdate(
+    { singletonKey: STOREFRONT_SETTINGS_KEY },
+    { $setOnInsert: { singletonKey: STOREFRONT_SETTINGS_KEY } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+const buildStorefrontSettingsResponse = async (settings: any, includeDisabled = false) => {
+  const heroImages = normalizeHeroImages(settings?.heroImages || []).filter(
+    (image) => includeDisabled || image.enabled
+  );
+  const configuredIds = Array.isArray(settings?.featuredProductIds)
+    ? settings.featuredProductIds.map((id: unknown) => String(id)).slice(0, 3)
+    : [];
+  const featuredProducts = configuredIds.length
+    ? await product.find({ _id: { $in: configuredIds }, isArchived: { $ne: true } }).lean()
+    : [];
+  const productMap = new Map(featuredProducts.map((item: any) => [String(item._id), item]));
+
+  return {
+    heroImages,
+    featuredProductIds: configuredIds.filter((id: string) => productMap.has(id)),
+    featuredProducts: configuredIds.map((id: string) => productMap.get(id)).filter(Boolean),
+    checkoutOccasionBanner: {
+      image: sanitizeUrl(settings?.checkoutOccasionBanner?.image),
+      title: sanitizeSettingsText(settings?.checkoutOccasionBanner?.title, 80),
+      subtitle: sanitizeSettingsText(settings?.checkoutOccasionBanner?.subtitle, 140),
+    },
+    giftUpgradeImages: {
+      wrapping: sanitizeUrl(settings?.giftUpgradeImages?.wrapping),
+      messageCard: sanitizeUrl(settings?.giftUpgradeImages?.messageCard),
+      ferrero: sanitizeUrl(settings?.giftUpgradeImages?.ferrero),
+    },
+  };
+};
+
+app.get("/api/v1/storefront-settings", async (_req: Request, res: Response) => {
+  try {
+    const settings = await getStorefrontSettingsDocument();
+    const payload = await buildStorefrontSettingsResponse(settings);
+    return res.status(200).json({ success: true, settings: payload });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to load storefront settings" });
+  }
+});
+
+app.get(
+  "/api/v1/admin/storefront-settings",
+  requireAdmin,
+  async (_req: Request, res: Response) => {
+    try {
+      const settings = await getStorefrontSettingsDocument();
+      const payload = await buildStorefrontSettingsResponse(settings, true);
+      return res.status(200).json({ success: true, settings: payload });
+    } catch {
+      return res.status(500).json({ success: false, message: "Failed to load storefront settings" });
+    }
+  }
+);
+
+app.put(
+  "/api/v1/admin/storefront-settings",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const featuredProductIds = await normalizeFeaturedProductIds(req.body?.featuredProductIds);
+      const giftUpgradeImages = GIFT_UPGRADE_KEYS.reduce<Record<string, string>>((acc, key) => {
+        acc[key] = sanitizeUrl(req.body?.giftUpgradeImages?.[key]);
+        return acc;
+      }, {});
+
+      const settings = await StorefrontSettings.findOneAndUpdate(
+        { singletonKey: STOREFRONT_SETTINGS_KEY },
+        {
+          singletonKey: STOREFRONT_SETTINGS_KEY,
+          heroImages: normalizeHeroImages(req.body?.heroImages),
+          featuredProductIds,
+          checkoutOccasionBanner: {
+            image: sanitizeUrl(req.body?.checkoutOccasionBanner?.image),
+            title: sanitizeSettingsText(req.body?.checkoutOccasionBanner?.title, 80),
+            subtitle: sanitizeSettingsText(req.body?.checkoutOccasionBanner?.subtitle, 140),
+          },
+          giftUpgradeImages,
+          updatedAt: new Date(),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      const payload = await buildStorefrontSettingsResponse(settings);
+      return res.status(200).json({ success: true, settings: payload });
+    } catch {
+      return res.status(500).json({ success: false, message: "Failed to save storefront settings" });
+    }
+  }
+);
+
+app.post(
+  "/api/v1/admin/storefront-settings/upload",
+  requireAdmin,
+  upload.single("image"),
+  async (req: Request, res: Response) => {
+    try {
+      const file = (req as any).file;
+      if (!file) {
+        return res.status(400).json({ success: false, message: "Image is required" });
+      }
+
+      const [url] = await uploadProductImages([file]);
+      return res.status(200).json({ success: true, url });
+    } catch {
+      return res.status(500).json({ success: false, message: "Image upload failed" });
+    }
+  }
+);
+
 const PRODUCT_UPDATABLE_FIELDS = [
   "name",
   "price",
@@ -1033,6 +1204,7 @@ const PRODUCT_UPDATABLE_FIELDS = [
   "deliveryOptions",
   "tags",
   "storefrontGroups",
+  "comparisons",
   "images",
 ] as const;
 
@@ -1086,6 +1258,55 @@ const parseStorefrontGroups = (groups: unknown): string[] => {
         .filter((group) => group.length > 0)
     )
   );
+};
+
+const sanitizeText = (value: unknown, maxLength = 80): string => {
+  return String(value || "")
+    .replace(/[<>]/g, "")
+    .trim()
+    .slice(0, maxLength);
+};
+
+const parseComparisons = (comparisons: unknown): Array<{ siteName: string; price: number; url: string }> => {
+  let values: unknown[] = [];
+
+  if (typeof comparisons === "string") {
+    const trimmed = comparisons.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      values = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  } else if (Array.isArray(comparisons)) {
+    values = comparisons;
+  }
+
+  return values
+    .map((entry: any) => {
+      const siteName = sanitizeText(entry?.siteName);
+      const price = Number(entry?.price);
+      const rawUrl = String(entry?.url || "").trim();
+
+      let url = "";
+      try {
+        const parsedUrl = new URL(rawUrl);
+        if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+          url = parsedUrl.toString();
+        }
+      } catch {
+        url = "";
+      }
+
+      if (!siteName || !Number.isFinite(price) || price <= 0 || !url) {
+        return null;
+      }
+
+      return { siteName, price, url };
+    })
+    .filter((entry): entry is { siteName: string; price: number; url: string } => entry !== null);
 };
 
 const toNumberOrUndefined = (value: unknown): number | undefined => {
@@ -1199,6 +1420,7 @@ app.post(
       deliveryOptions,
       tags,
       storefrontGroups,
+      comparisons,
     } = req.body;
 
     if (
@@ -1254,6 +1476,7 @@ app.post(
         stock: Math.max(0, toNumberOrUndefined(stock) || 1),
         tags: parseTags(tags),
         storefrontGroups: parseStorefrontGroups(storefrontGroups),
+        comparisons: parseComparisons(comparisons),
         displayOrder: (Number((lastProduct as any)?.displayOrder) || 0) + 1,
         isArchived: false,
       });
@@ -1388,6 +1611,8 @@ app.put(
           update.tags = parseTags(body[field]);
         } else if (field === "storefrontGroups") {
           update.storefrontGroups = parseStorefrontGroups(body[field]);
+        } else if (field === "comparisons") {
+          update.comparisons = parseComparisons(body[field]);
         } else if (field === "deliveryOptions") {
           if (typeof body[field] === "string") {
             try {

@@ -145,6 +145,19 @@ const productSchema = new mongoose.Schema({
     default: 0,
     index: true,
   },
+  comparisons: [
+    {
+      siteName: {
+        type: String,
+        trim: true,
+      },
+      price: Number,
+      url: {
+        type: String,
+        trim: true,
+      },
+    },
+  ],
   stock: {
     type: Number,
     default: 1,
@@ -174,6 +187,53 @@ const productSchema = new mongoose.Schema({
   },
 });
 export const product = mongoose.model("product", productSchema);
+
+const storefrontSettingsSchema = new mongoose.Schema({
+  singletonKey: {
+    type: String,
+    default: "default",
+    unique: true,
+    index: true,
+  },
+  heroImages: [
+    {
+      url: { type: String, trim: true },
+      title: { type: String, trim: true },
+      subtitle: { type: String, trim: true },
+      enabled: { type: Boolean, default: true },
+      displayOrder: { type: Number, default: 0 },
+    },
+  ],
+  featuredProductIds: [
+    {
+      type: mongoose.Types.ObjectId,
+      ref: "product",
+    },
+  ],
+  checkoutOccasionBanner: {
+    image: { type: String, trim: true, default: "" },
+    title: { type: String, trim: true, default: "" },
+    subtitle: { type: String, trim: true, default: "" },
+  },
+  giftUpgradeImages: {
+    wrapping: { type: String, trim: true, default: "" },
+    messageCard: { type: String, trim: true, default: "" },
+    ferrero: { type: String, trim: true, default: "" },
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+storefrontSettingsSchema.pre("save", function (this: any, next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const StorefrontSettings =
+  (mongoose.models.StorefrontSettings as mongoose.Model<any>) ||
+  mongoose.model("StorefrontSettings", storefrontSettingsSchema);
 
 const couponSchema = new mongoose.Schema({
   code: {

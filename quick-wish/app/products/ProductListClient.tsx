@@ -26,6 +26,7 @@ type ApiProduct = {
   category?: string;
   storefrontGroups?: string[];
   displayOrder?: number;
+  comparisons?: Array<{ siteName: string; price: number; url: string }>;
 };
 
 type ProductsResponse = {
@@ -49,6 +50,7 @@ const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
     category: product.category || "Gifts",
     storefrontGroups: product.storefrontGroups || [],
     displayOrder: Number(product.displayOrder) || 0,
+    comparisons: Array.isArray(product.comparisons) ? product.comparisons : [],
   };
 };
 
@@ -305,7 +307,7 @@ export default function ProductListClient({ products }: ProductListClientProps) 
             <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {[...Array(6)].map((_, index) => (
                 <div key={index} className="lux-card overflow-hidden">
-                  <div className="h-44 bg-[color:var(--border)]/70 animate-pulse" />
+                  <div className="aspect-[4/5] w-full bg-[color:var(--border)]/70 animate-pulse" />
                   <div className="space-y-3 p-3">
                     <div className="h-4 w-3/4 rounded bg-[color:var(--border)]/70 animate-pulse" />
                     <div className="h-5 w-1/2 rounded bg-[color:var(--border)]/70 animate-pulse" />
@@ -343,15 +345,15 @@ export default function ProductListClient({ products }: ProductListClientProps) 
               {rows.map((product) => (
                 <article
                   key={product.id}
-                  className="lux-card overflow-hidden cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg"
+                  className="group lux-card overflow-hidden cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg"
                   onClick={() => router.push(`/products/${product.slug}`)}
                 >
-                  <div className="relative bg-[color:var(--ivory)]">
+                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-[color:var(--ivory)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={product.images[0] || "/placeholder-image.jpg"}
                       alt={product.title}
-                      className="w-full h-44 object-cover"
+                      className="h-full w-full object-cover object-center transition-transform duration-500 md:group-hover:scale-[1.03]"
                       loading="lazy"
                     />
                     <div className="absolute top-2 left-2">
