@@ -2,11 +2,17 @@
 
 // app/account/page.tsx
 // Authenticated customer order history. Order data comes from the backend
+
+
+
 // /orders/me endpoint — the user id is derived from the JWT server-side, so
 // customers can only ever see their own orders.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
+
+
+
 import {
   ArrowLeft,
   CheckCircle2,
