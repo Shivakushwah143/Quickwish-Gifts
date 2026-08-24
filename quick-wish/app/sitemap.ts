@@ -26,18 +26,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
-    {
-      url: `${siteUrl}/creator/login`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.2,
-    },
-    {
-      url: `${siteUrl}/admin/login`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.1,
-    },
     ...seoPages.map((page) => ({
       url: page.canonical,
       lastModified: new Date(),
