@@ -11,6 +11,8 @@ type ApiProduct = {
   description?: string;
   images?: string[];
   category?: string;
+  price?: number;
+  stock?: number;
   storefrontGroups?: string[];
   displayOrder?: number;
   comparisons?: PriceComparison[];
@@ -38,6 +40,8 @@ export type StaticProduct = {
   description: string;
   images: string[];
   category: string;
+  price: number;
+  stock: number;
   storefrontGroups: string[];
   displayOrder: number;
   comparisons: PriceComparison[];
@@ -53,6 +57,14 @@ const getApiBaseUrl = (): string => {
   return apiBaseUrl.replace(/\/$/, "");
 };
 
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
 const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
   const id = product._id || product.id;
   const title = product.title || product.name;
@@ -63,11 +75,13 @@ const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
 
   return {
     id,
-    slug: product.slug || id,
+    slug: slugify(`${title}-${id}`) || product.slug || id,
     title,
     description: product.description || "",
     images: product.images || [],
     category: product.category || "Gifts",
+    price: Number(product.price) || 0,
+    stock: Number(product.stock) || 0,
     storefrontGroups: product.storefrontGroups || [],
     displayOrder: Number(product.displayOrder) || 0,
     comparisons: Array.isArray(product.comparisons) ? product.comparisons : [],
@@ -91,9 +105,24 @@ export const fetchStaticProducts = async (): Promise<StaticProduct[]> => {
 
   const data = (await response.json()) as ProductsResponse;
 
+  const seenSlugs = new Map<string, number>();
+
   return (data.products || [])
     .map(toStaticProduct)
-    .filter((product): product is StaticProduct => product !== null);
+    .filter((product): product is StaticProduct => product !== null)
+    .map((product) => {
+      const seenCount = seenSlugs.get(product.slug) || 0;
+      seenSlugs.set(product.slug, seenCount + 1);
+
+      if (seenCount === 0) {
+        return product;
+      }
+
+      return {
+        ...product,
+        slug: `${product.slug}-${product.id}`,
+      };
+    });
 };
 
 export const fetchStaticProductById = async (

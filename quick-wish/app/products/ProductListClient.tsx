@@ -24,6 +24,8 @@ type ApiProduct = {
   description?: string;
   images?: string[];
   category?: string;
+  price?: number;
+  stock?: number;
   storefrontGroups?: string[];
   displayOrder?: number;
   comparisons?: Array<{ siteName: string; price: number; url: string }>;
@@ -35,6 +37,14 @@ type ProductsResponse = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
 const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
   const id = product._id || product.id;
   const title = product.title || product.name;
@@ -43,11 +53,13 @@ const toStaticProduct = (product: ApiProduct): StaticProduct | null => {
 
   return {
     id,
-    slug: product.slug || id,
+    slug: slugify(`${title}-${id}`) || product.slug || id,
     title,
     description: product.description || "",
     images: product.images || [],
     category: product.category || "Gifts",
+    price: Number(product.price) || 0,
+    stock: Number(product.stock) || 0,
     storefrontGroups: product.storefrontGroups || [],
     displayOrder: Number(product.displayOrder) || 0,
     comparisons: Array.isArray(product.comparisons) ? product.comparisons : [],

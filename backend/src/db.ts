@@ -72,6 +72,63 @@ creatorSchema.pre("save", function (this: any, next) {
 
 export const Creator = mongoose.model("Creator", creatorSchema);
 
+export const PRODUCT_CATEGORIES: string[] = [
+  "Fresh Flowers",
+  "Flower Bouquets",
+  "Crochet Bouquets",
+  "dresses",
+  "Plants",
+  "Chocolate Bouquets",
+  "Dry Fruits",
+  "Cakes",
+  "Personalized Gifts",
+  "Photo Frames",
+  "Customized Mugs",
+  "Birthday",
+  "Anniversary",
+  "Valentine's Day",
+  "besti",
+  "Jewelry",
+  "Watches",
+  "Perfumes",
+  "Teddy Bears",
+  "Home Decor",
+];
+
+const productVariantSchema = new mongoose.Schema(
+  {
+    sku: { type: String, required: true, trim: true, uppercase: true },
+    name: { type: String, trim: true },
+    price: { type: Number, required: true, min: 0 },
+    mrp: { type: Number, min: 0 },
+    stock: { type: Number, default: 0, min: 0 },
+    attributes: [
+      {
+        name: { type: String, trim: true },
+        value: { type: String, trim: true },
+      },
+    ],
+  },
+  { _id: false }
+);
+
+const productImageMetaSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    alt: { type: String, trim: true, default: "" },
+  },
+  { _id: false }
+);
+
+const productSeoSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, default: "" },
+    description: { type: String, trim: true, default: "" },
+    keywords: [{ type: String, trim: true }],
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -99,30 +156,45 @@ const productSchema = new mongoose.Schema({
       required: true,
     },
   ],
+  imageMeta: [productImageMetaSchema],
+  status: {
+    type: String,
+    enum: ["draft", "published"],
+    default: "published",
+    index: true,
+  },
+  publishedAt: {
+    type: Date,
+    default: null,
+  },
+  slug: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
+  sku: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
+  mrp: {
+    type: Number,
+    min: 0,
+  },
+  variants: [productVariantSchema],
+  seo: {
+    type: productSeoSchema,
+    default: () => ({}),
+  },
   category: {
     type: String,
-    enum: [
-      "Fresh Flowers",
-      "Flower Bouquets",
-      "Crochet Bouquets",
-      "dresses",
-      "Plants",
-      "Chocolate Bouquets",
-      "Dry Fruits",
-      "Cakes",
-      "Personalized Gifts",
-      "Photo Frames",
-      "Customized Mugs",
-      "Birthday",
-      "Anniversary",
-      "Valentine's Day",
-      "besti",
-      "Jewelry",
-      "Watches",
-      "Perfumes",
-      "Teddy Bears",
-      "Home Decor",
-    ],
+    enum: PRODUCT_CATEGORIES,
     required: true,
     index: true,
   },

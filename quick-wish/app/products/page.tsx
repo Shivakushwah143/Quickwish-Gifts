@@ -6,9 +6,9 @@ import ProductListClient from "./ProductListClient";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "All Gifts & Hampers in Indore",
+  title: "Gifts & Gift Hampers in Indore | QuickWish",
   description:
-    "Browse QuickWish Gifts by category, occasion, budget, and gift type. Shop flowers, hampers, chocolate bouquets, personalized gifts, and same-day delivery in Indore.",
+    "Shop gifts and gift hampers in Indore with QuickWish. Browse flowers, chocolate bouquets, personalized gifts, and same-day delivery options.",
   alternates: {
     canonical: "/products",
   },

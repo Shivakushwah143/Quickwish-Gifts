@@ -40,6 +40,10 @@ declare global {
         role: "ADMIN";
         username?: string;
       };
+      connector?: {
+        keyId: string;
+        scopes: Array<"products:read" | "products:write">;
+      };
       traceId?: string;
     }
   }

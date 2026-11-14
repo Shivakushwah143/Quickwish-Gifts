@@ -1,0 +1,759 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "QuickWish Product Connector API",
+    "version": "1.0.0",
+    "description": "Scoped API for creating and publishing QuickWish gift-catalogue products from an external assistant (for example a ChatGPT product connector).\n\nKey rules:\n- Every product is created as a **draft**. Publishing is a separate, explicit call.\n- Drafts never appear on the public storefront.\n- Authentication uses a scoped connector API key. Admin JWTs are not accepted.\n- `products:read` allows list/get/categories/tags. `products:write` allows create/update/publish/image operations.\n\nSet the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`."
+  },
+  "servers": [
+    {
+      "url": "https://api.onewish.fun",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    { "connectorBearerKey": [] },
+    { "connectorHeaderKey": [] }
+  ],
+  "tags": [
+    { "name": "Products", "description": "Product draft creation, reading, updating and publishing" },
+    { "name": "Images", "description": "Product image upload, attach, reorder and alt text" },
+    { "name": "Taxonomy", "description": "Allowed categories and existing tags" },
+    { "name": "Documentation", "description": "This OpenAPI document" }
+  ],
+  "paths": {
+    "/api/v1/connector/products": {
+      "get": {
+        "operationId": "listProducts",
+        "tags": ["Products"],
+        "summary": "List products, including drafts",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["draft", "published", "all"], "default": "all" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } },
+          { "name": "sku", "in": "query", "schema": { "type": "string" } },
+          { "name": "q", "in": "query", "description": "Case-insensitive search across name, sku, slug, description and tags", "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["newest", "oldest", "price-asc", "price-desc", "name-asc"], "default": "newest" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "includeArchived", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "products", "pagination"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "products": { "type": "array", "items": { "$ref": "#/components/schemas/Product" } },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "operationId": "createProductDraft",
+        "tags": ["Products"],
+        "summary": "Create a product as a draft",
+        "description": "Creates a draft. The status is always `draft`; sending `status` returns 400 and you must call the publish endpoint afterwards. `slug` is generated from the name when omitted. `sku` must be globally unique.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateProductRequest" },
+              "example": {
+                "name": "Sunrise Rose Bouquet",
+                "category": "Flower Bouquets",
+                "description": "A dozen fresh red roses hand-tied with seasonal greens.",
+                "price": 1299,
+                "mrp": 1599,
+                "sku": "QW-ROSE-001",
+                "stock": 12,
+                "tags": ["roses", "same-day", "anniversary"],
+                "storefrontGroups": ["anniversary", "valentines-day"],
+                "seo": {
+                  "title": "Sunrise Rose Bouquet | QuickWish",
+                  "description": "Order a dozen fresh red roses with same-day delivery in Indore.",
+                  "keywords": ["rose bouquet", "same day roses"]
+                },
+                "variants": [
+                  {
+                    "sku": "QW-ROSE-001-12",
+                    "name": "12 roses",
+                    "price": 1299,
+                    "mrp": 1599,
+                    "stock": 10,
+                    "attributes": [{ "name": "Size", "value": "12 stems" }]
+                  },
+                  {
+                    "sku": "QW-ROSE-001-24",
+                    "name": "24 roses",
+                    "price": 2299,
+                    "mrp": 2699,
+                    "stock": 2,
+                    "attributes": [{ "name": "Size", "value": "24 stems" }]
+                  }
+                ],
+                "images": [
+                  { "url": "https://res.cloudinary.com/quickwish/image/upload/products/rose-bouquet.jpg", "alt": "Dozen red roses wrapped in kraft paper" }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "product"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "product": { "$ref": "#/components/schemas/Product" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}": {
+      "parameters": [
+        {
+          "name": "productId",
+          "in": "path",
+          "required": true,
+          "description": "MongoDB ObjectId or product slug",
+          "schema": { "type": "string" }
+        }
+      ],
+      "get": {
+        "operationId": "getProduct",
+        "tags": ["Products"],
+        "summary": "Get one product by id or slug",
+        "responses": {
+          "200": {
+            "description": "Product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "product"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "product": { "$ref": "#/components/schemas/Product" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "operationId": "updateProduct",
+        "tags": ["Products"],
+        "summary": "Update a product",
+        "description": "Partial update. Publication status cannot be changed here — use the publish endpoint. Supplying `images` replaces the full ordered image list. Supplying `variants` replaces the full variant list.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProductRequest" },
+              "example": {
+                "price": 1199,
+                "mrp": 1499,
+                "stock": 20,
+                "seo": {
+                  "title": "Sunrise Rose Bouquet | QuickWish",
+                  "description": "Fresh red roses delivered same day in Indore.",
+                  "keywords": ["rose bouquet", "gifts for her"]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "product"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "product": { "$ref": "#/components/schemas/Product" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}/publish": {
+      "parameters": [
+        { "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "operationId": "publishProduct",
+        "tags": ["Products"],
+        "summary": "Publish a draft product",
+        "description": "Makes a draft live on the storefront. Validates name, category, price > 0, non-negative integer stock and at least one image. Publishing an already-published product is idempotent.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": false },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Published product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "product"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "product": { "$ref": "#/components/schemas/Product" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Product is not publishable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [{ "$ref": "#/components/schemas/Error" }],
+                  "properties": {
+                    "issues": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}/images": {
+      "parameters": [
+        { "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "operationId": "uploadProductImages",
+        "tags": ["Images"],
+        "summary": "Upload one or more image files",
+        "description": "Uploads through the existing Cloudinary pipeline and appends the images to the product. Max 5 images per product, 5 MB per file, JPEG/PNG/WebP/GIF/HEIC only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["images"],
+                "properties": {
+                  "images": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" }
+                  },
+                  "alts": {
+                    "type": "string",
+                    "description": "Optional JSON array of alt strings, in the same order as the files"
+                  },
+                  "alt": {
+                    "type": "string",
+                    "description": "Alt text when uploading exactly one file"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Updated image list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "images"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "413": { "description": "File too large or too many files" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}/images/attach": {
+      "parameters": [
+        { "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "operationId": "attachProductImage",
+        "tags": ["Images"],
+        "summary": "Attach an already-hosted image URL",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                  "url": { "type": "string", "format": "uri" },
+                  "alt": { "type": "string", "maxLength": 160 }
+                }
+              },
+              "example": {
+                "url": "https://res.cloudinary.com/quickwish/image/upload/products/rose-bouquet-2.jpg",
+                "alt": "Wrapped rose bouquet on a white background"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Updated image list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "images"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}/images/reorder": {
+      "parameters": [
+        { "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "put": {
+        "operationId": "reorderProductImages",
+        "tags": ["Images"],
+        "summary": "Reorder product images",
+        "description": "`urls` must contain every current image exactly once, in the desired order. The first image is the primary listing image.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["urls"],
+                "properties": {
+                  "urls": { "type": "array", "minItems": 1, "items": { "type": "string", "format": "uri" } }
+                }
+              },
+              "example": {
+                "urls": [
+                  "https://res.cloudinary.com/quickwish/image/upload/products/rose-bouquet-2.jpg",
+                  "https://res.cloudinary.com/quickwish/image/upload/products/rose-bouquet.jpg"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reordered image list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "images"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/connector/products/{productId}/images/{imageIndex}": {
+      "parameters": [
+        { "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "imageIndex", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 0 } }
+      ],
+      "patch": {
+        "operationId": "updateImageAltText",
+        "tags": ["Images"],
+        "summary": "Set alt text for one image",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["alt"],
+                "properties": {
+                  "alt": { "type": "string", "maxLength": 160 }
+                }
+              },
+              "example": { "alt": "Dozen red roses wrapped in kraft paper" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated image list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "images"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/connector/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "tags": ["Taxonomy"],
+        "summary": "List allowed product categories",
+        "description": "Returns the fixed category enum from the product schema with product counts.",
+        "responses": {
+          "200": {
+            "description": "Categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "categories"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "categories": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/v1/connector/tags": {
+      "get": {
+        "operationId": "listTags",
+        "tags": ["Taxonomy"],
+        "summary": "List tags already used by products",
+        "responses": {
+          "200": {
+            "description": "Tags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "tags"],
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/v1/connector/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": ["Documentation"],
+        "summary": "Get this OpenAPI document",
+        "security": [],
+        "responses": {
+          "200": { "description": "OpenAPI 3.1 document" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "connectorBearerKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Connector API key",
+        "description": "Scoped connector API key. Never use an admin username/password or admin JWT here."
+      },
+      "connectorHeaderKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Scoped connector API key."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid connector API key",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Key is valid but lacks the required scope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Product or image not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Duplicate sku, slug or already-attached image",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["success", "code", "message"],
+        "properties": {
+          "success": { "type": "boolean", "const": false },
+          "code": { "type": "string", "examples": ["INVALID_CATEGORY", "SKU_CONFLICT", "PUBLISH_VALIDATION_FAILED"] },
+          "message": { "type": "string" }
+        }
+      },
+      "ProductImage": {
+        "type": "object",
+        "required": ["url", "alt", "position"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "alt": { "type": "string" },
+          "position": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ProductVariant": {
+        "type": "object",
+        "required": ["sku", "price", "stock"],
+        "properties": {
+          "sku": { "type": "string", "pattern": "^[A-Z0-9][A-Z0-9._-]{0,63}$" },
+          "name": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 },
+          "mrp": { "type": ["number", "null"] },
+          "stock": { "type": "integer", "minimum": 0 },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "value"],
+              "properties": {
+                "name": { "type": "string" },
+                "value": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Seo": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "maxLength": 70 },
+          "description": { "type": "string", "maxLength": 320 },
+          "keywords": { "type": "array", "maxItems": 20, "items": { "type": "string" } }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "required": ["id", "name", "slug", "category", "price", "stock", "status", "images", "variants", "seo"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "sku": { "type": ["string", "null"] },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "published"] },
+          "archived": { "type": "boolean" },
+          "price": { "type": "number" },
+          "mrp": { "type": ["number", "null"] },
+          "originalPrice": { "type": ["number", "null"] },
+          "discountPercent": { "type": ["number", "null"] },
+          "stock": { "type": "integer" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "storefrontGroups": { "type": "array", "items": { "type": "string" } },
+          "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } },
+          "variants": { "type": "array", "items": { "$ref": "#/components/schemas/ProductVariant" } },
+          "seo": { "$ref": "#/components/schemas/Seo" },
+          "badge": { "type": ["string", "null"] },
+          "deliveryOptions": { "type": ["object", "null"] },
+          "comparisons": { "type": "array", "items": { "type": "object" } },
+          "displayOrder": { "type": "integer" },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "createdAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "CreateProductRequest": {
+        "type": "object",
+        "required": ["name", "category", "price"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "maxLength": 200 },
+          "category": { "type": "string", "description": "One of /api/v1/connector/categories" },
+          "description": { "type": "string", "maxLength": 5000 },
+          "price": { "type": "number", "minimum": 0 },
+          "mrp": { "type": "number", "minimum": 0, "description": "Must be greater than or equal to price" },
+          "originalPrice": { "type": "number", "minimum": 0 },
+          "offPrice": { "type": "number", "minimum": 0 },
+          "discountPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+          "sku": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+          "slug": { "type": "string", "description": "Optional; auto-generated from name and de-duplicated" },
+          "stock": { "type": "integer", "minimum": 0, "default": 1 },
+          "tags": { "type": "array", "maxItems": 30, "items": { "type": "string" } },
+          "storefrontGroups": { "type": "array", "items": { "type": "string" } },
+          "badge": { "type": "string", "maxLength": 60 },
+          "deliveryOptions": { "type": "object" },
+          "comparisons": { "type": "array", "items": { "type": "object" } },
+          "seo": { "$ref": "#/components/schemas/Seo" },
+          "variants": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/ProductVariant" } },
+          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImage" } }
+        }
+      },
+      "UpdateProductRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": { "type": "string", "maxLength": 200 },
+          "category": { "type": "string" },
+          "description": { "type": "string", "maxLength": 5000 },
+          "price": { "type": "number", "minimum": 0 },
+          "mrp": { "type": "number", "minimum": 0 },
+          "originalPrice": { "type": "number", "minimum": 0 },
+          "offPrice": { "type": "number", "minimum": 0 },
+          "discountPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+          "sku": { "type": "string" },
+          "slug": { "type": "string" },
+          "stock": { "type": "integer", "minimum": 0 },
+          "tags": { "type": "array", "maxItems": 30, "items": { "type": "string" } },
+          "storefrontGroups": { "type": "array", "items": { "type": "string" } },
+          "badge": { "type": "string", "maxLength": 60 },
+          "deliveryOptions": { "type": "object" },
+          "comparisons": { "type": "array", "items": { "type": "object" } },
+          "seo": { "$ref": "#/components/schemas/Seo" },
+          "variants": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/ProductVariant" } },
+          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImage" } }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "required": ["name", "productCount", "publishedCount"],
+        "properties": {
+          "name": { "type": "string" },
+          "productCount": { "type": "integer" },
+          "publishedCount": { "type": "integer" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": ["total", "limit", "offset", "hasMore"],
+        "properties": {
+          "total": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "hasMore": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

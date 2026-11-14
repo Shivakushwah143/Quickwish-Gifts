@@ -174,7 +174,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
               <div className="h-72 w-full overflow-hidden rounded-xl mb-4 relative bg-[#fbf4ec] sm:h-80">
                 <img
                   src={selectedProductImage}
-                  alt={product.title}
+                  alt={`${product.title} ${product.category} gift from QuickWish`}
                   className="h-full w-full object-cover"
                 />
 
@@ -213,7 +213,7 @@ export default function ProductDetailPage({ product }: ProductDetailPageProps) {
                     >
                       <img
                         src={image}
-                        alt={`${product.title} ${index + 1}`}
+                        alt={`${product.title} ${product.category} product image ${index + 1}`}
                         className="h-full w-full object-cover"
                       />
                     </button>

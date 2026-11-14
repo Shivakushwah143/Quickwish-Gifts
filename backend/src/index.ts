@@ -5,8 +5,9 @@ import mongoose from "mongoose";
 import { admin, ChatMemory, Coupon, Creator, Order, product, StorefrontSettings, User } from "./db.js";
 import bcrypt from "bcrypt";
 import Jwt from "jsonwebtoken";
-import multer from "multer";
 import { uploadProductImages } from "./config/uploadImages.js";
+import { MAX_IMAGE_COUNT, upload } from "./config/productUpload.js";
+import connectorRouter from "./modules/connector/routes.js";
 import whatsappRouter from "./modules/whatsapp/routes.js";
 import { generateAssistantReply, type AssistantMessage } from "./services/assistant.service.js";
 import { getWhatsAppConfig } from "./modules/whatsapp/config.js";
@@ -36,6 +37,19 @@ import {
   reportPayment,
   verifyPayment,
 } from "./services/payment.service.js";
+import {
+  backfillProductDisplayOrder,
+  escapeRegExp,
+  getNextProductDisplayOrder,
+  normalizeStorefrontGroup,
+  parseComparisons,
+  parseStorefrontGroups,
+  parseTags,
+  PRODUCT_DEFAULT_SORT,
+  reorderProductsByIds,
+  sanitizeUrl,
+  toNumberOrUndefined,
+} from "./services/product.service.js";
 import type { JwtPayload } from "./types/index.js";
 import cors from "cors";
 import dns from "dns";
@@ -108,6 +122,7 @@ app.use(
 );
 
 app.use("/api/v1/whatsapp", whatsappRouter);
+app.use("/api/v1/connector", connectorRouter);
 
 const port = process.env.PORT || 5000;
 
@@ -994,32 +1009,6 @@ app.get(
 // ---------------------------------------------------------------------------
 // Product catalog — admin mutations, public reads
 // ---------------------------------------------------------------------------
-const ALLOWED_IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/heic",
-  "image/heif",
-];
-const MAX_IMAGE_SIZE_MB = 5;
-const MAX_IMAGE_COUNT = 5;
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: MAX_IMAGE_SIZE_MB * 1024 * 1024,
-    files: MAX_IMAGE_COUNT,
-  },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only image files (JPEG, PNG, WebP, GIF, HEIC) are allowed"));
-    }
-  },
-});
-
 const STOREFRONT_SETTINGS_KEY = "default";
 const GIFT_UPGRADE_KEYS = ["wrapping", "messageCard", "ferrero"] as const;
 
@@ -1028,22 +1017,6 @@ const sanitizeSettingsText = (value: unknown, maxLength = 80): string => {
     .replace(/[<>]/g, "")
     .trim()
     .slice(0, maxLength);
-};
-
-const sanitizeUrl = (value: unknown): string => {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-
-  try {
-    const parsed = new URL(raw);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      return parsed.toString();
-    }
-  } catch {
-    return "";
-  }
-
-  return "";
 };
 
 const normalizeHeroImages = (value: unknown) => {
@@ -1069,7 +1042,7 @@ const normalizeFeaturedProductIds = async (value: unknown): Promise<string[]> =>
   if (ids.length === 0) return [];
 
   const existing = await product
-    .find({ _id: { $in: ids }, isArchived: { $ne: true } })
+    .find({ _id: { $in: ids }, isArchived: { $ne: true }, status: { $ne: "draft" } })
     .select("_id")
     .lean();
   const existingSet = new Set(existing.map((item: any) => String(item._id)));
@@ -1090,8 +1063,13 @@ const buildStorefrontSettingsResponse = async (settings: any, includeDisabled = 
   const configuredIds = Array.isArray(settings?.featuredProductIds)
     ? settings.featuredProductIds.map((id: unknown) => String(id)).slice(0, 3)
     : [];
-  const featuredProducts = configuredIds.length
-    ? await product.find({ _id: { $in: configuredIds }, isArchived: { $ne: true } }).lean()
+  const featuredProducts = configuredIds.length      ? await product
+          .find({
+            _id: { $in: configuredIds },
+            isArchived: { $ne: true },
+            status: { $ne: "draft" },
+          })
+          .lean()
     : [];
   const productMap = new Map(featuredProducts.map((item: any) => [String(item._id), item]));
 
@@ -1208,198 +1186,11 @@ const PRODUCT_UPDATABLE_FIELDS = [
   "images",
 ] as const;
 
-const parseTags = (tags: unknown): string[] => {
-  if (typeof tags === "string") {
-    return tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-  }
-
-  if (Array.isArray(tags)) {
-    return tags
-      .map((tag) => String(tag).trim())
-      .filter((tag) => tag.length > 0);
-  }
-
-  return [];
-};
-
-const normalizeStorefrontGroup = (value: unknown): string => {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-};
-
-const parseStorefrontGroups = (groups: unknown): string[] => {
-  let values: unknown[] = [];
-
-  if (typeof groups === "string") {
-    const trimmed = groups.trim();
-    if (!trimmed) return [];
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      values = Array.isArray(parsed) ? parsed : trimmed.split(",");
-    } catch {
-      values = trimmed.split(",");
-    }
-  } else if (Array.isArray(groups)) {
-    values = groups;
-  }
-
-  return Array.from(
-    new Set(
-      values
-        .map(normalizeStorefrontGroup)
-        .filter((group) => group.length > 0)
-    )
-  );
-};
-
-const sanitizeText = (value: unknown, maxLength = 80): string => {
-  return String(value || "")
-    .replace(/[<>]/g, "")
-    .trim()
-    .slice(0, maxLength);
-};
-
-const parseComparisons = (comparisons: unknown): Array<{ siteName: string; price: number; url: string }> => {
-  let values: unknown[] = [];
-
-  if (typeof comparisons === "string") {
-    const trimmed = comparisons.trim();
-    if (!trimmed) return [];
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      values = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  } else if (Array.isArray(comparisons)) {
-    values = comparisons;
-  }
-
-  return values
-    .map((entry: any) => {
-      const siteName = sanitizeText(entry?.siteName);
-      const price = Number(entry?.price);
-      const rawUrl = String(entry?.url || "").trim();
-
-      let url = "";
-      try {
-        const parsedUrl = new URL(rawUrl);
-        if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
-          url = parsedUrl.toString();
-        }
-      } catch {
-        url = "";
-      }
-
-      if (!siteName || !Number.isFinite(price) || price <= 0 || !url) {
-        return null;
-      }
-
-      return { siteName, price, url };
-    })
-    .filter((entry): entry is { siteName: string; price: number; url: string } => entry !== null);
-};
-
-const toNumberOrUndefined = (value: unknown): number | undefined => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-};
-
-const escapeRegExp = (value: string): string => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-};
-
 const SORT_WHITELIST: Record<string, Record<string, 1 | -1>> = {
   "price-asc": { price: 1 },
   "price-desc": { price: -1 },
   newest: { createdAt: -1 },
   "name-asc": { name: 1 },
-};
-
-const PRODUCT_DEFAULT_SORT = { displayOrder: 1, createdAt: 1, _id: 1 } as const;
-
-const backfillProductDisplayOrder = async () => {
-  const missing = await product
-    .find({
-      $or: [
-        { displayOrder: { $exists: false } },
-        { displayOrder: null },
-        { displayOrder: 0 },
-      ],
-    })
-    .sort({ createdAt: 1, _id: 1 })
-    .select("_id")
-    .lean();
-
-  if (missing.length === 0) return;
-
-  const ordered = await product
-    .find({})
-    .sort({ displayOrder: 1, createdAt: 1, _id: 1 })
-    .select("_id displayOrder")
-    .lean();
-  let nextOrder =
-    ordered.reduce((max, item: any) => Math.max(max, Number(item.displayOrder) || 0), 0) + 1;
-
-  await Promise.all(
-    missing.map((item: any) =>
-      product.updateOne(
-        {
-          _id: item._id,
-          $or: [
-            { displayOrder: { $exists: false } },
-            { displayOrder: null },
-            { displayOrder: 0 },
-          ],
-        },
-        { displayOrder: nextOrder++ }
-      )
-    )
-  );
-};
-
-const reorderProductsByIds = async (orderedIds: string[]) => {
-  await backfillProductDisplayOrder();
-
-  const existingProducts = await product.find({}).sort(PRODUCT_DEFAULT_SORT).select("_id").lean();
-  const existingIds = existingProducts.map((item: any) => String(item._id));
-  const existingIdSet = new Set(existingIds);
-
-  if (orderedIds.some((id: string) => !existingIdSet.has(id))) {
-    return { kind: "invalid" as const };
-  }
-
-  const orderedIdSet = new Set(orderedIds);
-  const mergedIds = [
-    ...orderedIds,
-    ...existingIds.filter((id: string) => !orderedIdSet.has(id)),
-  ];
-
-  await product.bulkWrite(
-    mergedIds.map((id, index) => ({
-      updateOne: {
-        filter: { _id: id },
-        update: { $set: { displayOrder: index + 1 } },
-      },
-    }))
-  );
-
-  const products = await product.find({}).sort(PRODUCT_DEFAULT_SORT);
-  return { kind: "ok" as const, products };
 };
 
 app.post(
@@ -1455,13 +1246,6 @@ app.post(
         parsedDeliveryOptions = deliveryOptions;
       }
 
-      await backfillProductDisplayOrder();
-      const lastProduct = await product
-        .findOne({})
-        .sort({ displayOrder: -1, createdAt: -1, _id: -1 })
-        .select("displayOrder")
-        .lean();
-
       const newProduct = new product({
         name,
         price: Number(price),
@@ -1477,7 +1261,7 @@ app.post(
         tags: parseTags(tags),
         storefrontGroups: parseStorefrontGroups(storefrontGroups),
         comparisons: parseComparisons(comparisons),
-        displayOrder: (Number((lastProduct as any)?.displayOrder) || 0) + 1,
+        displayOrder: await getNextProductDisplayOrder(),
         isArchived: false,
       });
 
@@ -1525,6 +1309,12 @@ app.get("/api/v1/product", async (req: Request, res: Response) => {
 
     if (!isAdminView || includeArchived !== "true") {
       filter.isArchived = { $ne: true };
+    }
+
+    // Drafts stay internal to the connector until they are explicitly
+    // published; only an authenticated admin view may see them.
+    if (!isAdminView) {
+      filter.status = { $ne: "draft" };
     }
 
     if (category) {
@@ -1583,6 +1373,7 @@ app.get("/api/v1/product/:productId", async (req: Request, res: Response) => {
     const singleProduct = await product.findOne({
       _id: productId,
       isArchived: { $ne: true },
+      status: { $ne: "draft" },
     });
 
     if (!singleProduct) {
