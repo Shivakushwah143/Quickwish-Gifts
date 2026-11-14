@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://api.onewish.fun",
+      "url": "https://api.quickwish.shop",
       "description": "Production"
     },
     {

@@ -461,6 +461,7 @@ describe("taxonomy and documentation", () => {
     const response = await api().get("/api/v1/connector/openapi.json");
     expect(response.status).toBe(200);
     expect(response.body.openapi).toBe("3.1.0");
+    expect(response.body.servers[0]).toMatchObject({ url: "https://api.quickwish.shop" });
     expect(response.body.paths["/api/v1/connector/products"]).toBeTruthy();
     expect(response.body.paths["/api/v1/connector/products/{productId}/publish"]).toBeTruthy();
   });

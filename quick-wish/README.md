@@ -40,9 +40,17 @@ npm run dev
 ```
 
 ## Environment Variables
-### Frontend (`quick-wish/.env`)
+### Frontend (`quick-wish/.env.local`)
+
+Must include the `/api/v1` prefix. The value is inlined at build time, so it has
+to be set in the Vercel project environment variables and redeployed.
+
 ```
+# Local development
 NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+
+# Production (Vercel) — the Express API is deployed at its own origin
+NEXT_PUBLIC_API_URL=https://api.quickwish.shop/api/v1
 ```
 
 ### Backend (`backend/.env`)

@@ -57,6 +57,11 @@ import dns from "dns";
 const app = Express();
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
+// Production hosts (Render, Railway, Cloud Run, Fly) terminate TLS at a load
+// balancer and forward the original protocol/IP; trusting one proxy hop keeps
+// req.ip and secure cookies correct behind them.
+app.set("trust proxy", 1);
+
 // ---------------------------------------------------------------------------
 // Startup configuration validation — security-critical config fails fast.
 // ---------------------------------------------------------------------------
@@ -108,15 +113,36 @@ app.use(
   })
 );
 
+/**
+ * Browser origins allowed to call this API. The storefront is deployed to
+ * Vercel (www.quickwish.shop) while this API lives on api.quickwish.shop, so
+ * cross-origin access is expected. Extra origins can be added per environment
+ * through CORS_ALLOWED_ORIGINS (comma separated) without a code change.
+ */
+const parseOrigins = (value: string | undefined): string[] =>
+  (value || "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+const allowedOrigins: (string | RegExp)[] = [
+  // Production storefront.
+  "https://www.quickwish.shop",
+  "https://quickwish.shop",
+  // Existing deployments kept for compatibility.
+  "https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app",
+  "https://quickwish-gifts-qvbu.vercel.app",
+  "https://www.onewish.fun",
+  ...parseOrigins(process.env.CORS_ALLOWED_ORIGINS),
+  /\.vercel\.app$/,
+  // Local development.
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
 app.use(
   cors({
-    origin: [
-      "https://quickwish-gifts-git-main-shivakushwah143s-projects.vercel.app",
-      "https://quickwish-gifts-qvbu.vercel.app",
-      "https://www.onewish.fun",
-      /\.vercel\.app$/,
-      "http://localhost:3000",
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -124,7 +150,22 @@ app.use(
 app.use("/api/v1/whatsapp", whatsappRouter);
 app.use("/api/v1/connector", connectorRouter);
 
-const port = process.env.PORT || 5000;
+/**
+ * Liveness probe for the hosting platform (Render/Railway health checks) and
+ * for deployment verification. Exposes no configuration or tenant data.
+ */
+app.get("/api/v1/health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    status: "ok",
+    service: "quickwish-backend",
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    uptimeSeconds: Math.round(process.uptime()),
+  });
+});
+
+// Hosting platforms inject the port to bind to (Render, Railway, Cloud Run).
+const port = Number(process.env.PORT) || 5000;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
