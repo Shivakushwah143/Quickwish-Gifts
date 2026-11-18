@@ -8,8 +8,7 @@ import type { NextFunction, Request, Response } from "express";
  * never be used to reach admin routes, and an admin JWT is never accepted here.
  * Only SHA-256 hashes of keys are stored in configuration.
  *
- * The pure `authenticateConnectorKey` helper is shared with the MCP endpoint so
- * /api/v1/connector and /mcp accept exactly the same credentials.
+ * Connector key authentication is limited to the REST connector routes.
  */
 
 export type ConnectorScope = "products:read" | "products:write";

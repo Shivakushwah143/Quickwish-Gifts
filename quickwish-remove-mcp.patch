@@ -1,0 +1,2551 @@
+diff --git a/backend/.env.example b/backend/.env.example
+index c34ee8d..f5f0eee 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -27,13 +27,6 @@ CONNECTOR_API_KEYS=[{"id":"chatgpt","sha256":"<64 hex chars>","scopes":["product
+ # Local development only (plaintext, grants both scopes):
+ # CONNECTOR_API_KEY=
+ 
+-# --- MCP Auth0 resource server (separate from connector/customer auth) --------
+-# Supply all four from the Auth0 tenant/API. Issuer ends with a slash.
+-# AUTH0_DOMAIN=your-tenant.region.auth0.com
+-# AUTH0_ISSUER=https://your-tenant.region.auth0.com/
+-# AUTH0_AUDIENCE=https://api.quickwish.shop/mcp
+-# AUTH0_JWKS_URI=https://your-tenant.region.auth0.com/.well-known/jwks.json
+-
+ # --- CORS --------------------------------------------------------------------
+ # Extra browser origins allowed to call this API, comma separated. The
+ # production storefront and localhost are always allowed.
+diff --git a/backend/README.md b/backend/README.md
+index 11dc3b0..24d7d65 100644
+--- a/backend/README.md
++++ b/backend/README.md
+@@ -29,9 +29,6 @@ to `dist/`; the Dockerfile and the repository layout both satisfy this.
+ 
+ Health probe: `GET /api/v1/health`.
+ 
+-MCP discovery, OAuth, plugin packaging and backend-only deployment:
+-[Auth0 MCP resource-server guide](docs/auth0-mcp.md).
+-
+ ## Deployment
+ 
+ Any Node host works. The two shortest paths:
+diff --git a/backend/docs/auth0-mcp.md b/backend/docs/auth0-mcp.md
+deleted file mode 100644
+index 50fb942..0000000
+--- a/backend/docs/auth0-mcp.md
++++ /dev/null
+@@ -1,154 +0,0 @@
+-# QuickWish MCP as an Auth0 resource server
+-
+-This migration is prepared locally and has **not been deployed**. Supply the
+-tenant configuration and complete the Auth0 setup below before deployment.
+-The running production backend remains on the previous implementation.
+-
+-## Resource boundary
+-
+-The endpoint stays `https://api.quickwish.shop/mcp`, with the same eleven product
+-tools, descriptions, input schemas, annotations, and per-tool `securitySchemes`.
+-`initialize` and `tools/list` stay anonymous. Every product tool verifies the
+-Auth0 access token before invoking the unchanged connector controller.
+-
+-The existing scope names remain `products:read` and `products:write`; these are
+-distinct permissions. Reads require the former, mutations/publishing the latter.
+-Auth0's `scope` claim is used when present. If `permissions` is also present it
+-further restricts access; it never widens the requested scope. A permissions-only
+-token may grant the corresponding permissions when no scope claim is present.
+-Missing permissions fail closed.
+-
+-`jose` verifies RS256 signatures against the configured HTTPS JWKS, requires
+-issuer, audience and expiration, and checks expiration/not-before on every call.
+-Only public signing keys are cached (10 minutes, 30-second unknown-key cooldown,
+-5-second fetch timeout). Token-provided `jku`/`x5u` URLs never select the key
+-source. Missing/invalid configuration or unavailable/untrusted keys cannot grant
+-product access. No token material or claims are logged or persisted by QuickWish.
+-
+-Both public resource metadata URLs return the fixed MCP resource identifier,
+-the configured Auth0 issuer, and both product scopes:
+-
+-- `/.well-known/oauth-protected-resource`
+-- `/.well-known/oauth-protected-resource/mcp`
+-
+-Authentication failures retain HTTP `WWW-Authenticate` plus the MCP tool result's
+-`_meta["mcp/www_authenticate"]`, always pointing to QuickWish's resource metadata.
+-Invalid credentials use `invalid_token`; missing permissions use
+-`insufficient_scope`. HTTP 200 carries these MCP error results as before.
+-
+-## Environment (all four required)
+-
+-Use the same Auth0 tenant/custom domain consistently:
+-
+-```dotenv
+-AUTH0_DOMAIN=YOUR_TENANT.region.auth0.com
+-AUTH0_ISSUER=https://YOUR_TENANT.region.auth0.com/
+-AUTH0_AUDIENCE=https://api.quickwish.shop/mcp
+-AUTH0_JWKS_URI=https://YOUR_TENANT.region.auth0.com/.well-known/jwks.json
+-```
+-
+-The issuer must match the access token's `iss` exactly, including its trailing
+-slash. The domain must match the issuer hostname. JWKS must be the HTTPS
+-`/.well-known/jwks.json` endpoint on that issuer's origin. The audience is the
+-Auth0 API Identifier, not a client ID or the Management API audience. An audience
+-array is accepted only if it contains this configured identifier.
+-
+-These four values are configuration identifiers, not client secrets. QuickWish
+-does not need an Auth0 client secret, management token, signing private key or
+-administrator password. Do not put any secrets in source/plugin files or logs.
+-Production environment files were not changed by this migration.
+-
+-## Auth0 Dashboard setup still required
+-
+-1. **Applications → APIs → Create API**: name `QuickWish MCP`, Identifier
+-   `https://api.quickwish.shop/mcp`, signing algorithm **RS256**. If reusing a
+-   QuickWish API, its Identifier must instead match `AUTH0_AUDIENCE` exactly and
+-   its resource-indicator mapping must cover the MCP resource.
+-2. On this API's **Permissions** tab create `products:read` and `products:write`.
+-   In **Settings**, enable **RBAC**, **Add Permissions in the Access Token**, and
+-   **Allow Offline Access** for refresh tokens. Choose an appropriate access
+-   token lifetime (for example one hour).
+-3. **User Management → Roles**: create a QuickWish administrator role with these
+-   two API permissions and assign it only to the trusted owner account. Use
+-   Auth0 Universal Login with the intended connection; disable public database
+-   signup for this private workflow. Do not grant this role to ordinary users.
+-4. **Settings → Advanced → Settings**: enable **Dynamic Client Registration**
+-   and **Resource Parameter Compatibility Profile**. MCP clients use
+-   `resource=https://api.quickwish.shop/mcp`; that must select this API rather
+-   than `/userinfo`. Keep third-party client security in strict mode. Legacy
+-   tenants may need Auth0's `dynamic_client_registration_security_mode=strict`
+-   tenant setting via Management API/Support; that affects newly registered
+-   clients, so recreate stale DCR clients after correcting it.
+-5. On the API's **Settings → Default Permissions for third-party applications**,
+-   allow **User-delegated Access** to exactly `products:read` and
+-   `products:write`, and leave **Client Access** unauthorized. The default grant
+-   is for `subject_type=user`, not client credentials. Keep per-application API
+-   access policy/client grants consistent with that restriction. DCR by itself
+-   does not grant API permissions; user RBAC must also authorize the scopes.
+-6. The ChatGPT client uses **Authorization Code + PKCE S256** and may request
+-   `refresh_token`. Its Auth0 application must allow both grants. Configure
+-   refresh-token rotation with expiring credentials in Auth0 for this public
+-   client. For refresh issuance, the authorization request must include
+-   `offline_access`, and the API must allow offline access. DCR application
+-   settings/policy must permit the intended login connection.
+-7. Register/allow only the exact ChatGPT callback shown in its connection setup.
+-   The previously used callback is
+-   `https://chatgpt.com/connector_platform_oauth_redirect`; if ChatGPT shows a
+-   callback-specific URL, use that exact value as well. Do not use wildcards.
+-   Auth0 performs redirect validation; QuickWish no longer has a redirect
+-   allowlist or consent page.
+-8. Confirm the tenant's `/.well-known/oauth-authorization-server` or
+-   `/.well-known/openid-configuration` advertises the correct issuer, authorization,
+-   token, registration and JWKS endpoints and S256 support. Copy the four
+-   environment values above from that tenant/API before scheduling deployment.
+-
+-Auth0 manages consent, authorization codes, refresh rotation and revocation.
+-QuickWish does not add `offline_access` to the existing plugin in this task;
+-request it in the host's OAuth configuration when persistent refresh is needed.
+-The product-scope model and plugin files are unchanged. The existing bundled
+-OAuth DCR configuration relies on resource metadata to discover Auth0.
+-
+-## Retired custom server and migration
+-
+-The four `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`
+-routes and `/.well-known/oauth-authorization-server` now return **HTTP 410**.
+-They neither issue nor proxy credentials. `oauthStore.ts` and the old
+-authorization-server tests/helpers were removed. There is no runtime use of
+-OAuthGrant, OAuthClient, OAuthToken, OAuthRefreshToken, custom consent secrets,
+-opaque token issuance, or temporary OAuth diagnostics.
+-
+-No production data or environment secrets were deleted. Legacy MongoDB
+-collections remain untouched while the old deployment is running. After a
+-deliberate cutover, old opaque tokens will be rejected and users must reconnect
+-through Auth0. Remove obsolete `MCP_OAUTH_*` configuration and archive/drop legacy
+-OAuth collections separately after the new deployment is verified. Preserve
+-`CONNECTOR_API_KEYS`, REST routes, and customer/admin authentication unchanged.
+-
+-## Validation and pending release
+-
+-Only these checks were authorized:
+-
+-```bash
+-cd /opt/quickwish-gifts/backend
+-npm run build
+-npm test -- tests/mcp-auth.test.ts
+-```
+-
+-Focused tests use ephemeral signing keys, real jose JWT/JWKS verification,
+-stubbed HTTPS JWKS responses and controller spies. They use no Auth0 account or
+-production database. The existing MCP behavior suite's fixtures were migrated
+-to Auth0 JWTs, but that suite and full project suites were not run.
+-
+-Do not deploy before the required tenant values are supplied. After approval
+-of that configured cutover, deploy only the backend; the existing production
+-verifier now expects Auth0 environment values, for example via Node's
+-`--env-file=backend/.env.production` option. It was not run against the unchanged
+-production deployment as part of this task.
+-
+-Sources:
+-- [Auth0 access-token validation](https://auth0.com/docs/secure/tokens/access-tokens/validate-access-tokens)
+-- [Auth0 resource-parameter configuration](https://support.auth0.com/center/s/article/mcp-audience-error-with-auth0)
+-- [Auth0 DCR setup](https://auth0.com/ai/docs/mcp/guides/test-your-mcp-server-with-mcp-inspector)
+-- [API access policies and third-party default grants](https://auth0.com/blog/developers-guide-api-access-policies-auth0/)
+-- [Legacy DCR strict mode](https://support.auth0.com/center/s/article/enable-strict-dcr-mode-for-tenant)
+-- [jose JWT/JWKS implementation](https://github.com/panva/jose)
+diff --git a/backend/docs/mcp-oauth.md b/backend/docs/mcp-oauth.md
+deleted file mode 100644
+index 6d8ad59..0000000
+--- a/backend/docs/mcp-oauth.md
++++ /dev/null
+@@ -1,128 +0,0 @@
+-# Retired: custom QuickWish OAuth server
+-
+-This is a historical guide for the removed custom authorization server. Its
+-routes, environment settings and test commands no longer apply to this source.
+-Use the [Auth0 resource-server guide](auth0-mcp.md) for the pending migration.
+-
+-#  https://www.xvideos-india.com/video.kdiuomfba19/hot_skinny_indian_teen_pussy_spermed
+-
+-Production resource: `https://api.quickwish.shop/mcp`. Issuer:
+-`https://api.quickwish.shop`. POST `/mcp` uses stateless Streamable HTTP.
+-
+-## Discovery and execution boundary
+-
+-`initialize`, initialized notifications and `tools/list` are public protocol
+-operations. Descriptors expose all eleven names, input schemas, annotations and
+-top-level `securitySchemes` (mirrored in `_meta` for compatible clients). They do
+-not return catalog records. SDK 1.32.2 lacks a typed top-level registration
+-option; `toolRegistry.ts` uses its public registration, JSON-schema conversion
+-and request-handler APIs to serialize that extension explicitly.
+-
+-Every product tool validates OAuth on invocation, before calling the unchanged
+-connector controller. Read tools (`listProducts`, `getProduct`, `listCategories`,
+-`listTags`) require `products:read`; all seven mutations require `products:write`.
+-Invalid, missing, expired, wrong-resource and insufficient-scope credentials
+-receive an SDK `CallToolResult` with `isError`, no product payload, and
+-`_meta["mcp/www_authenticate"]`. The challenge contains the resource metadata URL,
+-required scope, `error` and `error_description`. HTTP `WWW-Authenticate` is also
+-set. A tool challenge uses HTTP 200 so the client can process the MCP result.
+-Unavailable configuration/storage fails closed and never reaches a controller.
+-
+-The REST `/api/v1/connector/*` middleware still uses `CONNECTOR_API_KEYS` /
+-`CONNECTOR_API_KEY` and existing Bearer/scoped authentication. OAuth changes do
+-not alter customer or frontend authentication.
+-
+-## OAuth endpoints
+-
+-- GET `/.well-known/oauth-protected-resource` and
+-  `/.well-known/oauth-protected-resource/mcp`: RFC 9728 resource metadata.
+-- GET `/.well-known/oauth-authorization-server`: RFC 8414 metadata.
+-- POST `/oauth/register`: RFC 7591 DCR restricted to configured exact HTTPS
+-  redirects; public `none`, confidential `client_secret_post` and
+-  `client_secret_basic` clients are supported.
+-- GET `/oauth/authorize`: code request with mandatory S256 PKCE, exact redirect,
+-  requested scope and `resource=https://api.quickwish.shop/mcp`.
+-- POST `/oauth/authorize`: owner authentication/consent, bound to a Secure,
+-  HttpOnly, SameSite cookie, a hashed transaction and a CSRF token. It requires
+-  the exact issuer Origin. No public signup or reusable admin session exists.
+-- POST `/oauth/token`: code exchange requires matching client, PKCE, exact
+-  redirect and resource. Clients registered for `refresh_token` also receive a
+-  rotating refresh token. Refresh exchanges require the same client/resource
+-  and cannot expand scopes. Code consumption and refresh rotation are atomic.
+-- POST `/oauth/revoke`: client-bound, idempotent access/refresh token revocation.
+-
+-Successful and denied authorization redirects carry `iss` and the original
+-`state`. Codes expire after 120 seconds; consent forms after five minutes.
+-Opaque random 256-bit access tokens expire after one hour. Registered clients
+-may use the `refresh_token` grant; refresh credentials are random 256-bit values
+-with an absolute 30-day expiry, replaced on every successful exchange. Reuse of
+-a consumed refresh credential revokes its family and associated access tokens.
+-No client-credentials or implicit grants are supported. Only hashes
+-of tokens, codes, browser/CSRF credentials and confidential client secrets are
+-persisted in dedicated MongoDB collections, including refresh credentials.
+-Expiry is checked on each request;
+-TTL cleanup timing does not affect validity. Rate limits are shared in MongoDB.
+-
+-## Environment and proxy
+-
+-Retain existing production values; do not rotate or print secrets for deployment.
+-
+-- `MCP_OAUTH_ISSUER=https://api.quickwish.shop`
+-- `MCP_OAUTH_REDIRECT_URIS`: JSON array of exact approved callbacks. Production
+-  uses `["https://chatgpt.com/connector_platform_oauth_redirect"]`. Copy the exact
+-  callback from ChatGPT management if an additional callback is needed; do not
+-  use wildcard redirects.
+-- `MCP_OAUTH_ADMIN_SECRET_SHA256`: SHA-256 hex digest of the separate strong
+-  owner login secret; the owner enters the original secret on QuickWish's
+-  authorization page. Do not reuse REST or customer credentials.
+-- Existing MongoDB/backend environment and connector key configuration remain
+-  unchanged. No OAuth secret belongs in a plugin file or Git.
+-
+-Nginx must proxy `/mcp`, `/oauth/*`, and `/.well-known/oauth-*` to this backend,
+-preserving `Authorization`, `Host`, `X-Forwarded-For`, and
+-`X-Forwarded-Proto: https`. The app trusts one existing proxy hop. URLs are built
+-from the configured HTTPS issuer, never incoming host headers. Log paths/status
+-only for OAuth: do not log request bodies, Authorization/Cookie headers or
+-authorization/token query strings. Do not expose the backend port publicly.
+-
+-## Plugin package
+-
+-Canonical source: `plugins/quickwish-product-manager/`. Version `0.1.4`, same
+-plugin identity. `plugin.json`, `mcp.json` and the two skills are sufficient for
+-Agent Plugins; no legacy compatibility files are needed in this source.
+-
+-The exact per-server auth configuration in canonical `mcp.json` is:
+-
+-```json
+-{
+-  "type": "oauth",
+-  "client": { "mode": "dcr" },
+-  "baseScopes": ["products:read", "products:write"]
+-}
+-```
+-
+-No client ID or secret is supplied in the package. Update the existing private
+-QuickWish Product Manager plugin with `quickwish-product-manager-0.1.4.zip`;
+-do not create a duplicate. Refresh the existing connection/tool scan if the host
+-retains the prior server descriptors. Invoke `listCategories` to start OAuth.
+-
+-## Validate and deploy
+-
+-```bash
+-cd /opt/quickwish-gifts/backend
+-npm run build
+-npm test -- tests/connector.test.ts tests/mcp.test.ts tests/oauth.test.ts
+-cd /opt/quickwish-gifts
+-docker compose build quickwish-backend
+-docker compose up -d --no-deps --force-recreate quickwish-backend
+-node backend/scripts/verify-mcp-production.mjs
+-```
+-
+-The verifier uses actual production HTTPS, public metadata/discovery and
+-unauthorized read/write tool calls only. It never creates products, collects
+-secrets or completes owner authorization. Authenticated execution, PKCE, token
+-expiry, revocation and business behavior are covered against isolated MongoDB
+-by the automated suites.
+-
+-References: [OpenAI authentication](https://developers.openai.com/plugins/build/auth),
+-[MCP authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
+diff --git a/backend/package-lock.json b/backend/package-lock.json
+index 96e4037..8301c68 100644
+--- a/backend/package-lock.json
++++ b/backend/package-lock.json
+@@ -9,7 +9,6 @@
+       "version": "1.0.0",
+       "license": "ISC",
+       "dependencies": {
+-        "@modelcontextprotocol/sdk": "^1.32.2",
+         "@types/bcrypt": "^6.0.0",
+         "@types/express": "^5.0.3",
+         "@types/jsonwebtoken": "^9.0.10",
+@@ -20,11 +19,9 @@
+         "cors": "^2.8.5",
+         "dotenv": "^17.2.1",
+         "express": "^5.1.0",
+-        "jose": "^6.2.17",
+         "jsonwebtoken": "^9.0.2",
+         "mongoose": "^8.17.1",
+-        "multer": "^2.0.2",
+-        "zod": "^3.25.76"
++        "multer": "^2.0.2"
+       },
+       "devDependencies": {
+         "@types/cors": "^2.8.19",
+@@ -495,18 +492,6 @@
+         "node": ">=18"
+       }
+     },
+-    "node_modules/@hono/node-server": {
+-      "version": "2.1.8",
+-      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.8.tgz",
+-      "integrity": "sha512-jdf7FHh6A1lzjpHHQUgxsg2GeER2vMetnAOfeActzcoli6jamlK+NAwL6Dsr5Fl3BS3tYUQzCdtZjU8Qxv7bEA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=20"
+-      },
+-      "peerDependencies": {
+-        "hono": "^4 || ^5.0.0-0"
+-      }
+-    },
+     "node_modules/@jridgewell/resolve-uri": {
+       "version": "3.1.2",
+       "resolved": "https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz",
+@@ -535,46 +520,6 @@
+         "@jridgewell/sourcemap-codec": "^1.4.10"
+       }
+     },
+-    "node_modules/@modelcontextprotocol/sdk": {
+-      "version": "1.32.2",
+-      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.2.tgz",
+-      "integrity": "sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@hono/node-server": "^1.19.9 || ^2.0.5",
+-        "ajv": "^8.17.1",
+-        "ajv-formats": "^3.0.1",
+-        "content-type": "^1.0.5",
+-        "cors": "^2.8.5",
+-        "cross-spawn": "^7.0.5",
+-        "eventsource": "^3.0.2",
+-        "eventsource-parser": "^3.0.0",
+-        "express": "^5.2.1",
+-        "express-rate-limit": "^8.2.1",
+-        "hono": "^4.11.4",
+-        "jose": "^6.1.3",
+-        "json-schema-typed": "^8.0.2",
+-        "pkce-challenge": "^5.0.0",
+-        "raw-body": "^3.0.0",
+-        "zod": "^3.25 || ^4.0",
+-        "zod-to-json-schema": "^3.25.1"
+-      },
+-      "engines": {
+-        "node": ">=18"
+-      },
+-      "peerDependencies": {
+-        "@cfworker/json-schema": "^4.1.1",
+-        "zod": "^3.25 || ^4.0"
+-      },
+-      "peerDependenciesMeta": {
+-        "@cfworker/json-schema": {
+-          "optional": true
+-        },
+-        "zod": {
+-          "optional": false
+-        }
+-      }
+-    },
+     "node_modules/@mongodb-js/saslprep": {
+       "version": "1.3.0",
+       "resolved": "https://registry.npmjs.org/@mongodb-js/saslprep/-/saslprep-1.3.0.tgz",
+@@ -1407,39 +1352,6 @@
+         "node": ">= 14"
+       }
+     },
+-    "node_modules/ajv": {
+-      "version": "8.20.0",
+-      "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+-      "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "fast-deep-equal": "^3.1.3",
+-        "fast-uri": "^3.0.1",
+-        "json-schema-traverse": "^1.0.0",
+-        "require-from-string": "^2.0.2"
+-      },
+-      "funding": {
+-        "type": "github",
+-        "url": "https://github.com/sponsors/epoberezkin"
+-      }
+-    },
+-    "node_modules/ajv-formats": {
+-      "version": "3.0.1",
+-      "resolved": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
+-      "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "ajv": "^8.0.0"
+-      },
+-      "peerDependencies": {
+-        "ajv": "^8.0.0"
+-      },
+-      "peerDependenciesMeta": {
+-        "ajv": {
+-          "optional": true
+-        }
+-      }
+-    },
+     "node_modules/anymatch": {
+       "version": "3.1.3",
+       "resolved": "https://registry.npmjs.org/anymatch/-/anymatch-3.1.3.tgz",
+@@ -1932,15 +1844,6 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
+-    "node_modules/content-type": {
+-      "version": "1.0.5",
+-      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz",
+-      "integrity": "sha512-nTjqfcBFEipKdXCv4YDQWCfmcLZKm81ldF0pAopTvyrFGVbcR6P/VAAd5G7N+0tTr8QqiU0tFadD6FK4NtJwOA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">= 0.6"
+-      }
+-    },
+     "node_modules/cookie": {
+       "version": "0.7.2",
+       "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz",
+@@ -1986,20 +1889,6 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/cross-spawn": {
+-      "version": "7.0.6",
+-      "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
+-      "integrity": "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "path-key": "^3.1.0",
+-        "shebang-command": "^2.0.0",
+-        "which": "^2.0.1"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+     "node_modules/debug": {
+       "version": "4.4.3",
+       "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+@@ -2257,27 +2146,6 @@
+         "bare-events": "^2.7.0"
+       }
+     },
+-    "node_modules/eventsource": {
+-      "version": "3.0.7",
+-      "resolved": "https://registry.npmjs.org/eventsource/-/eventsource-3.0.7.tgz",
+-      "integrity": "sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "eventsource-parser": "^3.0.1"
+-      },
+-      "engines": {
+-        "node": ">=18.0.0"
+-      }
+-    },
+-    "node_modules/eventsource-parser": {
+-      "version": "3.1.1",
+-      "resolved": "https://registry.npmjs.org/eventsource-parser/-/eventsource-parser-3.1.1.tgz",
+-      "integrity": "sha512-EKN1vKAMcZ8MlYMpaNuxN6R9yakzH6uajHcHVTqWJzvu5pWw9DyhbP35HH8MVBQ+dZjAfDxk+A8NiR9KWaXiyQ==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=18.0.0"
+-      }
+-    },
+     "node_modules/expect-type": {
+       "version": "1.4.0",
+       "resolved": "https://registry.npmjs.org/expect-type/-/expect-type-1.4.0.tgz",
+@@ -2331,25 +2199,6 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
+-    "node_modules/express-rate-limit": {
+-      "version": "8.7.4",
+-      "resolved": "https://registry.npmjs.org/express-rate-limit/-/express-rate-limit-8.7.4.tgz",
+-      "integrity": "sha512-LKBXzX700wz3zAGNNmVnjRI5mEbYkLv7UbMI4+9Xa+JPcg2UZh6AgY/2CZh9RrJjFM5ttC/N1lD+KzyFoZITCw==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "debug": "^4.4.3",
+-        "ip-address": "^10.2.0"
+-      },
+-      "engines": {
+-        "node": ">= 16"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/express-rate-limit"
+-      },
+-      "peerDependencies": {
+-        "express": ">= 4.11"
+-      }
+-    },
+     "node_modules/express/node_modules/content-type": {
+       "version": "2.1.0",
+       "resolved": "https://registry.npmjs.org/content-type/-/content-type-2.1.0.tgz",
+@@ -2363,12 +2212,6 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
+-    "node_modules/fast-deep-equal": {
+-      "version": "3.1.3",
+-      "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+-      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==",
+-      "license": "MIT"
+-    },
+     "node_modules/fast-fifo": {
+       "version": "1.3.2",
+       "resolved": "https://registry.npmjs.org/fast-fifo/-/fast-fifo-1.3.2.tgz",
+@@ -2383,22 +2226,6 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/fast-uri": {
+-      "version": "3.1.9",
+-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz",
+-      "integrity": "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==",
+-      "funding": [
+-        {
+-          "type": "github",
+-          "url": "https://github.com/sponsors/fastify"
+-        },
+-        {
+-          "type": "opencollective",
+-          "url": "https://opencollective.com/fastify"
+-        }
+-      ],
+-      "license": "BSD-3-Clause"
+-    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -2744,15 +2571,6 @@
+         "node": ">= 0.4"
+       }
+     },
+-    "node_modules/hono": {
+-      "version": "4.13.18",
+-      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.18.tgz",
+-      "integrity": "sha512-H9q/E1XizaWstJxUW881dmLxEj+t/TrGGnyxINkm4+sK0qUwsMtFdo2BWI9Vs3cIS19MU6b6iCijoUoEf4f3DA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=16.9.0"
+-      }
+-    },
+     "node_modules/http-errors": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz",
+@@ -2821,15 +2639,6 @@
+       "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==",
+       "license": "ISC"
+     },
+-    "node_modules/ip-address": {
+-      "version": "10.7.6",
+-      "resolved": "https://registry.npmjs.org/ip-address/-/ip-address-10.7.6.tgz",
+-      "integrity": "sha512-00LYkM6byILa9eQIx6qoaXCM40xTLd56AZ4vyaPW3YTyb49VZYPo5xsiAq4tuQ54GH4R7gVdYScJ1B7B77PuTg==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">= 12"
+-      }
+-    },
+     "node_modules/ipaddr.js": {
+       "version": "1.9.1",
+       "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
+@@ -2907,21 +2716,6 @@
+       "integrity": "sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==",
+       "license": "MIT"
+     },
+-    "node_modules/isexe": {
+-      "version": "2.0.0",
+-      "resolved": "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz",
+-      "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==",
+-      "license": "ISC"
+-    },
+-    "node_modules/jose": {
+-      "version": "6.2.17",
+-      "resolved": "https://registry.npmjs.org/jose/-/jose-6.2.17.tgz",
+-      "integrity": "sha512-wOuK9V1yujQFH5S0ZWmLcDZN7+IKh9bUCC2ZPCf2HDlol3WWHy+PPyNjEI75FXRLMp3vDKQcupP59xhVU95hcg==",
+-      "license": "MIT",
+-      "funding": {
+-        "url": "https://github.com/sponsors/panva"
+-      }
+-    },
+     "node_modules/js-tokens": {
+       "version": "9.0.1",
+       "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-9.0.1.tgz",
+@@ -2929,18 +2723,6 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/json-schema-traverse": {
+-      "version": "1.0.0",
+-      "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+-      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==",
+-      "license": "MIT"
+-    },
+-    "node_modules/json-schema-typed": {
+-      "version": "8.0.2",
+-      "resolved": "https://registry.npmjs.org/json-schema-typed/-/json-schema-typed-8.0.2.tgz",
+-      "integrity": "sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==",
+-      "license": "BSD-2-Clause"
+-    },
+     "node_modules/jsonwebtoken": {
+       "version": "9.0.2",
+       "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.2.tgz",
+@@ -3608,15 +3390,6 @@
+         "node": ">=0.10.0"
+       }
+     },
+-    "node_modules/path-key": {
+-      "version": "3.1.1",
+-      "resolved": "https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz",
+-      "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+     "node_modules/path-parse": {
+       "version": "1.0.7",
+       "resolved": "https://registry.npmjs.org/path-parse/-/path-parse-1.0.7.tgz",
+@@ -3677,15 +3450,6 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
+-    "node_modules/pkce-challenge": {
+-      "version": "5.0.1",
+-      "resolved": "https://registry.npmjs.org/pkce-challenge/-/pkce-challenge-5.0.1.tgz",
+-      "integrity": "sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=16.20.0"
+-      }
+-    },
+     "node_modules/pkg-dir": {
+       "version": "4.2.0",
+       "resolved": "https://registry.npmjs.org/pkg-dir/-/pkg-dir-4.2.0.tgz",
+@@ -3845,15 +3609,6 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
+-    "node_modules/require-from-string": {
+-      "version": "2.0.2",
+-      "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+-      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=0.10.0"
+-      }
+-    },
+     "node_modules/resolve": {
+       "version": "1.22.10",
+       "resolved": "https://registry.npmjs.org/resolve/-/resolve-1.22.10.tgz",
+@@ -4042,27 +3797,6 @@
+       "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==",
+       "license": "ISC"
+     },
+-    "node_modules/shebang-command": {
+-      "version": "2.0.0",
+-      "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
+-      "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "shebang-regex": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/shebang-regex": {
+-      "version": "3.0.0",
+-      "resolved": "https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz",
+-      "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+     "node_modules/side-channel": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.1.1.tgz",
+@@ -4873,21 +4607,6 @@
+         "node": ">=18"
+       }
+     },
+-    "node_modules/which": {
+-      "version": "2.0.2",
+-      "resolved": "https://registry.npmjs.org/which/-/which-2.0.2.tgz",
+-      "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
+-      "license": "ISC",
+-      "dependencies": {
+-        "isexe": "^2.0.0"
+-      },
+-      "bin": {
+-        "node-which": "bin/node-which"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+     "node_modules/why-is-node-running": {
+       "version": "2.3.0",
+       "resolved": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-2.3.0.tgz",
+@@ -4942,24 +4661,6 @@
+       "engines": {
+         "node": ">=6"
+       }
+-    },
+-    "node_modules/zod": {
+-      "version": "3.25.76",
+-      "resolved": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz",
+-      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
+-      "license": "MIT",
+-      "funding": {
+-        "url": "https://github.com/sponsors/colinhacks"
+-      }
+-    },
+-    "node_modules/zod-to-json-schema": {
+-      "version": "3.25.2",
+-      "resolved": "https://registry.npmjs.org/zod-to-json-schema/-/zod-to-json-schema-3.25.2.tgz",
+-      "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==",
+-      "license": "ISC",
+-      "peerDependencies": {
+-        "zod": "^3.25.28 || ^4"
+-      }
+     }
+   }
+ }
+diff --git a/backend/package.json b/backend/package.json
+index 6804916..47ee052 100644
+--- a/backend/package.json
++++ b/backend/package.json
+@@ -19,7 +19,6 @@
+     "node": ">=20"
+   },
+   "dependencies": {
+-    "@modelcontextprotocol/sdk": "^1.32.2",
+     "@types/bcrypt": "^6.0.0",
+     "@types/express": "^5.0.3",
+     "@types/jsonwebtoken": "^9.0.10",
+@@ -30,11 +29,9 @@
+     "cors": "^2.8.5",
+     "dotenv": "^17.2.1",
+     "express": "^5.1.0",
+-    "jose": "^6.2.17",
+     "jsonwebtoken": "^9.0.2",
+     "mongoose": "^8.17.1",
+-    "multer": "^2.0.2",
+-    "zod": "^3.25.76"
++    "multer": "^2.0.2"
+   },
+   "devDependencies": {
+     "@types/cors": "^2.8.19",
+diff --git a/backend/scripts/verify-mcp-production.mjs b/backend/scripts/verify-mcp-production.mjs
+deleted file mode 100644
+index a9ffff0..0000000
+--- a/backend/scripts/verify-mcp-production.mjs
++++ /dev/null
+@@ -1,91 +0,0 @@
+-import assert from "node:assert/strict";
+-import { getAuth0Config } from "../dist/modules/mcp/auth0.js";
+-
+-const base = "https://api.quickwish.shop";
+-const resource = `${base}/mcp`;
+-const reads = ["listProducts", "getProduct", "listCategories", "listTags"];
+-const writes = ["createProductDraft", "updateProduct", "publishProduct", "uploadProductImages",
+-  "attachProductImage", "reorderProductImages", "updateImageAltText"];
+-let id = 0;
+-const get = async path => {
+-  const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(15000) });
+-  return { response, body: await response.json() };
+-};
+-const rpc = async (method, params, token) => {
+-  const response = await fetch(resource, { method: "POST", signal: AbortSignal.timeout(15000), headers: {
+-    "Content-Type": "application/json", Accept: "application/json, text/event-stream",
+-    "MCP-Protocol-Version": "2025-06-18", ...(token ? { Authorization: `Bearer ${token}` } : {}),
+-  }, body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }) });
+-  assert.equal(response.status, 200, `MCP ${method} must return HTTP 200`);
+-  return { response, body: await response.json() };
+-};
+-
+-try {
+-  const { issuer } = getAuth0Config();
+-  const health = await get("/api/v1/health");
+-  assert.equal(health.response.status, 200);
+-  assert.equal(health.body.db, "connected");
+-  console.log("PASS health: HTTP 200, database connected");
+-  for (const path of ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"]) {
+-    const { response, body } = await get(path);
+-    assert.equal(response.status, 200); assert.equal(body.resource, resource);
+-    assert.deepEqual(body.authorization_servers, [issuer]);
+-    assert.deepEqual(body.scopes_supported, ["products:read", "products:write"]);
+-  }
+-  const metadata = await fetch(new URL(".well-known/oauth-authorization-server", issuer), { signal: AbortSignal.timeout(15000) });
+-  assert.equal(metadata.status, 200);
+-  const as = await metadata.json();
+-  assert.equal(as.issuer, issuer);
+-  for (const field of ["authorization_endpoint", "token_endpoint", "registration_endpoint", "jwks_uri"]) {
+-    const endpoint = new URL(as[field]);
+-    assert.equal(endpoint.protocol, "https:");
+-    assert.equal(endpoint.origin, new URL(issuer).origin);
+-  }
+-  assert(as.response_types_supported.includes("code"));
+-  assert(as.grant_types_supported.includes("authorization_code"));
+-  assert(as.grant_types_supported.includes("refresh_token"));
+-  assert(as.code_challenge_methods_supported.includes("S256"));
+-  assert.equal((await get("/.well-known/oauth-authorization-server")).response.status, 410);
+-  console.log("PASS QuickWish protected-resource metadata, Auth0 discovery and retired local issuer");
+-  const initialization = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {},
+-    clientInfo: { name: "quickwish-production-verifier", version: "0.1.4" } });
+-  assert.equal(initialization.body.result.serverInfo.name, "quickwish-connector");
+-  const listed = await rpc("tools/list", {});
+-  const tools = listed.body.result.tools;
+-  assert.deepEqual(tools.map(t => t.name).sort(), [...reads, ...writes].sort());
+-  for (const tool of tools) {
+-    const scope = reads.includes(tool.name) ? "products:read" : "products:write";
+-    assert.deepEqual(tool.securitySchemes, [{ type: "oauth2", scopes: [scope] }]);
+-    assert.deepEqual(tool._meta.securitySchemes, tool.securitySchemes);
+-    assert.equal(tool.inputSchema.type, "object"); assert(tool.description); assert(tool.annotations);
+-    assert(!JSON.stringify(tool).includes("api_key"));
+-  }
+-  console.log("PASS anonymous initialize and tools/list: all 11 descriptors expose explicit OAuth securitySchemes");
+-  for (const token of [undefined, "deliberately-invalid-token"]) {
+-    for (const [name, args, scope] of [
+-      ["listCategories", {}, "products:read"],
+-      ["createProductDraft", { name: "Unauthorized request", category: "Flower Bouquets", price: 100 }, "products:write"],
+-    ]) {
+-      const { response, body } = await rpc("tools/call", { name, arguments: args }, token);
+-      const result = body.result;
+-      assert.equal(result.isError, true); assert.equal(result.structuredContent, undefined);
+-      const challenges = result._meta["mcp/www_authenticate"];
+-      assert.equal(challenges.length, 1);
+-      assert(challenges[0].includes(`resource_metadata="${base}/.well-known/oauth-protected-resource/mcp"`));
+-      assert(challenges[0].includes(`scope="${scope}"`));
+-      assert(challenges[0].includes('error="invalid_token"'));
+-      assert(challenges[0].includes("error_description="));
+-      assert.equal(response.headers.get("www-authenticate"), challenges[0]);
+-      assert.deepEqual(Object.keys(result).sort(), ["_meta", "content", "isError"]);
+-    }
+-  }
+-  console.log("PASS missing/invalid credentials: read and write operations return MCP OAuth challenges without product payloads");
+-  const rest = await get("/api/v1/connector/categories");
+-  assert.equal(rest.response.status, 401, "REST connector must retain configured, fail-closed authentication");
+-  assert.equal(rest.body.code, "CONNECTOR_UNAUTHENTICATED");
+-  console.log("PASS REST connector retains scoped credential authentication (unauthenticated HTTP 401)");
+-} catch (error) {
+-  // Assertions print only the check name/message; never dump response bodies.
+-  console.error("FAIL production verification:", error.message);
+-  process.exitCode = 1;
+-}
+diff --git a/backend/src/index.ts b/backend/src/index.ts
+index 017f573..19afbe0 100644
+--- a/backend/src/index.ts
++++ b/backend/src/index.ts
+@@ -8,8 +8,6 @@ import Jwt from "jsonwebtoken";
+ import { uploadProductImages } from "./config/uploadImages.js";
+ import { MAX_IMAGE_COUNT, upload } from "./config/productUpload.js";
+ import connectorRouter from "./modules/connector/routes.js";
+-import mcpRouter from "./modules/mcp/routes.js";
+-import mcpOAuthRouter from "./modules/mcp/oauth.js";
+ import whatsappRouter from "./modules/whatsapp/routes.js";
+ import { generateAssistantReply, type AssistantMessage } from "./services/assistant.service.js";
+ import { getWhatsAppConfig } from "./modules/whatsapp/config.js";
+@@ -106,9 +104,6 @@ try {
+   );
+ }
+ 
+-// Public resource metadata and explicit retirement of the custom OAuth server.
+-app.use(mcpOAuthRouter);
+-
+ app.use(
+   Express.json({
+     limit: "1mb",
+@@ -154,9 +149,6 @@ app.use(
+ 
+ app.use("/api/v1/whatsapp", whatsappRouter);
+ app.use("/api/v1/connector", connectorRouter);
+-// OAuth is isolated from connector API keys and customer/admin authentication.
+-// Public protocol discovery; each product tool validates OAuth before execution.
+-app.use("/mcp", mcpRouter);
+ 
+ /**
+  * Liveness probe for the hosting platform (Render/Railway health checks) and
+diff --git a/backend/src/middleware/connectorAuth.ts b/backend/src/middleware/connectorAuth.ts
+index 098d291..e0a10c5 100644
+--- a/backend/src/middleware/connectorAuth.ts
++++ b/backend/src/middleware/connectorAuth.ts
+@@ -8,8 +8,7 @@ import type { NextFunction, Request, Response } from "express";
+  * never be used to reach admin routes, and an admin JWT is never accepted here.
+  * Only SHA-256 hashes of keys are stored in configuration.
+  *
+- * The pure `authenticateConnectorKey` helper is shared with the MCP endpoint so
+- * /api/v1/connector and /mcp accept exactly the same credentials.
++ * Connector key authentication is limited to the REST connector routes.
+  */
+ 
+ export type ConnectorScope = "products:read" | "products:write";
+diff --git a/backend/src/modules/mcp/auth.ts b/backend/src/modules/mcp/auth.ts
+deleted file mode 100644
+index 9ab800a..0000000
+--- a/backend/src/modules/mcp/auth.ts
++++ /dev/null
+@@ -1,31 +0,0 @@
+-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+-import type { ConnectorScope } from "../../middleware/connectorAuth.js";
+-import { MCP_RESOURCE_METADATA, validateAuth0Token } from "./auth0.js";
+-
+-/** Discovery is public; authorization is evaluated inside every tool invocation. */
+-export type McpAuthContext = {
+-  token: string | null;
+-  onChallenge?: (challenge: string) => void;
+-};
+-
+-export const authorizeMcpTool = async (
+-  context: McpAuthContext,
+-  scope: ConnectorScope
+-): Promise<CallToolResult | null> => {
+-  try {
+-    const auth = await validateAuth0Token(context.token || "");
+-    if (auth?.scopes.includes(scope)) return null;
+-    const error = auth ? "insufficient_scope" : "invalid_token";
+-    const message = auth ? `The ${scope} scope is required` : "OAuth authorization is required";
+-    const challenge = `Bearer resource_metadata="${MCP_RESOURCE_METADATA}", scope="${scope}", error="${error}", error_description="${message}"`;
+-    context.onChallenge?.(challenge);
+-    return {
+-      isError: true,
+-      content: [{ type: "text", text: message }],
+-      _meta: { "mcp/www_authenticate": [challenge] },
+-    };
+-  } catch {
+-    // No product operation is attempted when configuration/storage is unavailable.
+-    return { isError: true, content: [{ type: "text", text: "MCP OAuth is unavailable" }] };
+-  }
+-};
+diff --git a/backend/src/modules/mcp/auth0.ts b/backend/src/modules/mcp/auth0.ts
+deleted file mode 100644
+index 3da386b..0000000
+--- a/backend/src/modules/mcp/auth0.ts
++++ /dev/null
+@@ -1,61 +0,0 @@
+-import { createRemoteJWKSet, jwtVerify } from "jose";
+-import type { ConnectorScope } from "../../middleware/connectorAuth.js";
+-
+-// Public resource identifiers, never authorization-server endpoints.
+-export const MCP_RESOURCE = "https://api.quickwish.shop/mcp";
+-export const MCP_RESOURCE_METADATA = "https://api.quickwish.shop/.well-known/oauth-protected-resource/mcp";
+-export const MCP_SCOPES: ConnectorScope[] = ["products:read", "products:write"];
+-
+-function configurationError(): never { throw new Error("Auth0 MCP authentication is not configured correctly"); }
+-
+-export const getAuth0Config = () => {
+-  const domain = process.env.AUTH0_DOMAIN?.trim();
+-  const issuer = process.env.AUTH0_ISSUER?.trim();
+-  const audience = process.env.AUTH0_AUDIENCE?.trim();
+-  const jwksUri = process.env.AUTH0_JWKS_URI?.trim();
+-  if (!domain || !issuer || !audience || !jwksUri) return configurationError();
+-  try {
+-    const issuerUrl = new URL(issuer);
+-    const jwksUrl = new URL(jwksUri);
+-    if (issuerUrl.protocol !== "https:" || issuer !== `${issuerUrl.origin}/` ||
+-        issuerUrl.hostname !== domain || issuerUrl.port || issuerUrl.username || issuerUrl.password ||
+-        jwksUrl.origin !== issuerUrl.origin || jwksUrl.pathname !== "/.well-known/jwks.json" ||
+-        jwksUrl.username || jwksUrl.password || jwksUrl.search || jwksUrl.hash) return configurationError();
+-    return { issuer, audience, jwksUri: jwksUrl.href };
+-  } catch { return configurationError(); }
+-};
+-
+-let cached: { config: string; keys: ReturnType<typeof createRemoteJWKSet> } | undefined;
+-
+-/** Auth0 alone issues tokens. QuickWish validates every invocation locally. */
+-export const validateAuth0Token = async (token: string): Promise<{ scopes: ConnectorScope[] } | null> => {
+-  if (!token) return null;
+-  // Configuration failures never fall back to connector/customer credentials.
+-  const config = getAuth0Config();
+-  if (token.length > 16_384) return null;
+-  const identity = JSON.stringify(config);
+-  if (cached?.config !== identity) {
+-    cached = { config: identity, keys: createRemoteJWKSet(new URL(config.jwksUri), {
+-      timeoutDuration: 5000, cooldownDuration: 30_000, cacheMaxAge: 600_000,
+-    }) };
+-  }
+-  try {
+-    // Only configured JWKS are trusted; JWT jku/x5u headers cannot choose keys.
+-    const { payload } = await jwtVerify(token, cached.keys, {
+-      issuer: config.issuer, audience: config.audience, algorithms: ["RS256"],
+-      requiredClaims: ["iss", "aud", "exp"], clockTolerance: 0,
+-    });
+-    if (payload.scope !== undefined && typeof payload.scope !== "string") return null;
+-    if (payload.permissions !== undefined && (!Array.isArray(payload.permissions) ||
+-        !payload.permissions.every(p => typeof p === "string"))) return null;
+-    const requested = typeof payload.scope === "string" ? payload.scope.split(/\s+/) : undefined;
+-    const permissions = payload.permissions as string[] | undefined;
+-    // Permissions must never widen an explicitly narrower scope claim.
+-    const grants = MCP_SCOPES.filter(scope => requested ? requested.includes(scope) &&
+-      (!permissions || permissions.includes(scope)) : !!permissions?.includes(scope));
+-    return { scopes: grants };
+-  } catch {
+-    // No token material, claims, signatures, hashes or library errors in logs.
+-    return null;
+-  }
+-};
+diff --git a/backend/src/modules/mcp/oauth.ts b/backend/src/modules/mcp/oauth.ts
+deleted file mode 100644
+index e0505fa..0000000
+--- a/backend/src/modules/mcp/oauth.ts
++++ /dev/null
+@@ -1,23 +0,0 @@
+-import { Router } from "express";
+-import { getAuth0Config, MCP_RESOURCE, MCP_SCOPES } from "./auth0.js";
+-
+-// QuickWish is only a resource server. Auth0 owns login and token issuance.
+-const router = Router();
+-router.get(["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"], (_req, res) => {
+-  res.setHeader("Cache-Control", "no-store");
+-  try {
+-    const { issuer } = getAuth0Config();
+-    res.json({ resource: MCP_RESOURCE, authorization_servers: [issuer], scopes_supported: MCP_SCOPES,
+-      bearer_methods_supported: ["header"], resource_name: "QuickWish Product Manager" });
+-  } catch {
+-    res.status(503).json({ error: "temporarily_unavailable" });
+-  }
+-});
+-
+-// Do not redirect credential-bearing requests or advertise a local issuer.
+-router.all(["/oauth/register", "/oauth/authorize", "/oauth/token", "/oauth/revoke",
+-  "/.well-known/oauth-authorization-server"], (_req, res) => {
+-  res.setHeader("Cache-Control", "no-store");
+-  res.status(410).json({ error: "authorization_server_retired" });
+-});
+-export default router;
+diff --git a/backend/src/modules/mcp/routes.ts b/backend/src/modules/mcp/routes.ts
+deleted file mode 100644
+index 3956e06..0000000
+--- a/backend/src/modules/mcp/routes.ts
++++ /dev/null
+@@ -1,67 +0,0 @@
+-import { Router } from "express";
+-import type { Request, Response } from "express";
+-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+-import { type McpAuthContext } from "./auth.js";
+-import { createMcpServer } from "./server.js";
+-
+-/**
+- * Streamable HTTP MCP endpoint.
+- *
+- * Stateless: each POST gets its own McpServer + transport, which keeps the
+- * endpoint safe behind the existing Nginx/Docker setup and across replicas.
+- * Responses are plain JSON (no server-initiated SSE stream), so GET/DELETE are
+- * answered with 405 as the transport specification allows.
+- */
+-const router = Router();
+-
+-const methodNotAllowed = (res: Response): void => {
+-  res.setHeader("Allow", "POST");
+-  res.status(405).json({
+-    jsonrpc: "2.0",
+-    id: null,
+-    error: {
+-      code: -32000,
+-      message:
+-        "Method not allowed. This MCP server is stateless and only accepts POST /mcp.",
+-    },
+-  });
+-};
+-
+-router.post("/", async (req: Request, res: Response) => {
+-  const header = req.headers.authorization;
+-  const auth: McpAuthContext = {
+-    token: typeof header === "string" ? /^Bearer ([^\s]+)$/i.exec(header)?.[1] || null : null,
+-    onChallenge: value => { if (!res.headersSent) res.setHeader("WWW-Authenticate", value); },
+-  };
+-  const server = createMcpServer(auth);
+-  // No sessionIdGenerator => stateless mode (no Mcp-Session-Id required).
+-  const transport = new StreamableHTTPServerTransport({
+-    enableJsonResponse: true,
+-  });
+-
+-  res.on("close", () => {
+-    void transport.close();
+-    void server.close();
+-  });
+-
+-  try {
+-    await server.connect(transport);
+-    await transport.handleRequest(req, res, req.body);
+-  } catch {
+-    // Transport errors may contain request material. Never log credentials.
+-    console.error("[mcp] request failed");
+-
+-    if (!res.headersSent) {
+-      res.status(500).json({
+-        jsonrpc: "2.0",
+-        id: null,
+-        error: { code: -32603, message: "Internal MCP error" },
+-      });
+-    }
+-  }
+-});
+-
+-router.get("/", (_req: Request, res: Response) => methodNotAllowed(res));
+-router.delete("/", (_req: Request, res: Response) => methodNotAllowed(res));
+-
+-export default router;
+diff --git a/backend/src/modules/mcp/server.ts b/backend/src/modules/mcp/server.ts
+deleted file mode 100644
+index 157db99..0000000
+--- a/backend/src/modules/mcp/server.ts
++++ /dev/null
+@@ -1,25 +0,0 @@
+-import { OAuthMcpServer } from "./toolRegistry.js";
+-import type { McpAuthContext } from "./auth.js";
+-import { registerConnectorTools } from "./tools.js";
+-
+-/**
+- * Builds an MCP server instance for one request (including anonymous protocol discovery).
+- *
+- * The endpoint runs stateless (no session affinity), so a fresh instance per
+- * request also guarantees that no caller authentication state can leak across requests.
+- * All descriptors are public; each tool checks its scope before product access.
+- */
+-export const createMcpServer = (auth: McpAuthContext): OAuthMcpServer => {
+-  const server = new OAuthMcpServer(
+-    { name: "quickwish-connector", version: "1.0.0" },
+-    {
+-      instructions:
+-        "QuickWish product catalog tools. createProductDraft always creates a draft; use publishProduct explicitly when a draft is ready to go live. Drafts are never visible on the storefront.",
+-    }
+-  );
+-
+-  registerConnectorTools(server, auth);
+-
+-  server.enableOAuthDiscovery();
+-  return server;
+-};
+diff --git a/backend/src/modules/mcp/toolRegistry.ts b/backend/src/modules/mcp/toolRegistry.ts
+deleted file mode 100644
+index 4d5030d..0000000
+--- a/backend/src/modules/mcp/toolRegistry.ts
++++ /dev/null
+@@ -1,60 +0,0 @@
+-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+-import type { RegisteredTool, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+-import type { AnySchema, ZodRawShapeCompat } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+-import { normalizeObjectSchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+-import { toJsonSchemaCompat } from "@modelcontextprotocol/sdk/server/zod-json-schema-compat.js";
+-import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+-import type { Tool, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+-import type { ConnectorScope } from "../../middleware/connectorAuth.js";
+-
+-type SecurityScheme = { type: "oauth2"; scopes: ConnectorScope[] };
+-
+-/**
+- * SDK 1.32.2 registerTool has no top-level securitySchemes option and omits
+- * unknown fields when serializing descriptors. Use its public registration,
+- * schema-conversion and request-handler APIs to expose the OpenAI extension.
+- * Tool execution and input validation remain in the SDK's original handler.
+- */
+-export class OAuthMcpServer extends McpServer {
+-  private readonly catalog = new Map<string, { tool: RegisteredTool; schemes: SecurityScheme[] }>();
+-
+-  override registerTool<Output extends ZodRawShapeCompat | AnySchema,
+-    Input extends undefined | ZodRawShapeCompat | AnySchema = undefined>(
+-    name: string,
+-    config: {
+-      title?: string;
+-      description?: string;
+-      inputSchema?: Input;
+-      outputSchema?: Output;
+-      annotations?: ToolAnnotations;
+-      _meta?: Record<string, unknown>;
+-      securitySchemes?: SecurityScheme[];
+-    },
+-    callback: ToolCallback<Input>
+-  ): RegisteredTool {
+-    const schemes = config.securitySchemes;
+-    if (!schemes?.length) throw new Error("Every QuickWish tool must declare OAuth scopes");
+-    const tool = super.registerTool(name, {
+-      ...config, _meta: { ...config._meta, securitySchemes: schemes },
+-    }, callback);
+-    this.catalog.set(name, { tool, schemes });
+-    return tool;
+-  }
+-
+-  enableOAuthDiscovery(): void {
+-    this.server.setRequestHandler(ListToolsRequestSchema, () => ({
+-      tools: [...this.catalog].filter(([, entry]) => entry.tool.enabled).map(([name, { tool, schemes }]) => {
+-        const input = normalizeObjectSchema(tool.inputSchema);
+-        const output = normalizeObjectSchema(tool.outputSchema);
+-        return {
+-          name, title: tool.title, description: tool.description,
+-          inputSchema: (input ? toJsonSchemaCompat(input, { strictUnions: true, pipeStrategy: "input" }) :
+-            { type: "object", properties: {} }) as Tool["inputSchema"],
+-          ...(output ? { outputSchema: toJsonSchemaCompat(output, { strictUnions: true, pipeStrategy: "output" }) } : {}),
+-          annotations: tool.annotations, execution: tool.execution,
+-          securitySchemes: schemes, _meta: tool._meta,
+-        };
+-      }),
+-    }));
+-  }
+-}
+diff --git a/backend/src/modules/mcp/tools.ts b/backend/src/modules/mcp/tools.ts
+deleted file mode 100644
+index 99ccc67..0000000
+--- a/backend/src/modules/mcp/tools.ts
++++ /dev/null
+@@ -1,534 +0,0 @@
+-import type { Request, Response } from "express";
+-import type { OAuthMcpServer } from "./toolRegistry.js";
+-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+-import { z } from "zod";
+-import { PRODUCT_CATEGORIES } from "../../db.js";
+-import {
+-  connectorAttachProductImage,
+-  connectorReorderProductImages,
+-  connectorUpdateImageAlt,
+-} from "../connector/images.controller.js";
+-import {
+-  connectorCreateProduct,
+-  connectorGetProduct,
+-  connectorListProducts,
+-  connectorPublishProduct,
+-  connectorUpdateProduct,
+-} from "../connector/products.controller.js";
+-import {
+-  connectorListCategories,
+-  connectorListTags,
+-} from "../connector/taxonomy.controller.js";
+-import type { McpAuthContext } from "./auth.js";
+-import { authorizeMcpTool } from "./auth.js";
+-
+-/**
+- * MCP tool surface for the QuickWish product connector.
+- *
+- * Every tool delegates to the existing connector controllers through a small
+- * Express adapter, so validation, draft-first behaviour, image ordering and
+- * error codes are exactly the same as the REST connector. No business logic is
+- * reimplemented here.
+- *
+- * Tool schemas mirror the fields the connector payload builder accepts; fields
+- * the REST API rejects (for example `status`) are intentionally absent.
+- */
+-
+-type ConnectorHandler = (req: Request, res: Response) => Promise<void>;
+-
+-type HandlerCall = {
+-  params?: Record<string, string>;
+-  query?: Record<string, unknown>;
+-  body?: unknown;
+-};
+-
+-type HandlerResult = { status: number; body: Record<string, unknown> };
+-
+-/**
+- * Runs a connector controller without duplicating it: the controller only
+- * touches `params`, `query` and `body` and answers with `status` + `json`.
+- */
+-const invoke = async (
+-  handler: ConnectorHandler,
+-  call: HandlerCall
+-): Promise<HandlerResult> => {
+-  let status = 200;
+-  let payload: unknown = null;
+-
+-  const req = {
+-    params: call.params ?? {},
+-    query: call.query ?? {},
+-    body: call.body ?? {},
+-    headers: {},
+-    files: [],
+-  } as unknown as Request;
+-
+-  const res = {
+-    status(code: number) {
+-      status = code;
+-      return this;
+-    },
+-    json(value: unknown) {
+-      payload = value;
+-      return this;
+-    },
+-  } as unknown as Response;
+-
+-  await handler(req, res);
+-
+-  return {
+-    status,
+-    body:
+-      payload && typeof payload === "object" && !Array.isArray(payload)
+-        ? (payload as Record<string, unknown>)
+-        : {},
+-  };
+-};
+-
+-const toToolResult = (result: HandlerResult): CallToolResult => {
+-  if (result.status >= 400) {
+-    const message = String(result.body.message ?? "Request failed");
+-    const code = String(result.body.code ?? "CONNECTOR_ERROR");
+-
+-    return {
+-      isError: true,
+-      content: [{ type: "text", text: `${code}: ${message}` }],
+-      structuredContent: result.body,
+-    };
+-  }
+-
+-  return {
+-    content: [{ type: "text", text: JSON.stringify(result.body) }],
+-    structuredContent: result.body,
+-  };
+-};
+-
+-const requireWrite = (auth: McpAuthContext, _toolName: string) =>
+-  authorizeMcpTool(auth, "products:write");
+-const requireRead = (auth: McpAuthContext) =>
+-  authorizeMcpTool(auth, "products:read");
+-
+-const categorySchema = z.enum(
+-  PRODUCT_CATEGORIES as [string, ...string[]]
+-);
+-
+-const imageInputSchema = z.object({
+-  url: z.string().url().describe("Public http(s) image URL"),
+-  alt: z.string().max(160).optional().describe("Alt text for accessibility and SEO"),
+-});
+-
+-const variantSchema = z.object({
+-  sku: z.string().describe("Unique variant SKU, uppercase letters, numbers, dot, dash or underscore"),
+-  name: z.string().optional(),
+-  price: z.number().min(0),
+-  mrp: z.number().min(0).nullable().optional(),
+-  stock: z.number().int().min(0).optional().describe("Defaults to 0"),
+-  attributes: z
+-    .array(z.object({ name: z.string(), value: z.string() }))
+-    .optional(),
+-});
+-
+-const seoSchema = z.object({
+-  title: z.string().optional(),
+-  description: z.string().optional(),
+-  keywords: z.array(z.string()).optional(),
+-});
+-
+-/**
+- * Writable product fields, shared by create and update. Update makes all of
+- * them optional; create keeps name, category and price required.
+- */
+-const productFieldShape = {
+-  name: z.string().min(1).max(200).optional(),
+-  category: categorySchema.optional(),
+-  description: z.string().max(5000).optional(),
+-  price: z.number().min(0).optional(),
+-  mrp: z
+-    .number()
+-    .min(0)
+-    .optional()
+-    .describe("Must be greater than or equal to price"),
+-  originalPrice: z.number().min(0).optional(),
+-  offPrice: z.number().min(0).optional(),
+-  discountPercent: z.number().min(0).max(100).optional(),
+-  sku: z
+-    .string()
+-    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)
+-    .optional()
+-    .describe("Unique product SKU"),
+-  slug: z.string().optional().describe("Optional; generated from the name when omitted"),
+-  stock: z.number().int().min(0).optional().describe("Defaults to 1 on create"),
+-  tags: z.array(z.string()).max(30).optional(),
+-  storefrontGroups: z.array(z.string()).optional(),
+-  badge: z.string().max(60).optional(),
+-  deliveryOptions: z.record(z.unknown()).optional(),
+-  comparisons: z.array(z.record(z.unknown())).optional(),
+-  seo: seoSchema.optional(),
+-  variants: z.array(variantSchema).max(50).optional(),
+-  images: z
+-    .array(imageInputSchema)
+-    .max(5)
+-    .optional()
+-    .describe("Replaces the image list; array order is the display order"),
+-};
+-
+-const productIdSchema = z
+-  .string()
+-  .min(1)
+-  .describe("Product id (MongoDB ObjectId) or product slug");
+-
+-export const registerConnectorTools = (
+-  server: OAuthMcpServer,
+-  auth: McpAuthContext
+-): void => {
+-  server.registerTool(
+-    "listProducts",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:read"] }],
+-      title: "List products",
+-      description:
+-        "Read-only. List catalog products with optional filters and pagination. Status defaults to \"all\", which includes drafts; drafts are never visible on the storefront until publishProduct is called.",
+-      inputSchema: {
+-        status: z
+-          .enum(["draft", "published", "all"])
+-          .optional()
+-          .describe("Filter by status; defaults to all"),
+-        category: z.string().optional(),
+-        tag: z.string().optional(),
+-        sku: z.string().optional(),
+-        q: z.string().optional().describe("Search in name, sku, slug, description and tags"),
+-        sort: z
+-          .enum(["newest", "oldest", "price-asc", "price-desc", "name-asc"])
+-          .optional()
+-          .describe("Defaults to newest"),
+-        limit: z.number().int().min(1).max(100).optional().describe("Defaults to 20"),
+-        offset: z.number().int().min(0).optional().describe("Defaults to 0"),
+-        includeArchived: z.boolean().optional().describe("Defaults to false"),
+-      },
+-      annotations: { readOnlyHint: true, openWorldHint: false },
+-    },
+-    async (args) => {
+-      const denied = await requireRead(auth);
+-      if (denied) return denied;
+-      const query: Record<string, unknown> = {};
+-
+-      if (args.status) query.status = args.status;
+-      if (args.category) query.category = args.category;
+-      if (args.tag) query.tag = args.tag;
+-      if (args.sku) query.sku = args.sku;
+-      if (args.q) query.q = args.q;
+-      if (args.sort) query.sort = args.sort;
+-      if (args.limit !== undefined) query.limit = args.limit;
+-      if (args.offset !== undefined) query.offset = args.offset;
+-      if (args.includeArchived) query.includeArchived = "true";
+-
+-      return toToolResult(await invoke(connectorListProducts, { query }));
+-    }
+-  );
+-
+-  server.registerTool(
+-    "getProduct",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:read"] }],
+-      title: "Get product",
+-      description:
+-        "Read-only. Fetch one product by id or slug, including drafts, images (with alt text and position), variants and SEO fields.",
+-      inputSchema: { productId: productIdSchema },
+-      annotations: { readOnlyHint: true, openWorldHint: false },
+-    },
+-    async (args) => {
+-      const denied = await requireRead(auth);
+-      if (denied) return denied;
+-      return toToolResult(await invoke(connectorGetProduct, {
+-        params: { productId: args.productId },
+-      }));
+-    }
+-  );
+-
+-  server.registerTool(
+-    "createProductDraft",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Create product draft",
+-      description:
+-        "Mutating. Create a new product as a draft — it is not visible on the storefront. Publishing is a separate, explicit step: call publishProduct when the draft is ready. A status field is not accepted here.",
+-      inputSchema: {
+-        ...productFieldShape,
+-        name: z.string().min(1).max(200),
+-        category: categorySchema,
+-        price: z.number().min(0),
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: false,
+-        openWorldHint: false,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "createProductDraft");
+-      if (denied) return denied;
+-
+-      return toToolResult(
+-        await invoke(connectorCreateProduct, { body: args })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "updateProduct",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Update product",
+-      description:
+-        "Mutating. Update fields on an existing product. A draft stays a draft: this tool never publishes and does not accept status. Supplying images replaces the whole image list in array order.",
+-      inputSchema: {
+-        ...productFieldShape,
+-        productId: productIdSchema,
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: false,
+-        openWorldHint: false,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "updateProduct");
+-      if (denied) return denied;
+-
+-      const { productId, ...body } = args;
+-
+-      return toToolResult(
+-        await invoke(connectorUpdateProduct, {
+-          params: { productId },
+-          body,
+-        })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "publishProduct",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Publish product",
+-      description:
+-        "Mutating. Publish an existing draft, making it live on the storefront. This is the only tool that changes a product to published. Requires name, a price above 0, a valid category, non-negative stock and at least one image; otherwise the product is rejected with the list of issues.",
+-      inputSchema: { productId: productIdSchema },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: true,
+-        openWorldHint: false,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "publishProduct");
+-      if (denied) return denied;
+-
+-      return toToolResult(
+-        await invoke(connectorPublishProduct, {
+-          params: { productId: args.productId },
+-        })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "uploadProductImages",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Upload product images",
+-      description:
+-        "Mutating. Append up to 5 images to a product from public http(s) URLs, preserving order and optional alt text. Over MCP only URL-based images are supported: binary multipart upload is not available in the MCP tool interface, so upload the file to Cloudinary (or any public CDN) first and pass its URL, or use the REST multipart endpoint POST /api/v1/connector/products/{productId}/images.",
+-      inputSchema: {
+-        productId: productIdSchema,
+-        imageUrls: z
+-          .array(z.string().url())
+-          .min(1)
+-          .max(5)
+-          .describe("Public http(s) image URLs, in display order"),
+-        alts: z
+-          .array(z.string().max(160))
+-          .max(5)
+-          .optional()
+-          .describe("Optional alt text, positionally matched to imageUrls"),
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: false,
+-        openWorldHint: true,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "uploadProductImages");
+-      if (denied) return denied;
+-
+-      let last: HandlerResult = { status: 201, body: { success: true } };
+-
+-      for (let index = 0; index < args.imageUrls.length; index += 1) {
+-        const url = args.imageUrls[index] ?? "";
+-        const alt = args.alts?.[index];
+-
+-        last = await invoke(connectorAttachProductImage, {
+-          params: { productId: args.productId },
+-          body: { url, alt: alt ?? "" },
+-        });
+-
+-        if (last.status >= 400) {
+-          const code = String(last.body.code ?? "IMAGE_ATTACH_FAILED");
+-          const message = String(last.body.message ?? "Failed to attach image");
+-
+-          return {
+-            isError: true,
+-            content: [
+-              {
+-                type: "text",
+-                text: `${code}: ${message} (${index} of ${args.imageUrls.length} images attached before the error)`,
+-              },
+-            ],
+-            structuredContent: {
+-              ...last.body,
+-              attachedCount: index,
+-            },
+-          };
+-        }
+-      }
+-
+-      return toToolResult(last);
+-    }
+-  );
+-
+-  server.registerTool(
+-    "attachProductImage",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Attach product image",
+-      description:
+-        "Mutating. Append one image to a product by public http(s) URL, with optional alt text. The image is added to the end of the current order.",
+-      inputSchema: {
+-        productId: productIdSchema,
+-        url: z.string().url().describe("Public http(s) image URL"),
+-        alt: z.string().max(160).optional(),
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: false,
+-        openWorldHint: true,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "attachProductImage");
+-      if (denied) return denied;
+-
+-      return toToolResult(
+-        await invoke(connectorAttachProductImage, {
+-          params: { productId: args.productId },
+-          body: { url: args.url, alt: args.alt ?? "" },
+-        })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "reorderProductImages",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Reorder product images",
+-      description:
+-        "Mutating. Set the display order of a product's images. urls must list every current image URL exactly once, in the new order; alt text is preserved.",
+-      inputSchema: {
+-        productId: productIdSchema,
+-        urls: z
+-          .array(z.string().url())
+-          .min(1)
+-          .describe("Every current image URL exactly once, in the new order"),
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: true,
+-        openWorldHint: false,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "reorderProductImages");
+-      if (denied) return denied;
+-
+-      return toToolResult(
+-        await invoke(connectorReorderProductImages, {
+-          params: { productId: args.productId },
+-          body: { urls: args.urls },
+-        })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "updateImageAltText",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:write"] }],
+-      title: "Update image alt text",
+-      description:
+-        "Mutating. Replace the alt text of one image, addressed by its zero-based position in the current image order. Send an empty string to clear it.",
+-      inputSchema: {
+-        productId: productIdSchema,
+-        imageIndex: z
+-          .number()
+-          .int()
+-          .min(0)
+-          .describe("Zero-based index in the current image order"),
+-        alt: z.string().max(160),
+-      },
+-      annotations: {
+-        readOnlyHint: false,
+-        destructiveHint: false,
+-        idempotentHint: true,
+-        openWorldHint: false,
+-      },
+-    },
+-    async (args) => {
+-      const denied = await requireWrite(auth, "updateImageAltText");
+-      if (denied) return denied;
+-
+-      return toToolResult(
+-        await invoke(connectorUpdateImageAlt, {
+-          params: {
+-            productId: args.productId,
+-            imageIndex: String(args.imageIndex),
+-          },
+-          body: { alt: args.alt },
+-        })
+-      );
+-    }
+-  );
+-
+-  server.registerTool(
+-    "listCategories",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:read"] }],
+-      title: "List categories",
+-      description:
+-        "Read-only. List the allowed product categories with total and published product counts. Only these categories can be used when creating or updating a product.",
+-      inputSchema: {},
+-      annotations: { readOnlyHint: true, openWorldHint: false },
+-    },
+-    async () => (await requireRead(auth)) ?? toToolResult(await invoke(connectorListCategories, {}))
+-  );
+-
+-  server.registerTool(
+-    "listTags",
+-    {
+-      securitySchemes: [{ type: "oauth2", scopes: ["products:read"] }],
+-      title: "List tags",
+-      description:
+-        "Read-only. List every tag currently used by a product, sorted alphabetically.",
+-      inputSchema: {},
+-      annotations: { readOnlyHint: true, openWorldHint: false },
+-    },
+-    async () => (await requireRead(auth)) ?? toToolResult(await invoke(connectorListTags, {}))
+-  );
+-};
+diff --git a/backend/tests/auth0Helpers.ts b/backend/tests/auth0Helpers.ts
+deleted file mode 100644
+index 81a882e..0000000
+--- a/backend/tests/auth0Helpers.ts
++++ /dev/null
+@@ -1,34 +0,0 @@
+-import { generateKeyPair, exportJWK, SignJWT } from "jose";
+-import { vi } from "vitest";
+-
+-let keys: Awaited<ReturnType<typeof generateKeyPair>>;
+-let sequence = 0;
+-export const fixtureKeys = async () => keys ??= await generateKeyPair("RS256", { extractable: true });
+-
+-// No Auth0 account/network/credentials are used in tests. Real jose JWT/JWKS
+-// verification runs against an HTTPS JWKS response stub with ephemeral keys.
+-export const configureAuth0 = async () => {
+-  const pair = await fixtureKeys();
+-  const domain = `quickwish-fixture-${++sequence}.auth0.invalid`;
+-  process.env.AUTH0_DOMAIN = domain;
+-  process.env.AUTH0_ISSUER = `https://${domain}/`;
+-  process.env.AUTH0_AUDIENCE = "https://api.quickwish.shop/mcp";
+-  process.env.AUTH0_JWKS_URI = `https://${domain}/.well-known/jwks.json`;
+-  const publicKey = { ...await exportJWK(pair.publicKey), kid: "fixture", alg: "RS256", use: "sig" };
+-  const jwksUri = process.env.AUTH0_JWKS_URI;
+-  const fetch = vi.fn(async (url: unknown) => {
+-    if (String(url) !== jwksUri) throw new Error("Unexpected test network request");
+-    return new Response(JSON.stringify({ keys: [publicKey] }), { headers: { "Content-Type": "application/json" } });
+-  });
+-  vi.stubGlobal("fetch", fetch);
+-  return { fetch, issuer: process.env.AUTH0_ISSUER, audience: process.env.AUTH0_AUDIENCE, jwksUri };
+-};
+-
+-export const issueAuth0Token = async (scope: string | undefined, claims: Record<string, unknown> = {},
+-  signingKey?: CryptoKey) => {
+-  const now = Math.floor(Date.now() / 1000);
+-  return new SignJWT({ iss: process.env.AUTH0_ISSUER, aud: process.env.AUTH0_AUDIENCE,
+-    sub: "trusted-admin-fixture", iat: now, exp: now + 3600, scope, ...claims })
+-    .setProtectedHeader({ alg: "RS256", kid: "fixture" })
+-    .sign(signingKey ?? (await fixtureKeys()).privateKey);
+-};
+diff --git a/backend/tests/mcp-auth.test.ts b/backend/tests/mcp-auth.test.ts
+deleted file mode 100644
+index 8451e6c..0000000
+--- a/backend/tests/mcp-auth.test.ts
++++ /dev/null
+@@ -1,175 +0,0 @@
+-import crypto from "node:crypto";
+-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+-import { generateKeyPair, SignJWT } from "jose";
+-import { api } from "./helpers.js";
+-import { configureAuth0, issueAuth0Token } from "./auth0Helpers.js";
+-import { MCP_RESOURCE, MCP_RESOURCE_METADATA } from "../src/modules/mcp/auth0.js";
+-
+-const { read, write } = vi.hoisted(() => ({
+-  read: vi.fn(async (_req: unknown, res: any) => { res.json({ success: true, categories: ["test-fixture"] }); }),
+-  write: vi.fn(async (_req: unknown, res: any) => { res.json({ success: true, product: { status: "draft" } }); }),
+-}));
+-vi.mock("../src/modules/connector/taxonomy.controller.js", async original => ({
+-  ...await original<Record<string, unknown>>(), connectorListCategories: read,
+-}));
+-vi.mock("../src/modules/connector/products.controller.js", async original => ({
+-  ...await original<Record<string, unknown>>(), connectorCreateProduct: write,
+-}));
+-
+-let fixture: Awaited<ReturnType<typeof configureAuth0>>;
+-beforeEach(async () => { fixture = await configureAuth0(); read.mockClear(); write.mockClear(); });
+-afterEach(() => { vi.unstubAllGlobals(); });
+-const rpc = (method: string, params = {}, token?: string) => {
+-  const request = api().post("/mcp").set("Accept", "application/json, text/event-stream")
+-    .set("MCP-Protocol-Version", "2025-06-18");
+-  if (token) request.set("Authorization", `Bearer ${token}`);
+-  return request.send({ jsonrpc: "2.0", id: 1, method, params });
+-};
+-const call = (name: string, token?: string) => rpc("tools/call", { name, arguments: name === "createProductDraft" ?
+-  { name: "Auth fixture", category: "Flower Bouquets", price: 100 } : {} }, token);
+-const challenge = (response: any, scope: string, error = "invalid_token") => {
+-  expect(response.status).toBe(200);
+-  expect(response.body.result.isError).toBe(true);
+-  expect(response.body.result.structuredContent).toBeUndefined();
+-  const value = response.body.result._meta["mcp/www_authenticate"][0];
+-  expect(value).toContain(`resource_metadata="${MCP_RESOURCE_METADATA}"`);
+-  expect(value).toContain(`scope="${scope}"`); expect(value).toContain(`error="${error}"`);
+-  expect(response.headers["www-authenticate"]).toBe(value);
+-};
+-
+-describe("Auth0 protected resource and MCP discovery", () => {
+-  it("advertises the Auth0 issuer while preserving the QuickWish resource and scopes", async () => {
+-    for (const path of ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"]) {
+-      const response = await api().get(path);
+-      expect(response.status).toBe(200);
+-      expect(response.body).toMatchObject({ resource: MCP_RESOURCE, authorization_servers: [fixture.issuer],
+-        scopes_supported: ["products:read", "products:write"], bearer_methods_supported: ["header"] });
+-    }
+-  });
+-  it("keeps initialize and all eleven OAuth tool descriptors anonymous even when unconfigured", async () => {
+-    delete process.env.AUTH0_AUDIENCE;
+-    const initialized = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {},
+-      clientInfo: { name: "auth-fixture", version: "1" } });
+-    expect(initialized.status).toBe(200);
+-    expect(initialized.body.result.serverInfo.name).toBe("quickwish-connector");
+-    const listed = await rpc("tools/list");
+-    const readTools = ["listProducts", "getProduct", "listCategories", "listTags"];
+-    const writeTools = ["createProductDraft", "updateProduct", "publishProduct", "uploadProductImages",
+-      "attachProductImage", "reorderProductImages", "updateImageAltText"];
+-    expect(listed.body.result.tools.map((t: any) => t.name).sort()).toEqual([...readTools, ...writeTools].sort());
+-    for (const tool of listed.body.result.tools) {
+-      const scopes = [readTools.includes(tool.name) ? "products:read" : "products:write"];
+-      expect(tool.securitySchemes).toEqual([{ type: "oauth2", scopes }]);
+-      expect(tool._meta.securitySchemes).toEqual(tool.securitySchemes);
+-      expect(tool.inputSchema.type).toBe("object"); expect(tool.description).toBeTruthy(); expect(tool.annotations).toBeTruthy();
+-    }
+-    expect(read).not.toHaveBeenCalled(); expect(write).not.toHaveBeenCalled();
+-  });
+-  it.each(["/oauth/register", "/oauth/authorize", "/oauth/token", "/oauth/revoke",
+-    "/.well-known/oauth-authorization-server"])("retires custom authorization-server route %s", async path => {
+-    expect((await api().get(path)).status).toBe(410);
+-    expect((await api().post(path).send({})).status).toBe(410);
+-    expect(read).not.toHaveBeenCalled(); expect(write).not.toHaveBeenCalled();
+-  });
+-  it("returns metadata unavailable without Auth0 configuration and still challenges anonymous calls", async () => {
+-    delete process.env.AUTH0_DOMAIN;
+-    expect((await api().get("/.well-known/oauth-protected-resource/mcp")).status).toBe(503);
+-    challenge(await call("listCategories"), "products:read");
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-});
+-
+-describe("Auth0 JWT verification at protected MCP execution", () => {
+-  it("challenges anonymous read and write calls before invoking controllers", async () => {
+-    challenge(await call("listCategories"), "products:read");
+-    challenge(await call("createProductDraft"), "products:write");
+-    expect(read).not.toHaveBeenCalled(); expect(write).not.toHaveBeenCalled();
+-  });
+-  it("verifies a real RS256 JWT through HTTPS JWKS and accepts JWT dots in the Bearer header", async () => {
+-    const token = await issueAuth0Token("products:read");
+-    const response = await call("listCategories", token);
+-    expect(response.body.result.isError).toBeFalsy(); expect(read).toHaveBeenCalledTimes(1);
+-    expect(fixture.fetch).toHaveBeenCalledTimes(1);
+-    expect(String(fixture.fetch.mock.calls[0]?.[0])).toBe(fixture.jwksUri);
+-    await call("listCategories", token);
+-    expect(fixture.fetch).toHaveBeenCalledTimes(1); // Public keys cached, tokens still validated.
+-  });
+-  it("permits write-scoped tokens only on mutations", async () => {
+-    const token = await issueAuth0Token("products:write");
+-    expect((await call("createProductDraft", token)).body.result.isError).toBeFalsy();
+-    expect(write).toHaveBeenCalledTimes(1);
+-    challenge(await call("listCategories", token), "products:read", "insufficient_scope");
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-  it.each([
+-    { iss: "https://other.auth0.invalid/" }, { aud: "https://other-api.invalid" },
+-    { exp: Math.floor(Date.now() / 1000) - 60 }, { exp: undefined },
+-    { nbf: Math.floor(Date.now() / 1000) + 3600 }, { aud: undefined }, { iss: undefined },
+-  ])("rejects invalid JWT issuer/audience/time claims %#", async claims => {
+-    challenge(await call("listCategories", await issueAuth0Token("products:read", claims)), "products:read");
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-  it("rejects invalid signatures even when issuer, audience, kid and claims look correct", async () => {
+-    const attacker = await generateKeyPair("RS256");
+-    challenge(await call("listCategories", await issueAuth0Token("products:read", {}, attacker.privateKey)), "products:read");
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-  it("rejects HS256 algorithm confusion, unsigned JWTs and legacy opaque credentials", async () => {
+-    const token = await new SignJWT({ iss: fixture.issuer, aud: fixture.audience, scope: "products:read" })
+-      .setProtectedHeader({ alg: "HS256", kid: "fixture" }).setExpirationTime("1h").sign(crypto.randomBytes(32));
+-    for (const invalid of [token, "eyJhbGciOiJub25lIn0.e30.", "retired-opaque-token"]) {
+-      challenge(await call("listCategories", invalid), "products:read");
+-    }
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-  it("rejects missing permissions and read-only tokens on writes", async () => {
+-    challenge(await call("listCategories", await issueAuth0Token(undefined)), "products:read", "insufficient_scope");
+-    challenge(await call("createProductDraft", await issueAuth0Token("products:read")), "products:write", "insufficient_scope");
+-    expect(read).not.toHaveBeenCalled(); expect(write).not.toHaveBeenCalled();
+-  });
+-  it("maps Auth0 permissions without widening explicitly restricted scopes", async () => {
+-    expect((await call("listCategories", await issueAuth0Token(undefined, { permissions: ["products:read"] })))
+-      .body.result.isError).toBeFalsy();
+-    const narrowed = await issueAuth0Token("products:read", { permissions: ["products:read", "products:write"] });
+-    challenge(await call("createProductDraft", narrowed), "products:write", "insufficient_scope");
+-    const restricted = await issueAuth0Token("products:read products:write", { permissions: ["products:read"] });
+-    challenge(await call("createProductDraft", restricted), "products:write", "insufficient_scope");
+-    expect(write).not.toHaveBeenCalled();
+-  });
+-  it("supports a matching API audience inside an aud array", async () => {
+-    expect((await call("listCategories", await issueAuth0Token("products:read", {
+-      aud: [fixture.audience, `${fixture.issuer}userinfo`],
+-    }))).body.result.isError).toBeFalsy();
+-    expect(read).toHaveBeenCalledTimes(1);
+-  });
+-  it("fails closed on JWKS outages and does not trust token-provided key URLs", async () => {
+-    fixture.fetch.mockRejectedValue(new Error("JWKS unavailable"));
+-    challenge(await call("listCategories", await issueAuth0Token("products:read")), "products:read");
+-    expect(read).not.toHaveBeenCalled();
+-  });
+-  it("fails closed when configuration is missing or JWKS points outside the issuer", async () => {
+-    const token = await issueAuth0Token("products:read");
+-    process.env.AUTH0_JWKS_URI = "https://attacker.invalid/.well-known/jwks.json";
+-    const response = await call("listCategories", token);
+-    expect(response.body.result.isError).toBe(true); expect(response.body.result.structuredContent).toBeUndefined();
+-    expect(read).not.toHaveBeenCalled(); expect(fixture.fetch).not.toHaveBeenCalled();
+-  });
+-  it("keeps connector API-key credentials separate from Auth0 access tokens", async () => {
+-    const key = crypto.randomBytes(32).toString("hex");
+-    const previous = process.env.CONNECTOR_API_KEYS;
+-    const single = process.env.CONNECTOR_API_KEY;
+-    process.env.CONNECTOR_API_KEYS = JSON.stringify([{ id: "fixture", sha256: crypto.createHash("sha256").update(key).digest("hex"), scopes: ["products:read"] }]);
+-    delete process.env.CONNECTOR_API_KEY;
+-    try {
+-      const jwt = await issueAuth0Token("products:read");
+-      expect((await api().get("/api/v1/connector/categories").set("Authorization", `Bearer ${jwt}`)).status).toBe(401);
+-      expect(read).not.toHaveBeenCalled();
+-      challenge(await call("listCategories", key), "products:read");
+-      expect(read).not.toHaveBeenCalled();
+-      expect((await api().get("/api/v1/connector/categories").set("Authorization", `Bearer ${key}`)).status).toBe(200);
+-    } finally {
+-      if (previous === undefined) delete process.env.CONNECTOR_API_KEYS; else process.env.CONNECTOR_API_KEYS = previous;
+-      if (single === undefined) delete process.env.CONNECTOR_API_KEY; else process.env.CONNECTOR_API_KEY = single;
+-    }
+-  });
+-});
+diff --git a/backend/tests/mcp.test.ts b/backend/tests/mcp.test.ts
+deleted file mode 100644
+index f30a35b..0000000
+--- a/backend/tests/mcp.test.ts
++++ /dev/null
+@@ -1,367 +0,0 @@
+-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+-import { PRODUCT_CATEGORIES, product } from "../src/db.js";
+-import {
+-  api,
+-  createProduct,
+-  resetTestDb,
+-  startTestDb,
+-  stopTestDb,
+-} from "./helpers.js";
+-
+-import { configureAuth0, issueAuth0Token } from "./auth0Helpers.js";
+-import { vi } from "vitest";
+-
+-let READ_KEY: string;
+-let WRITE_KEY: string;
+-
+-let nextId = 1;
+-
+-type RpcBody = {
+-  jsonrpc: "2.0";
+-  id: number;
+-  method: string;
+-  params: Record<string, unknown>;
+-};
+-
+-const rpc = async (
+-  body: RpcBody,
+-  key: string | null = WRITE_KEY,
+-  extraHeaders: Record<string, string> = {}
+-) => {
+-  const request = api()
+-    .post("/mcp")
+-    .set("Accept", "application/json, text/event-stream");
+-
+-  if (key) {
+-    request.set("Authorization", `Bearer ${key}`);
+-  }
+-
+-  for (const [name, value] of Object.entries(extraHeaders)) {
+-    request.set(name, value);
+-  }
+-
+-  return request.send(body);
+-};
+-
+-const initialize = (key: string | null = null) =>
+-  rpc({
+-    jsonrpc: "2.0",
+-    id: nextId++,
+-    method: "initialize",
+-    params: {
+-      protocolVersion: "2025-06-18",
+-      capabilities: {},
+-      clientInfo: { name: "vitest", version: "1.0.0" },
+-    },
+-  }, key);
+-
+-const listTools = () =>
+-  rpc(
+-    { jsonrpc: "2.0", id: nextId++, method: "tools/list", params: {} },
+-    null,
+-    { "MCP-Protocol-Version": "2025-06-18" }
+-  );
+-
+-const callTool = (
+-  name: string,
+-  args: Record<string, unknown>,
+-  key: string = WRITE_KEY
+-) =>
+-  rpc(
+-    {
+-      jsonrpc: "2.0",
+-      id: nextId++,
+-      method: "tools/call",
+-      params: { name, arguments: args },
+-    },
+-    key,
+-    { "MCP-Protocol-Version": "2025-06-18" }
+-  );
+-
+-const validDraft = {
+-  name: "MCP Rose Bouquet",
+-  category: "Flower Bouquets",
+-  description: "A dozen fresh roses created through the MCP endpoint.",
+-  price: 1299,
+-  sku: "QW-MCP-001",
+-  stock: 8,
+-  tags: ["roses", "mcp"],
+-  images: [
+-    {
+-      url: "https://cdn.quickwish.test/products/mcp-rose.jpg",
+-      alt: "Dozen red roses",
+-    },
+-  ],
+-};
+-
+-type ToolContent = Array<{ type: string; text?: string }>;
+-
+-const toolText = (result: { content?: ToolContent }): string =>
+-  result.content?.map((item) => item.text ?? "").join("\n") ?? "";
+-
+-beforeAll(async () => {
+-  await configureAuth0();
+-  await startTestDb();
+-  READ_KEY = await issueAuth0Token("products:read");
+-  WRITE_KEY = await issueAuth0Token("products:read products:write");
+-});
+-
+-beforeEach(async () => {
+-  await resetTestDb();
+-});
+-
+-afterAll(async () => {
+-  vi.unstubAllGlobals();
+-  await stopTestDb();
+-});
+-
+-describe("MCP initialization", () => {
+-  it("completes the initialize handshake over Streamable HTTP", async () => {
+-    const response = await initialize();
+-
+-    expect(response.status).toBe(200);
+-    expect(response.body.jsonrpc).toBe("2.0");
+-    expect(response.body.result.serverInfo.name).toBe("quickwish-connector");
+-    expect(response.body.result.protocolVersion).toBeTruthy();
+-    expect(response.body.result.capabilities.tools).toBeTruthy();
+-  });
+-});
+-
+-describe("MCP tool discovery", () => {
+-  it("exposes exactly the connector tools with descriptions and schemas", async () => {
+-    const response = await listTools();
+-
+-    expect(response.status).toBe(200);
+-
+-    const tools: Array<{
+-      name: string;
+-      description?: string;
+-      inputSchema?: { type?: string; properties?: Record<string, unknown> };
+-    }> = response.body.result.tools;
+-
+-    expect(tools.map((tool) => tool.name).sort()).toEqual(
+-      [
+-        "attachProductImage",
+-        "createProductDraft",
+-        "getProduct",
+-        "listCategories",
+-        "listProducts",
+-        "listTags",
+-        "publishProduct",
+-        "reorderProductImages",
+-        "updateImageAltText",
+-        "updateProduct",
+-        "uploadProductImages",
+-      ].sort()
+-    );
+-
+-    for (const tool of tools) {
+-      expect(typeof tool.description).toBe("string");
+-      expect((tool.description ?? "").length).toBeGreaterThan(20);
+-      expect(tool.inputSchema?.type).toBe("object");
+-      const scope = ["listProducts", "getProduct", "listCategories", "listTags"].includes(tool.name) ? "products:read" : "products:write";
+-      expect((tool as any).securitySchemes).toEqual([{ type: "oauth2", scopes: [scope] }]);
+-      expect((tool as any)._meta.securitySchemes).toEqual((tool as any).securitySchemes);
+-      expect(JSON.stringify(tool)).not.toContain("api_key");
+-    }
+-  });
+-});
+-
+-describe("MCP authentication", () => {
+-  it("returns a read OAuth challenge for an unauthenticated tool call", async () => {
+-    const direct = await callTool("listCategories", {}, "");
+-    expect(direct.status).toBe(200);
+-    expect(direct.body.result.isError).toBe(true);
+-    expect(direct.body.result._meta["mcp/www_authenticate"][0]).toContain('scope="products:read"');
+-    expect(direct.body.result.structuredContent).toBeUndefined();
+-  });
+-
+-  it("rejects an invalid OAuth token", async () => {
+-    const response = await callTool("listCategories", {}, "not-a-real-token");
+-    expect(response.status).toBe(200);
+-    expect(response.body.result.isError).toBe(true);
+-    expect(response.body.result._meta["mcp/www_authenticate"][0]).toContain("invalid_token");
+-  });
+-
+-  it("accepts a read-scoped token for read tools", async () => {
+-    const response = await callTool("listCategories", {}, READ_KEY);
+-
+-    expect(response.status).toBe(200);
+-    expect(response.body.result.isError).toBeFalsy();
+-    expect(response.body.result.structuredContent.success).toBe(true);
+-    expect(
+-      response.body.result.structuredContent.categories.length
+-    ).toBe(PRODUCT_CATEGORIES.length);
+-  });
+-
+-  it("rejects a read-only token for mutating tools without changing data", async () => {
+-    const response = await callTool("createProductDraft", validDraft, READ_KEY);
+-
+-    expect(response.status).toBe(200);
+-    expect(response.body.result.isError).toBe(true);
+-    expect(toolText(response.body.result)).toContain("products:write");
+-    await expect(product.countDocuments({})).resolves.toBe(0);
+-  });
+-
+-  it("fails closed when Auth0 configuration is unavailable", async () => {
+-    const original = process.env.AUTH0_AUDIENCE;
+-    delete process.env.AUTH0_AUDIENCE;
+-    try {
+-      const response = await callTool("listCategories", {}, READ_KEY);
+-      expect(response.body.result.isError).toBe(true);
+-      expect(toolText(response.body.result)).toContain("MCP OAuth is unavailable");
+-    } finally {
+-      process.env.AUTH0_AUDIENCE = original;
+-    }
+-  });
+-});
+-
+-describe("MCP taxonomy and reads", () => {
+-  it("lists categories with counts", async () => {
+-    await createProduct({ category: "Cakes" });
+-
+-    const response = await callTool("listCategories", {}, READ_KEY);
+-    const categories: Array<{ name: string; productCount: number; publishedCount: number }> =
+-      response.body.result.structuredContent.categories;
+-
+-    expect(categories).toHaveLength(PRODUCT_CATEGORIES.length);
+-    expect(categories.find((category) => category.name === "Cakes")).toMatchObject({
+-      productCount: 1,
+-      publishedCount: 1,
+-    });
+-  });
+-
+-  it("lists products, including drafts, with filters", async () => {
+-    const created = await callTool("createProductDraft", validDraft);
+-    expect(created.body.result.isError).toBeFalsy();
+-
+-    const response = await callTool(
+-      "listProducts",
+-      { status: "draft", q: "MCP Rose" },
+-      READ_KEY
+-    );
+-
+-    expect(response.status).toBe(200);
+-    expect(response.body.result.isError).toBeFalsy();
+-
+-    const payload = response.body.result.structuredContent;
+-    expect(payload.products).toHaveLength(1);
+-    expect(payload.products[0].name).toBe("MCP Rose Bouquet");
+-    expect(payload.products[0].status).toBe("draft");
+-    expect(payload.pagination.total).toBe(1);
+-  });
+-});
+-
+-describe("MCP draft-first workflow", () => {
+-  it("creates drafts and keeps them off the storefront", async () => {
+-    const response = await callTool("createProductDraft", validDraft);
+-
+-    expect(response.body.result.isError).toBeFalsy();
+-
+-    const created = response.body.result.structuredContent.product;
+-    expect(created.status).toBe("draft");
+-    expect(created.publishedAt).toBeNull();
+-
+-    const stored = await product.findById(created.id).lean();
+-    expect(stored?.status).toBe("draft");
+-
+-    const publicList = await api().get("/api/v1/product");
+-    const publicIds = publicList.body.products.map((item: any) => String(item._id));
+-    expect(publicIds).not.toContain(created.id);
+-  });
+-
+-  it("publishes only through the separate publishProduct tool", async () => {
+-    const created = await callTool("createProductDraft", validDraft);
+-    const productId = created.body.result.structuredContent.product.id;
+-
+-    const published = await callTool("publishProduct", { productId });
+-
+-    expect(published.body.result.isError).toBeFalsy();
+-    expect(published.body.result.structuredContent.product.status).toBe(
+-      "published"
+-    );
+-
+-    const publicList = await api().get("/api/v1/product");
+-    const publicIds = publicList.body.products.map((item: any) => String(item._id));
+-    expect(publicIds).toContain(productId);
+-
+-    // Idempotent when the product is already published.
+-    const again = await callTool("publishProduct", { productId });
+-    expect(again.body.result.isError).toBeFalsy();
+-    expect(again.body.result.structuredContent.product.status).toBe("published");
+-  });
+-
+-  it("preserves image order and alt text through the image tools", async () => {
+-    const created = await callTool("createProductDraft", {
+-      ...validDraft,
+-      images: [],
+-    });
+-    const productId = created.body.result.structuredContent.product.id;
+-    const first = "https://cdn.quickwish.test/products/first.jpg";
+-    const second = "https://cdn.quickwish.test/products/second.jpg";
+-
+-    const attached = await callTool("uploadProductImages", {
+-      productId,
+-      imageUrls: [first, second],
+-      alts: ["First image", "Second image"],
+-    });
+-    expect(attached.body.result.isError).toBeFalsy();
+-    expect(attached.body.result.structuredContent.images).toHaveLength(2);
+-
+-    const reordered = await callTool("reorderProductImages", {
+-      productId,
+-      urls: [second, first],
+-    });
+-    expect(reordered.body.result.structuredContent.images[0].url).toBe(second);
+-
+-    const alt = await callTool("updateImageAltText", {
+-      productId,
+-      imageIndex: 0,
+-      alt: "Second image hero",
+-    });
+-    expect(alt.body.result.structuredContent.images[0]).toMatchObject({
+-      url: second,
+-      alt: "Second image hero",
+-      position: 0,
+-    });
+-    expect(alt.body.result.structuredContent.images[1].alt).toBe("First image");
+-  });
+-});
+-
+-describe("MCP schema consistency", () => {
+-  it("mirrors the connector request schema and never exposes status", async () => {
+-    const response = await listTools();
+-    const tools: Array<{
+-      name: string;
+-      inputSchema: {
+-        properties?: Record<string, any>;
+-        required?: string[];
+-      };
+-    }> = response.body.result.tools;
+-
+-    const byName = new Map(tools.map((tool) => [tool.name, tool]));
+-    const create = byName.get("createProductDraft")!;
+-    const update = byName.get("updateProduct")!;
+-    const publish = byName.get("publishProduct")!;
+-
+-    expect(create.inputSchema.required).toEqual(
+-      expect.arrayContaining(["name", "category", "price"])
+-    );
+-    expect(create.inputSchema.properties?.category.enum).toEqual(
+-      PRODUCT_CATEGORIES
+-    );
+-    expect(create.inputSchema.properties?.status).toBeUndefined();
+-    expect(update.inputSchema.properties?.status).toBeUndefined();
+-    expect(publish.inputSchema.required).toEqual(["productId"]);
+-    // Only the product reference is mandatory; every product field is optional.
+-    expect(update.inputSchema.required).toEqual(["productId"]);
+-    expect(update.inputSchema.properties?.images.items.properties.url).toBeTruthy();
+-  });
+-
+-  it("rejects unsupported methods on the MCP endpoint", async () => {
+-    const response = await api().get("/mcp");
+-
+-    expect(response.status).toBe(405);
+-    expect(response.headers.allow).toBe("POST");
+-  });
+-});
+diff --git a/plugins/quickwish-product-manager/mcp.json b/plugins/quickwish-product-manager/mcp.json
+deleted file mode 100644
+index 07495d5..0000000
+--- a/plugins/quickwish-product-manager/mcp.json
++++ /dev/null
+@@ -1,23 +0,0 @@
+-{
+-  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+-  "mcpServers": {
+-    "quickwish-products": {
+-      "type": "streamable-http",
+-      "url": "https://api.quickwish.shop/mcp",
+-      "extensions": {
+-        "com.openai": {
+-          "auth": {
+-            "type": "oauth",
+-            "client": {
+-              "mode": "dcr"
+-            },
+-            "baseScopes": [
+-              "products:read",
+-              "products:write"
+-            ]
+-          }
+-        }
+-      }
+-    }
+-  }
+-}
+diff --git a/plugins/quickwish-product-manager/plugin.json b/plugins/quickwish-product-manager/plugin.json
+deleted file mode 100644
+index 7692eb2..0000000
+--- a/plugins/quickwish-product-manager/plugin.json
++++ /dev/null
+@@ -1,25 +0,0 @@
+-{
+-  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+-  "author": {
+-    "email": "kudhwahshiva@gmail.com",
+-    "name": "Shiva"
+-  },
+-  "description": "Manage QuickWish products, images, categories, tags, drafts, and publishing through the production QuickWish MCP server.",
+-  "extensions": {
+-    "com.openai": {
+-      "interface": {
+-        "capabilities": [
+-          "Interactive"
+-        ],
+-        "defaultPrompt": "Help me manage the QuickWish product catalog. If the QuickWish MCP connection is not authorized, start the OAuth connection flow. Create products as drafts and publish only when I explicitly ask.",
+-        "developerName": "Shiva",
+-        "displayName": "QuickWish Product Manager",
+-        "longDescription": "Create and update QuickWish product drafts, manage images and metadata, inspect categories and tags, and publish products explicitly when ready.",
+-        "shortDescription": "Manage QuickWish products"
+-      },
+-      "onboardingSkill": "./skills/connect-quickwish/SKILL.md"
+-    }
+-  },
+-  "name": "quickwish-product-manager",
+-  "version": "0.1.4"
+-}
+diff --git a/plugins/quickwish-product-manager/skills/connect-quickwish/SKILL.md b/plugins/quickwish-product-manager/skills/connect-quickwish/SKILL.md
+deleted file mode 100644
+index 6487d9a..0000000
+--- a/plugins/quickwish-product-manager/skills/connect-quickwish/SKILL.md
++++ /dev/null
+@@ -1,33 +0,0 @@
+----
+-name: connect-quickwish
+-description: Set up or reconnect QuickWish Product Manager through OAuth when catalog tools require authorization.
+----
+-
+-# Connect QuickWish Product Manager
+-
+-The bundled server `quickwish-products` connects to `https://api.quickwish.shop/mcp`
+-using Streamable HTTP, OAuth 2.1 Authorization Code with S256 PKCE, Dynamic Client
+-Registration, and the scopes `products:read` and `products:write`.
+-
+-ChatGPT can initialize the server and discover all eleven tool definitions before
+-authorization. Product operations remain protected. Invoking a protected tool
+-should automatically initiate ChatGPT's OAuth authorization flow when access is
+-missing, expired, or insufficient.
+-
+-1. Invoke `listCategories` as a read-only connection check. If authorization is
+-   required, its result supplies the OAuth challenge for ChatGPT to start linking.
+-2. Complete the QuickWish administrator consent page opened by ChatGPT. Enter
+-   the OAuth administrator secret only on that HTTPS authorization page.
+-3. After OAuth completes, retry `listCategories`. A successful tool response
+-   confirms the connection. Continue with the user's catalog task.
+-4. If ChatGPT does not attach tools or offer OAuth after the challenge, report
+-   that the current host has not activated the bundled connection. Do not invent
+-   tool results, credential prompts, setup URLs, or global server setup steps.
+-
+-Never request credentials in chat. Never print, persist, or package access
+-tokens, authorization codes, client secrets, or the administrator secret. Let
+-the host discover the authorization server and register its client automatically.
+-
+-Setup must not create, update, publish, reorder, or otherwise mutate products.
+-Create products as drafts. Publish only when the user explicitly requests it.
+-Preserve image order and write descriptive, accurate alt text.
+diff --git a/plugins/quickwish-product-manager/skills/product-management/SKILL.md b/plugins/quickwish-product-manager/skills/product-management/SKILL.md
+deleted file mode 100644
+index 57c0742..0000000
+--- a/plugins/quickwish-product-manager/skills/product-management/SKILL.md
++++ /dev/null
+@@ -1,60 +0,0 @@
+----
+-name: quickwish-product-management
+-description: Use when managing QuickWish products, categories, tags, product images, drafts, or publishing through the QuickWish MCP tools.
+----
+-
+-# QuickWish Product Manager
+-
+-Use the connected QuickWish MCP tools as the source of truth. Do not invent product IDs, categories, tags, endpoints, fields, or image URLs.
+-
+-## Connection readiness
+-
+-For initial setup or missing/expired authorization, follow
+-[Connect QuickWish](../connect-quickwish/SKILL.md). Invoke a protected read tool
+-so its OAuth challenge can start ChatGPT's authorization flow. Continue catalog
+-operations only after the OAuth-authorized tool succeeds.
+-## Core workflow
+-
+-- New products must be created with `createProductDraft`.
+-- Creating or updating a product must never publish it.
+-- Use `publishProduct` only when the user explicitly asks to publish, make live, or otherwise clearly authorizes publication.
+-- Before publishing, ensure the draft meets the server's publish requirements. If the server returns validation issues, report them and keep the product as a draft.
+-- Prefer `listCategories` before creating or changing a category when the valid category is uncertain.
+-- Prefer `listTags` when reusing existing catalog tags would help.
+-
+-## Product editing
+-
+-- Use `getProduct` before a potentially ambiguous update so the current state is known.
+-- Preserve fields the user did not ask to change.
+-- Preserve product image order unless the user asks for a change.
+-- `updateProduct` must not be used to simulate publishing.
+-
+-## Images
+-
+-- For MCP image operations, images must be available at public HTTP(S) URLs.
+-- `uploadProductImages` appends URL-based images in the supplied order.
+-- `attachProductImage` appends one public image URL.
+-- Use concise, descriptive alt text that describes the product image for accessibility and SEO without keyword stuffing.
+-- Use `reorderProductImages` only with every current image URL exactly once.
+-- Use `updateImageAltText` for targeted alt-text edits.
+-- If the user provides a local image that cannot be represented as a public URL through available tools, explain that it must first be uploaded to a public CDN/Cloudinary or sent through the REST multipart upload flow.
+-
+-## Safety and confirmation
+-
+-- Treat `publishProduct` as a consequential write action. Publish only on explicit user instruction.
+-- Never reveal, print, echo, or store OAuth credentials in responses or plugin files.
+-- Use only the OAuth connection authorized by the host for MCP operations.
+-
+-## Tool selection
+-
+-- `listProducts`: browse/search/filter products.
+-- `getProduct`: retrieve one product by ID or slug.
+-- `createProductDraft`: create a new draft product.
+-- `updateProduct`: edit an existing product without publishing.
+-- `publishProduct`: explicitly publish an existing draft.
+-- `uploadProductImages`: append multiple public image URLs.
+-- `attachProductImage`: append one public image URL.
+-- `reorderProductImages`: change image display order.
+-- `updateImageAltText`: edit alt text for one image.
+-- `listCategories`: inspect valid categories and counts.
+-- `listTags`: inspect existing product tags.

@@ -29,9 +29,6 @@ to `dist/`; the Dockerfile and the repository layout both satisfy this.
 
 Health probe: `GET /api/v1/health`.
 
-MCP discovery, OAuth, plugin packaging and backend-only deployment:
-[Auth0 MCP resource-server guide](docs/auth0-mcp.md).
-
 ## Deployment
 
 Any Node host works. The two shortest paths:
