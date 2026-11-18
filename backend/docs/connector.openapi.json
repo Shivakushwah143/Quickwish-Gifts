@@ -59,8 +59,10 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
@@ -133,7 +135,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -169,7 +172,8 @@
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
@@ -215,7 +219,8 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -259,8 +264,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "allOf": [{ "$ref": "#/components/schemas/Error" }],
+                  "type": "object",
+                  "required": ["success", "code", "message"],
                   "properties": {
+                    "success": { "type": "boolean", "const": false },
+                    "code": { "type": "string", "examples": ["PUBLISH_VALIDATION_FAILED"] },
+                    "message": { "type": "string" },
                     "issues": { "type": "array", "items": { "type": "string" } }
                   }
                 }
@@ -270,7 +279,8 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -282,7 +292,7 @@
         "operationId": "uploadProductImages",
         "tags": ["Images"],
         "summary": "Upload one or more image files",
-        "description": "Uploads through the existing Cloudinary pipeline and appends the images to the product. Max 5 images per product, 5 MB per file, JPEG/PNG/WebP/GIF/HEIC only.",
+        "description": "Uploads through the existing Cloudinary pipeline and appends the images to the product. Max 5 images per product, 5 MB per file, JPEG/PNG/WebP/GIF/HEIC only. Validation failures return 400 with `IMAGE_REQUIRED`, `IMAGE_LIMIT_EXCEEDED`, `INVALID_ALTS`, `TOO_MANY_FILES` or `UNEXPECTED_FILE`; a file over 5 MB returns 413 `FILE_TOO_LARGE`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -328,7 +338,8 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "413": { "description": "File too large or too many files" }
+          "413": { "description": "A file exceeds the 5 MB size limit (FILE_TOO_LARGE)" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -379,7 +390,8 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -431,7 +443,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -478,7 +491,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -505,7 +519,8 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -531,7 +546,8 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -602,6 +618,14 @@
             "schema": { "$ref": "#/components/schemas/Error" }
           }
         }
+      },
+      "ServiceUnavailable": {
+        "description": "Connector API keys are not configured on the server (CONNECTOR_NOT_CONFIGURED)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
       }
     },
     "schemas": {
@@ -623,15 +647,24 @@
           "position": { "type": "integer", "minimum": 0 }
         }
       },
+      "ProductImageInput": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "alt": { "type": "string", "maxLength": 160 },
+          "position": { "type": "integer", "minimum": 0, "description": "Optional; display order is the array order" }
+        }
+      },
       "ProductVariant": {
         "type": "object",
-        "required": ["sku", "price", "stock"],
+        "required": ["sku", "price"],
         "properties": {
           "sku": { "type": "string", "pattern": "^[A-Z0-9][A-Z0-9._-]{0,63}$" },
           "name": { "type": "string" },
           "price": { "type": "number", "minimum": 0 },
-          "mrp": { "type": ["number", "null"] },
-          "stock": { "type": "integer", "minimum": 0 },
+          "mrp": { "type": ["number", "null"], "description": "When supplied, must be greater than or equal to price" },
+          "stock": { "type": "integer", "minimum": 0, "default": 0 },
           "attributes": {
             "type": "array",
             "items": {
@@ -689,7 +722,7 @@
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string", "maxLength": 200 },
-          "category": { "type": "string", "description": "One of /api/v1/connector/categories" },
+          "category": { "type": "string", "description": "One of /api/v1/connector/categories", "enum": ["Fresh Flowers", "Flower Bouquets", "Crochet Bouquets", "dresses", "Plants", "Chocolate Bouquets", "Dry Fruits", "Cakes", "Personalized Gifts", "Photo Frames", "Customized Mugs", "Birthday", "Anniversary", "Valentine's Day", "besti", "Jewelry", "Watches", "Perfumes", "Teddy Bears", "Home Decor"] },
           "description": { "type": "string", "maxLength": 5000 },
           "price": { "type": "number", "minimum": 0 },
           "mrp": { "type": "number", "minimum": 0, "description": "Must be greater than or equal to price" },
@@ -706,7 +739,7 @@
           "comparisons": { "type": "array", "items": { "type": "object" } },
           "seo": { "$ref": "#/components/schemas/Seo" },
           "variants": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/ProductVariant" } },
-          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImage" } }
+          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImageInput" } }
         }
       },
       "UpdateProductRequest": {
@@ -715,7 +748,7 @@
         "minProperties": 1,
         "properties": {
           "name": { "type": "string", "maxLength": 200 },
-          "category": { "type": "string" },
+          "category": { "type": "string", "enum": ["Fresh Flowers", "Flower Bouquets", "Crochet Bouquets", "dresses", "Plants", "Chocolate Bouquets", "Dry Fruits", "Cakes", "Personalized Gifts", "Photo Frames", "Customized Mugs", "Birthday", "Anniversary", "Valentine's Day", "besti", "Jewelry", "Watches", "Perfumes", "Teddy Bears", "Home Decor"] },
           "description": { "type": "string", "maxLength": 5000 },
           "price": { "type": "number", "minimum": 0 },
           "mrp": { "type": "number", "minimum": 0 },
@@ -732,7 +765,7 @@
           "comparisons": { "type": "array", "items": { "type": "object" } },
           "seo": { "$ref": "#/components/schemas/Seo" },
           "variants": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/ProductVariant" } },
-          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImage" } }
+          "images": { "type": "array", "maxItems": 5, "items": { "$ref": "#/components/schemas/ProductImageInput" } }
         }
       },
       "Category": {

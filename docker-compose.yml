@@ -1,0 +1,29 @@
+services:
+
+  quickwish-frontend:
+    build:
+      context: ./quick-wish
+      dockerfile: Dockerfile
+    container_name: quickwish-gifts-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3110:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - quickwish-backend
+
+  quickwish-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quickwish-gifts-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5110:5000"
+    env_file:
+      - ./backend/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+

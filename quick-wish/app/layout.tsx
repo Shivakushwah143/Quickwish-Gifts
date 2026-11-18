@@ -1,7 +1,5 @@
 import "./globals.css";
 import WhatsAppChatButton from "./components/WhatsAppChatButton";
-import ClerkCustomerSync from "./components/ClerkCustomerSync";
-import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
 const siteUrl = "https://www.onewish.fun";
@@ -99,7 +97,7 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
         />
       </head>
       <body className="antialiased">
-        <ClerkProvider>
+        
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
@@ -108,10 +106,9 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
           />
-          <ClerkCustomerSync />
           {children}
           <WhatsAppChatButton />
-        </ClerkProvider>
+        
       </body>
     </html>
   );

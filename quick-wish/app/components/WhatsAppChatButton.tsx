@@ -33,9 +33,7 @@ export default function WhatsAppChatButton() {
   }, [whatsappNumber]);
 
   const hiddenRoute =
-    pathname?.startsWith("/admin") ||
-    pathname?.startsWith("/creator") ||
-    pathname?.startsWith("/sso-callback");
+    pathname?.startsWith("/admin") || pathname?.startsWith("/creator");
 
   if (!href || checkoutOpen || hiddenRoute) return null;
 

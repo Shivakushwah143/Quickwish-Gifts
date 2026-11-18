@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.31.6",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.40.0",
