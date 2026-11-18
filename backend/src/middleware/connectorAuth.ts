@@ -7,6 +7,9 @@ import type { NextFunction, Request, Response } from "express";
  * Deliberately separate from the admin JWT middleware: a connector key can
  * never be used to reach admin routes, and an admin JWT is never accepted here.
  * Only SHA-256 hashes of keys are stored in configuration.
+ *
+ * The pure `authenticateConnectorKey` helper is shared with the MCP endpoint so
+ * /api/v1/connector and /mcp accept exactly the same credentials.
  */
 
 export type ConnectorScope = "products:read" | "products:write";
@@ -21,6 +24,21 @@ type ConnectorKey = {
   sha256: string;
   scopes: ConnectorScope[];
 };
+
+export type ConnectorAuthSuccess = {
+  ok: true;
+  keyId: string;
+  scopes: ConnectorScope[];
+};
+
+export type ConnectorAuthFailure = {
+  ok: false;
+  status: 401 | 403 | 503;
+  code: string;
+  message: string;
+};
+
+export type ConnectorAuthDecision = ConnectorAuthSuccess | ConnectorAuthFailure;
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -83,7 +101,10 @@ const loadConnectorKeys = (): ConnectorKey[] => {
   return keys;
 };
 
-const readPresentedKey = (req: Request): string | null => {
+/**
+ * Accepts the key from `X-API-Key` or `Authorization: Bearer <key>`.
+ */
+export const readConnectorPresentedKey = (req: Request): string | null => {
   const headerKey = req.headers["x-api-key"];
 
   if (typeof headerKey === "string" && headerKey.trim()) {
@@ -103,12 +124,59 @@ const readPresentedKey = (req: Request): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const sendUnauthorized = (res: Response, message: string): void => {
-  res.status(401).json({
-    success: false,
-    code: "CONNECTOR_UNAUTHENTICATED",
-    message,
-  });
+/**
+ * Validates a presented connector key and returns the scopes it carries.
+ * Fails closed (503) when no keys are configured.
+ */
+export const authenticateConnectorKey = (
+  presentedKey: string | null
+): ConnectorAuthDecision => {
+  const keys = loadConnectorKeys();
+
+  if (keys.length === 0) {
+    return {
+      ok: false,
+      status: 503,
+      code: "CONNECTOR_NOT_CONFIGURED",
+      message: "Connector API keys are not configured",
+    };
+  }
+
+  if (!presentedKey) {
+    return {
+      ok: false,
+      status: 401,
+      code: "CONNECTOR_UNAUTHENTICATED",
+      message: "A connector API key is required",
+    };
+  }
+
+  const presentedHash = Buffer.from(sha256Hex(presentedKey), "hex");
+  let matchedKey: ConnectorKey | null = null;
+
+  // Compare against every configured key in constant time so response timing
+  // does not reveal which key (or prefix) matched.
+  for (const key of keys) {
+    const expectedHash = Buffer.from(key.sha256, "hex");
+    const matches =
+      expectedHash.length === presentedHash.length &&
+      crypto.timingSafeEqual(expectedHash, presentedHash);
+
+    if (matches) {
+      matchedKey = key;
+    }
+  }
+
+  if (!matchedKey) {
+    return {
+      ok: false,
+      status: 401,
+      code: "CONNECTOR_UNAUTHENTICATED",
+      message: "Invalid connector API key",
+    };
+  }
+
+  return { ok: true, keyId: matchedKey.id, scopes: matchedKey.scopes };
 };
 
 /**
@@ -117,46 +185,18 @@ const sendUnauthorized = (res: Response, message: string): void => {
 export const requireConnectorScope =
   (scope: ConnectorScope) =>
   (req: Request, res: Response, next: NextFunction): void => {
-    const keys = loadConnectorKeys();
+    const decision = authenticateConnectorKey(readConnectorPresentedKey(req));
 
-    if (keys.length === 0) {
-      res.status(503).json({
+    if (!decision.ok) {
+      res.status(decision.status).json({
         success: false,
-        code: "CONNECTOR_NOT_CONFIGURED",
-        message: "Connector API keys are not configured",
+        code: decision.code,
+        message: decision.message,
       });
       return;
     }
 
-    const presentedKey = readPresentedKey(req);
-
-    if (!presentedKey) {
-      sendUnauthorized(res, "A connector API key is required");
-      return;
-    }
-
-    const presentedHash = Buffer.from(sha256Hex(presentedKey), "hex");
-    let matchedKey: ConnectorKey | null = null;
-
-    // Compare against every configured key in constant time so response timing
-    // does not reveal which key (or prefix) matched.
-    for (const key of keys) {
-      const expectedHash = Buffer.from(key.sha256, "hex");
-      const matches =
-        expectedHash.length === presentedHash.length &&
-        crypto.timingSafeEqual(expectedHash, presentedHash);
-
-      if (matches) {
-        matchedKey = key;
-      }
-    }
-
-    if (!matchedKey) {
-      sendUnauthorized(res, "Invalid connector API key");
-      return;
-    }
-
-    if (!matchedKey.scopes.includes(scope)) {
+    if (!decision.scopes.includes(scope)) {
       res.status(403).json({
         success: false,
         code: "CONNECTOR_SCOPE_REQUIRED",
@@ -165,6 +205,6 @@ export const requireConnectorScope =
       return;
     }
 
-    req.connector = { keyId: matchedKey.id, scopes: matchedKey.scopes };
+    req.connector = { keyId: decision.keyId, scopes: decision.scopes };
     next();
   };

@@ -9,10 +9,6 @@
 // customers can only ever see their own orders.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
-
-
-
 import {
   ArrowLeft,
   CheckCircle2,
@@ -135,7 +131,6 @@ const getOrderStatusView = (status: string) => {
 
 export default function AccountPage() {
   const router = useRouter();
-  const { signOut } = useClerk();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
@@ -191,9 +186,9 @@ export default function AccountPage() {
     void loadOrders();
   }, [loadOrders]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     clearCustomerAuthState();
-    await signOut({ redirectUrl: "/" });
+    setAuthenticated(false);
     router.push("/");
   };
 

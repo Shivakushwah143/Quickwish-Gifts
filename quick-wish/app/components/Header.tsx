@@ -100,7 +100,6 @@ import AuthModal from '../components/AuthModel';
 // components/Header.tsx
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useClerk } from '@clerk/nextjs';
 import { User, Gift, Menu, X, Package } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import SearchBar from './Header/SearchBar';
@@ -108,7 +107,6 @@ import { clearAdminAuthState, clearCustomerAuthState } from '../utils/auth';
 
 export default function Header() {
   const router = useRouter();
-  const { signOut } = useClerk();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -138,9 +136,8 @@ export default function Header() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     clearCustomerAuthState();
-    await signOut({ redirectUrl: '/' });
     setIsLoggedIn(false);
     router.replace('/');
   };

@@ -8,6 +8,8 @@ import Jwt from "jsonwebtoken";
 import { uploadProductImages } from "./config/uploadImages.js";
 import { MAX_IMAGE_COUNT, upload } from "./config/productUpload.js";
 import connectorRouter from "./modules/connector/routes.js";
+import mcpRouter from "./modules/mcp/routes.js";
+import mcpOAuthRouter from "./modules/mcp/oauth.js";
 import whatsappRouter from "./modules/whatsapp/routes.js";
 import { generateAssistantReply, type AssistantMessage } from "./services/assistant.service.js";
 import { getWhatsAppConfig } from "./modules/whatsapp/config.js";
@@ -104,6 +106,9 @@ try {
   );
 }
 
+// Public resource metadata and explicit retirement of the custom OAuth server.
+app.use(mcpOAuthRouter);
+
 app.use(
   Express.json({
     limit: "1mb",
@@ -149,6 +154,9 @@ app.use(
 
 app.use("/api/v1/whatsapp", whatsappRouter);
 app.use("/api/v1/connector", connectorRouter);
+// OAuth is isolated from connector API keys and customer/admin authentication.
+// Public protocol discovery; each product tool validates OAuth before execution.
+app.use("/mcp", mcpRouter);
 
 /**
  * Liveness probe for the hosting platform (Render/Railway health checks) and

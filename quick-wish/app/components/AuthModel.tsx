@@ -1,6 +1,5 @@
 // components/AuthModal.tsx
 import { useState } from 'react';
-import { useSignIn, useSignUp } from '@clerk/nextjs';
 import { X, Eye, EyeOff, Gift, Heart, Star } from 'lucide-react';
 import { clearCustomerAuthState } from '../utils/auth';
 
@@ -11,8 +10,6 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: AuthModalProps) {
-  const { signIn } = useSignIn();
-  const { signUp } = useSignUp();
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,33 +21,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
-
-  const handleGoogleAuth = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const strategy = 'oauth_google';
-      const currentPath = `${window.location.pathname}${window.location.search}`;
-      const redirectUrl = `${window.location.origin}/sso-callback`;
-      const redirectUrlComplete = `${window.location.origin}${currentPath || '/'}`;
-      const authClient = mode === 'signup' ? signUp : signIn;
-
-      if (!authClient) {
-        setError('Google login is not ready. Please try again.');
-        return;
-      }
-
-      await authClient.authenticateWithRedirect({
-        strategy,
-        redirectUrl,
-        redirectUrlComplete,
-      });
-    } catch {
-      setError('Google login failed. Please try again.');
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,24 +111,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <button
-              type="button"
-              onClick={() => void handleGoogleAuth()}
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm font-semibold text-[color:var(--plum)] transition hover:bg-[color:var(--ivory)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-black text-[#4285F4]">
-                G
-              </span>
-              Continue with Google
-            </button>
-
-            <div className="flex items-center gap-3">
-              <span className="h-px flex-1 bg-[color:var(--border)]" />
-              <span className="text-xs font-semibold text-[color:var(--muted)]">or</span>
-              <span className="h-px flex-1 bg-[color:var(--border)]" />
-            </div>
-
             {mode === 'signup' && (
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-[color:var(--muted)] mb-2">
