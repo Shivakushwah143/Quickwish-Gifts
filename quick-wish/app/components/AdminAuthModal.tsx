@@ -69,7 +69,6 @@ export default function AdminAuthModal({ isOpen, onClose, onSuccess, initialMode
           })
         );
         onSuccess();
-        onClose();
       } else {
         setError(data.message || "Authentication failed");
       }
